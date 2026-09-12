@@ -1,4 +1,4 @@
-import { TaskType, TaskResult, WritingResult, VocabResult, RoleplayResult, QuizResult } from '../src/types';
+import { TaskType, TaskResult, WritingResult, VocabResult, RoleplayResult, QuizResult, ToeicLessonResult } from '../src/types';
 
 export function generateRealisticFallback(taskType: TaskType, inputData: Record<string, unknown>): TaskResult {
   switch (taskType) {
@@ -325,6 +325,74 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
       };
 
       return { type: 'quiz', data: quizData };
+    }
+
+    case 'toeic_lesson': {
+      const topic = (inputData.topic as string) || 'Contract Renewal & Vendor Negotiation';
+      const toeicData: ToeicLessonResult = {
+        topic,
+        situationType: 'email',
+        situationTitle: 'Urgent: Revised Terms for Q3 Software Licensing Agreement',
+        scenarioText:
+          'Following our preliminary discussion yesterday, we are prepared to accommodate your request for a 10% volume discount. However, final approval is strictly contingent upon your team submitting the signed service level agreement before Friday. Please review the attached stipulations and confirm if they align with your corporate compliance guidelines.',
+        scenarioTranslationVi:
+          'Sau cuộc thảo luận sơ bộ ngày hôm qua, chúng tôi sẵn sàng đáp ứng yêu cầu chiết khấu 10% theo số lượng của quý công ty. Tuy nhiên, sự chấp thuận cuối cùng hoàn toàn phụ thuộc vào việc đội ngũ của quý vị nộp lại thỏa thuận mức dịch vụ đã ký trước thứ Sáu. Vui lòng xem xét các điều khoản đính kèm và xác nhận xem chúng có phù hợp với các quy chuẩn tuân thủ của doanh nghiệp quý vị hay không.',
+        targetWords: [
+          {
+            term: 'Accommodate',
+            ipa: '/əˈkɑː.mə.deɪt/',
+            partOfSpeech: 'verb (transitive)',
+            vietnameseMeaning: 'Đáp ứng, thu xếp thỏa đáng (nguyện vọng, yêu cầu, lịch trình)',
+            wordFamily: 'accommodate (v) - accommodation (n) - accommodating (adj)',
+            toeicParaphrase: 'accommodate ≈ cater to, fulfill, meet (a demand/need)',
+            exampleSentence: 'The conference organizers were happy to accommodate our special dietary requests.',
+            exampleTranslation: 'Ban tổ chức hội nghị rất sẵn lòng đáp ứng các yêu cầu ăn uống đặc biệt của chúng tôi.',
+            etsTrapTip:
+              'Trong TOEIC, thí sinh hay nhầm "accommodate" chỉ là "cung cấp chỗ ở". Đề thi Part 7 thường dùng nghĩa bóng: "accommodate changes/requests" (đáp ứng thay đổi/yêu cầu).'
+          },
+          {
+            term: 'Contingent upon',
+            ipa: '/kənˈtɪn.dʒənt əˈpɑːn/',
+            partOfSpeech: 'adjective phrase',
+            vietnameseMeaning: 'Phụ thuộc vào, tùy thuộc vào điều kiện nào đó',
+            wordFamily: 'contingency (n - phương án dự phòng) - contingent (adj)',
+            toeicParaphrase: 'contingent upon ≈ dependent on, subject to, conditional upon',
+            exampleSentence: 'The merger is contingent upon receiving regulatory approval from the antitrust commission.',
+            exampleTranslation: 'Thương vụ sáp nhập phụ thuộc vào việc nhận được sự chấp thuận từ ủy ban chống độc quyền.',
+            etsTrapTip:
+              'Cụm "contingent upon/on" là đặc sản của Part 5 và Part 7 (Hợp đồng kinh tế). Cực kỳ hay bị kiểm tra giới từ "upon/on".'
+          },
+          {
+            term: 'Stipulation',
+            ipa: '/ˌstɪp.jəˈleɪ.ʃən/',
+            partOfSpeech: 'noun (countable)',
+            vietnameseMeaning: 'Điều khoản quy định bắt buộc trong hợp đồng/thỏa thuận',
+            wordFamily: 'stipulate (v) - stipulation (n)',
+            toeicParaphrase: 'stipulation ≈ clause, provision, condition, requirement',
+            exampleSentence: 'Failure to adhere to the environmental stipulations will result in severe contractual penalties.',
+            exampleTranslation: 'Việc không tuân thủ các điều khoản về môi trường sẽ dẫn đến các hình phạt nghiêm khắc trong hợp đồng.',
+            etsTrapTip:
+              'Động từ "stipulate" thường đi với mệnh đề giả định bàng thái: "The policy stipulates that every employee be certified" (động từ nguyên thể không to).'
+          }
+        ],
+        interactiveChallenge: {
+          prompt:
+            'Tình huống phản xạ công sở: Đối tác thông báo giảm giá nhưng yêu cầu bạn nộp hợp đồng trước thứ Sáu. Bạn cần thêm 2 ngày để ban pháp chế duyệt. Đâu là cách phản hồi khéo léo và chuyên nghiệp nhất chuẩn TOEIC 700+?',
+          options: [
+            'We cannot do it before Friday because our legal team is too slow.',
+            'While we appreciate the discount offer, would it be possible to grant a tentative two-day extension so our legal counsel can thoroughly review the stipulations?',
+            'You must wait for us until next Tuesday or we cancel the whole contract.',
+            'Yes we accept immediately without asking our lawyers.'
+          ],
+          correctIndex: 1,
+          explanation:
+            'Lựa chọn 2 thể hiện phong thái giao tiếp kinh doanh ngoại giao (Diplomatic Tone): Vừa ghi nhận thiện chí ("While we appreciate..."), vừa dùng cấu trúc đề nghị lịch sự ("would it be possible to grant..."), kết hợp từ vựng TOEIC cao cấp ("tentative extension", "legal counsel", "review stipulations").',
+          takeawayTip:
+            'Trong TOEIC Part 3/4 & Part 7, các câu trả lời mang tính xây dựng, ngoại giao và chuyên nghiệp (diplomatic & polite negotiation) luôn là đáp án đúng.'
+        }
+      };
+
+      return { type: 'toeic_lesson', data: toeicData };
     }
   }
 }

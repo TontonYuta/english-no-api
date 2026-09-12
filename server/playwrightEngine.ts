@@ -129,6 +129,7 @@ export async function runChatbotPipeline(options: RunPipelineOptions): Promise<T
 
 function getSystemBrowserExecutable(): string | undefined {
   const platform = process.platform;
+  const home = process.env.HOME || '';
   if (platform === 'win32') {
     const prefixes = [
       process.env.LOCALAPPDATA,
@@ -147,6 +148,9 @@ function getSystemBrowserExecutable(): string | undefined {
     if (fs.existsSync(p)) return p;
   } else {
     const candidates = [
+      path.join(home, '.local/bin/google-chrome'),
+      path.join(home, '.local/bin/chromium'),
+      path.join(home, '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'),
       '/usr/bin/google-chrome',
       '/usr/bin/google-chrome-stable',
       '/usr/bin/chromium',
@@ -261,33 +265,44 @@ function getSystemBrowserExecutable(): string | undefined {
           const inputSelectors = config.provider === 'gemini' ? GEMINI_INPUT_SELECTORS : CHATGPT_INPUT_SELECTORS;
           let matchedInputSelector: string | null = null;
 
-          for (const sel of inputSelectors) {
-            const el = await page.$(sel);
-            if (el && (await el.isVisible())) {
-              matchedInputSelector = sel;
-              emitLog('dom', 'injecting_prompt', `Found active input element: "${sel}"`);
-              break;
+          // Wait up to 12s for chat input element to mount in SPA
+          for (let attempt = 0; attempt < 24; attempt++) {
+            for (const sel of inputSelectors) {
+              const el = await page.$(sel);
+              if (el && (await el.isVisible())) {
+                matchedInputSelector = sel;
+                emitLog('dom', 'injecting_prompt', `Found active input element: "${sel}"`);
+                break;
+              }
             }
+            if (matchedInputSelector) break;
+            await page.waitForTimeout(500);
           }
 
           if (matchedInputSelector) {
             emitLog('scraper', 'injecting_prompt', `Injecting prompt payload (${prompt.length} chars)`);
             await page.click(matchedInputSelector);
-            await page.fill(matchedInputSelector, prompt).catch(async () => {
-              // Fallback for contenteditable
-              await page!.evaluate(
-                ({ sel, text }) => {
-                  const node = document.querySelector(sel);
-                  if (node) {
-                    node.textContent = text;
-                    node.dispatchEvent(new Event('input', { bubbles: true }));
-                  }
-                },
-                { sel: matchedInputSelector, text: prompt }
-              );
-            });
+            await page.waitForTimeout(200);
 
-            await page.waitForTimeout(500);
+            // Use keyboard.insertText for instantaneous rich text insertion in contenteditable/Quill
+            try {
+              await page.keyboard.insertText(prompt);
+            } catch {
+              await page.fill(matchedInputSelector, prompt).catch(async () => {
+                await page!.evaluate(
+                  ({ sel, text }) => {
+                    const node = document.querySelector(sel);
+                    if (node) {
+                      node.textContent = text;
+                      node.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                  },
+                  { sel: matchedInputSelector, text: prompt }
+                );
+              });
+            }
+
+            await page.waitForTimeout(600);
 
             // Find send button or press enter
             const sendSelectors = config.provider === 'gemini' ? GEMINI_SEND_SELECTORS : CHATGPT_SEND_SELECTORS;
@@ -317,10 +332,11 @@ function getSystemBrowserExecutable(): string | undefined {
             emitLog('wait', 'waiting_generation', 'Monitoring response stream stabilization');
 
             const stopSelectors = config.provider === 'gemini' ? GEMINI_STOP_SELECTORS : CHATGPT_STOP_SELECTORS;
+            const responseSelectors = config.provider === 'gemini' ? GEMINI_RESPONSE_SELECTORS : CHATGPT_RESPONSE_SELECTORS;
             
             // Wait until stop button appears or 2 seconds pass
             let generationObserved = false;
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < 10; i++) {
               await page.waitForTimeout(500);
               for (const stopSel of stopSelectors) {
                 if (await page.$(stopSel)) {
@@ -333,7 +349,6 @@ function getSystemBrowserExecutable(): string | undefined {
 
             if (generationObserved) {
               emitLog('wait', 'waiting_generation', 'Model is actively streaming response tokens...');
-              // Wait for stop button to disappear
               let done = false;
               const maxWaitMs = 45000;
               const pollStart = Date.now();
@@ -353,19 +368,37 @@ function getSystemBrowserExecutable(): string | undefined {
                 }
               }
             } else {
-              // DOM stabilization detection: wait until text stops growing for 3s
+              // DOM stabilization detection: wait until response text stops growing for 3s
               emitLog('wait', 'waiting_generation', 'Polling DOM text length for 3-second stability window...');
               let lastLength = 0;
               let stableCount = 0;
-              for (let i = 0; i < 30; i++) {
+
+              for (let i = 0; i < 40; i++) {
                 await page.waitForTimeout(1000);
-                const currentText = await page.evaluate(() => document.body.innerText.length);
-                if (currentText === lastLength && currentText > 200) {
+                let currentTextLength = 0;
+                for (const rSel of responseSelectors) {
+                  const nodes = await page.$$(rSel);
+                  if (nodes.length > 0) {
+                    const lastNodeText = await nodes[nodes.length - 1].innerText();
+                    if (lastNodeText.length > currentTextLength) {
+                      currentTextLength = lastNodeText.length;
+                    }
+                  }
+                }
+
+                if (currentTextLength === 0) {
+                  currentTextLength = await page.evaluate(() => document.body.innerText.length);
+                }
+
+                if (currentTextLength > 100 && currentTextLength === lastLength) {
                   stableCount++;
-                  if (stableCount >= 3) break;
+                  if (stableCount >= 3) {
+                    emitLog('wait', 'waiting_generation', `Response stabilized at ${currentTextLength} chars`);
+                    break;
+                  }
                 } else {
                   stableCount = 0;
-                  lastLength = currentText;
+                  lastLength = currentTextLength;
                 }
               }
             }
@@ -378,7 +411,6 @@ function getSystemBrowserExecutable(): string | undefined {
             onStep('extracting_response', 'running', 'Locating latest assistant response bubble...');
             emitLog('scraper', 'extracting_response', 'Querying response bubbles and code blocks');
 
-            const responseSelectors = config.provider === 'gemini' ? GEMINI_RESPONSE_SELECTORS : CHATGPT_RESPONSE_SELECTORS;
             for (const sel of responseSelectors) {
               const nodes = await page.$$(sel);
               if (nodes.length > 0) {
@@ -408,17 +440,28 @@ function getSystemBrowserExecutable(): string | undefined {
     if (scrapedRawText && scrapedRawText.length > 50) {
       try {
         emitLog('info', 'extracting_response', 'Attempting to extract JSON payload from scraped markdown...');
-        const jsonMatch = scrapedRawText.match(/```json\s*([\s\S]*?)\s*```/) || scrapedRawText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        const jsonCodeBlockMatch = scrapedRawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        let jsonStr = '';
+        if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+          jsonStr = jsonCodeBlockMatch[1].trim();
+        } else {
+          const firstBrace = scrapedRawText.indexOf('{');
+          const lastBrace = scrapedRawText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            jsonStr = scrapedRawText.slice(firstBrace, lastBrace + 1).trim();
+          }
+        }
+
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr);
           finalResult = { type: taskType, data: parsed } as TaskResult;
           emitLog('success', 'extracting_response', 'Successfully parsed structured response from web chatbot!');
         } else {
           emitLog('warn', 'extracting_response', 'Response did not contain valid JSON codeblock. Using resilient parser fallback.');
           finalResult = generateRealisticFallback(taskType, inputData);
         }
-      } catch (parseErr) {
-        emitLog('warn', 'extracting_response', 'JSON parse error on scraped content. Applying formatted fallback.');
+      } catch (parseErr: any) {
+        emitLog('warn', 'extracting_response', `JSON parse error on scraped content (${parseErr.message}). Applying formatted fallback.`);
         finalResult = generateRealisticFallback(taskType, inputData);
       }
     } else {

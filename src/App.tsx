@@ -25,6 +25,7 @@ import { WritingResultView } from './components/results/WritingResultView';
 import { VocabResultView } from './components/results/VocabResultView';
 import { RoleplayResultView } from './components/results/RoleplayResultView';
 import { QuizResultView } from './components/results/QuizResultView';
+import { ToeicLessonResultView } from './components/results/ToeicLessonResultView';
 import { translations } from './translations';
 import {
   Play,
@@ -605,6 +606,13 @@ export default function App() {
               <RoleplayResultView result={result.data} lang={lang} />
             )}
             {result.type === 'quiz' && <QuizResultView result={result.data} />}
+            {result.type === 'toeic_lesson' && (
+              <ToeicLessonResultView
+                result={result.data}
+                onGenerateAnother={() => runAutomationPipeline('toeic_lesson', { topic: 'Random Authentic Workplace Scenario' }, true)}
+                isAutomating={isAutomating}
+              />
+            )}
           </section>
         )}
         </>

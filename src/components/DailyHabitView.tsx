@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TaskType, ChatbotProvider, Language, PipelineStep, TaskResult, VocabResult, WritingResult, QuizResult } from '../types';
+import { TaskType, ChatbotProvider, Language, PipelineStep, TaskResult, VocabResult, WritingResult, QuizResult, ToeicLessonResult } from '../types';
+import { ToeicLessonResultView } from './results/ToeicLessonResultView';
 import {
   Flame,
   Sparkles,
@@ -14,7 +15,9 @@ import {
   Clock,
   Play,
   Check,
-  RotateCcw
+  RotateCcw,
+  Target,
+  Briefcase
 } from 'lucide-react';
 
 interface DailyHabitViewProps {
@@ -27,12 +30,118 @@ interface DailyHabitViewProps {
   onOpenTerminal: () => void;
 }
 
-const DAILY_TOPICS = [
-  { id: 'daily_talk', label: 'Giao Tiếp Hàng Ngày', enLabel: 'Daily Conversation', icon: '💬', term: 'Ring a bell', context: 'Everyday friendly conversation' },
-  { id: 'workplace', label: 'Công Sở & Email', enLabel: 'Workplace & Email', icon: '💼', term: 'Touch base', context: 'Professional workplace collaboration' },
-  { id: 'social', label: 'Cà Phê & Đời Sống', enLabel: 'Coffee & Social Life', icon: '☕', term: 'Grab a bite', context: 'Casual weekend meeting with friends' },
-  { id: 'travel', label: 'Du Lịch & Sân Bay', enLabel: 'Travel & Dining', icon: '✈️', term: 'On the fly', context: 'Travel planning and itinerary changes' },
-  { id: 'reaction', label: 'Thành Ngữ Bản Xứ Đắt', enLabel: 'Native Idioms', icon: '💎', term: 'Bite the bullet', context: 'Overcoming hesitation and taking action' },
+export interface DailyPhrase {
+  term: string;
+  context: string;
+}
+
+export interface DailyTopicCategory {
+  id: string;
+  label: string;
+  enLabel: string;
+  icon: string;
+  phrases: DailyPhrase[];
+}
+
+const DAILY_TOPICS: DailyTopicCategory[] = [
+  {
+    id: 'daily_talk',
+    label: 'Giao Tiếp Hàng Ngày',
+    enLabel: 'Daily Conversation',
+    icon: '💬',
+    phrases: [
+      { term: 'Ring a bell', context: 'Everyday friendly conversation' },
+      { term: 'Under the weather', context: 'Explaining minor health issues politely' },
+      { term: 'Speak of the devil', context: 'When someone appears right as you mention them' },
+      { term: 'See eye to eye', context: 'Agreeing with friends or colleagues' },
+      { term: 'Call it a day', context: 'Deciding to finish work or an activity' },
+      { term: 'Once in a blue moon', context: 'Describing very rare events' },
+      { term: 'Spill the beans', context: 'Accidentally or intentionally revealing a secret' },
+      { term: 'Cut to the chase', context: 'Getting straight to the main point' },
+      { term: 'Piece of cake', context: 'Describing something effortlessly simple' },
+      { term: 'No hard feelings', context: 'Reconciling after a disagreement' },
+    ],
+  },
+  {
+    id: 'workplace',
+    label: 'Công Sở & Email',
+    enLabel: 'Workplace & Email',
+    icon: '💼',
+    phrases: [
+      { term: 'Touch base', context: 'Professional workplace collaboration' },
+      { term: 'Keep me in the loop', context: 'Asking to be kept updated on project progress' },
+      { term: 'On the same page', context: 'Ensuring shared alignment and understanding' },
+      { term: 'Back to the drawing board', context: 'Restarting a plan from scratch after a failure' },
+      { term: 'Ball is in your court', context: 'Passing the responsibility of the next step to someone' },
+      { term: 'Bring to the table', context: 'Highlighting skills, value, or resources offered' },
+      { term: 'Think outside the box', context: 'Encouraging creative and unconventional problem-solving' },
+      { term: 'Hit the ground running', context: 'Starting a new job or project at full speed and energy' },
+      { term: 'Across the board', context: 'Applying equally to all departments or members' },
+      { term: 'Raise the bar', context: 'Elevating standards of quality and performance' },
+    ],
+  },
+  {
+    id: 'social',
+    label: 'Cà Phê & Đời Sống',
+    enLabel: 'Coffee & Social Life',
+    icon: '☕',
+    phrases: [
+      { term: 'Grab a bite', context: 'Casual weekend meeting with friends' },
+      { term: 'My treat', context: 'Offering to pay for a friend’s meal or drink' },
+      { term: 'Rain check', context: 'Politely postponing an invitation to a later date' },
+      { term: 'Hit the spot', context: 'Describing delicious food or drink that satisfies cravings' },
+      { term: 'Catch up', context: 'Sharing personal updates with an old friend' },
+      { term: 'Chill out', context: 'Relaxing and unwinding after a stressful week' },
+      { term: 'On the house', context: 'Complimentary food or drink offered by restaurant' },
+      { term: 'Play it by ear', context: 'Making plans spontaneously without a rigid schedule' },
+      { term: 'Down to earth', context: 'Praising a humble, friendly, unpretentious person' },
+      { term: 'Wrap things up', context: 'Concluding a gathering or meeting pleasantly' },
+    ],
+  },
+  {
+    id: 'travel',
+    label: 'Du Lịch & Sân Bay',
+    enLabel: 'Travel & Dining',
+    icon: '✈️',
+    phrases: [
+      { term: 'On the fly', context: 'Travel planning and itinerary changes' },
+      { term: 'Travel light', context: 'Packing minimally to move easily between destinations' },
+      { term: 'Off the beaten track', context: 'Exploring hidden, non-touristy local places' },
+      { term: 'Hit the road', context: 'Departing on a journey or road trip' },
+      { term: 'Red-eye flight', context: 'Taking an overnight flight arriving early morning' },
+      { term: 'Live out of a suitcase', context: 'Staying in hotels frequently during non-stop travel' },
+      { term: 'Smooth sailing', context: 'A trip or process progressing without any hiccups' },
+      { term: 'Jet lag', context: 'Coping with fatigue across different time zones' },
+      { term: 'Call it a night', context: 'Going to bed after an exhausting day of sightseeing' },
+      { term: 'In transit', context: 'Being between flights or destinations during a layover' },
+    ],
+  },
+  {
+    id: 'reaction',
+    label: 'Thành Ngữ Bản Xứ Đắt',
+    enLabel: 'Native Idioms',
+    icon: '💎',
+    phrases: [
+      { term: 'Bite the bullet', context: 'Overcoming hesitation and facing a difficult reality' },
+      { term: 'Blessing in disguise', context: 'Something that seemed bad at first but turned out great' },
+      { term: 'Burn the midnight oil', context: 'Working or studying tirelessly late into the night' },
+      { term: 'Hit the nail on the head', context: 'Pinpointing the exact truth of a complex matter' },
+      { term: 'Cut corners', context: 'Sacrificing quality or safety for fast short-term savings' },
+      { term: 'The best of both worlds', context: 'Enjoying the advantages of two contrasting situations' },
+      { term: 'Through thick and thin', context: 'Staying loyal and supportive through all hardships' },
+      { term: 'Barking up the wrong tree', context: 'Pursuing a mistaken line of thought or blaming wrong party' },
+      { term: 'Face the music', context: 'Accepting unpleasant consequences of one’s own actions' },
+      { term: 'Every cloud has a silver lining', context: 'Finding optimism and hope in every difficult moment' },
+    ],
+  },
+];
+
+const MINI_QUIZ_TOPICS = [
+  'Essential Daily Conversational Phrasing & Common Traps',
+  'Collocations & Phrasal Verbs in Professional Workplace',
+  'Avoiding Literal Translation Traps from Vietnamese to English',
+  'Polite Indirect Questions & Diplomatic Tone in Everyday English',
+  'High-Frequency Prepositional Dependencies and Idiomatic Particles',
 ];
 
 const SAMPLE_QUICK_SENTENCES = [
@@ -40,6 +149,15 @@ const SAMPLE_QUICK_SENTENCES = [
   'Can you send me the contract as soon as possible please?',
   'Sorry for reply you late because yesterday I was very busy with works.',
   'In my opinion, I think this plan is more better than the old one.',
+];
+
+const TOEIC_TOPICS = [
+  { id: 'random', label: '🎲 Ngẫu Nhiên Bất Ngờ (Surprise Me)', enLabel: '🎲 Surprise Scenario (Random)', icon: '🎲' },
+  { id: 'email', label: '📧 Email Công Sở & Deadline Gấp', enLabel: '📧 Urgent Workplace Email', icon: '📧' },
+  { id: 'contract', label: '🤝 Đàm Phán & Hợp Đồng Đối Tác', enLabel: '🤝 Contract & Vendor Terms', icon: '🤝' },
+  { id: 'travel', label: '✈️ Lịch Trình Công Tác & Sự Cố', enLabel: '✈️ Business Travel & Itinerary', icon: '✈️' },
+  { id: 'hr', label: '💼 Nhân Sự & Phỏng Vấn Tuyển Dụng', enLabel: '💼 HR, Hiring & Appraisal', icon: '💼' },
+  { id: 'finance', label: '📊 Ngân Sách, Chiết Khấu & Hóa Đơn', enLabel: '📊 Budget, Invoicing & Discount', icon: '📊' },
 ];
 
 export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
@@ -60,11 +178,38 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
     return localStorage.getItem('playeng_last_completed') === today;
   });
 
-  // Daily Mode sub-tab
-  const [dailyMode, setDailyMode] = useState<'dose' | 'quick_fix' | 'mini_quiz'>('dose');
+  // Daily Mode sub-tab: default to 'toeic'
+  const [dailyMode, setDailyMode] = useState<'toeic' | 'dose' | 'quick_fix' | 'mini_quiz'>('toeic');
+
+  // TOEIC State
+  const [selectedToeicTopic, setSelectedToeicTopic] = useState(TOEIC_TOPICS[0]);
+  const handleGenerateToeicLesson = (customTopic?: string) => {
+    const topicToUse = customTopic || selectedToeicTopic.label;
+    onRunDailyTask('toeic_lesson', {
+      topic: topicToUse.includes('Ngẫu Nhiên') || topicToUse.includes('Surprise')
+        ? 'Random High-Yield Workplace TOEIC 700+ Scenario'
+        : topicToUse,
+    });
+  };
 
   // Dose state
-  const [selectedTopic, setSelectedTopic] = useState(DAILY_TOPICS[0]);
+  const [selectedTopic, setSelectedTopic] = useState<DailyTopicCategory>(DAILY_TOPICS[0]);
+  const [selectedPhraseIndex, setSelectedPhraseIndex] = useState<number>(0);
+  const currentPhrase = selectedTopic.phrases[selectedPhraseIndex] || selectedTopic.phrases[0];
+
+  const handleShufflePhrase = () => {
+    let nextIdx: number;
+    do {
+      nextIdx = Math.floor(Math.random() * selectedTopic.phrases.length);
+    } while (nextIdx === selectedPhraseIndex && selectedTopic.phrases.length > 1);
+    setSelectedPhraseIndex(nextIdx);
+  };
+
+  const handleSelectTopic = (topic: DailyTopicCategory) => {
+    setSelectedTopic(topic);
+    const randomIdx = Math.floor(Math.random() * topic.phrases.length);
+    setSelectedPhraseIndex(randomIdx);
+  };
 
   // Quick-fix state
   const [userSentence, setUserSentence] = useState<string>('');
@@ -97,9 +242,12 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
   // Run Dose
   const handleGenerateDose = () => {
     onRunDailyTask('vocab', {
-      term: selectedTopic.term,
-      context: selectedTopic.context,
+      term: currentPhrase.term,
+      context: currentPhrase.context,
     });
+    // Auto-advance to next phrase for variety
+    const nextIdx = (selectedPhraseIndex + 1) % selectedTopic.phrases.length;
+    setSelectedPhraseIndex(nextIdx);
   };
 
   // Run Quick-Fix
@@ -115,12 +263,15 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
     });
   };
 
-  // Run Mini-Quiz
+  // Run Mini-Quiz with rotating topics
+  const [quizTopicIndex, setQuizTopicIndex] = useState(0);
   const handleRunMiniQuiz = () => {
+    const topic = MINI_QUIZ_TOPICS[quizTopicIndex % MINI_QUIZ_TOPICS.length];
     onRunDailyTask('quiz', {
-      topic: 'Essential Daily Conversational Phrasing & Common Traps',
+      topic,
       difficulty: 'B2 (Upper-Intermediate)',
     });
+    setQuizTopicIndex((prev) => (prev + 1) % MINI_QUIZ_TOPICS.length);
   };
 
   // Find active step
@@ -176,8 +327,33 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
         )}
       </div>
 
-      {/* 3 Simple Action Modes */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* 4 Action Modes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <button
+          type="button"
+          onClick={() => setDailyMode('toeic')}
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+            dailyMode === 'toeic'
+              ? 'bg-purple-950/40 border-purple-500 text-white shadow-md shadow-purple-950/30'
+              : 'bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="text-2xl">🎯</span>
+            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${dailyMode === 'toeic' ? 'bg-purple-500/20 text-purple-300 border border-purple-800' : 'bg-neutral-800 text-neutral-400'}`}>
+              TOEIC 700+
+            </span>
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white mb-0.5">
+              {lang === 'vi' ? 'Tình Huống TOEIC 700+' : 'TOEIC 700+ Scenario'}
+            </h4>
+            <p className="text-xs text-neutral-400 line-clamp-2">
+              {lang === 'vi' ? '1-Click: AI tự động tạo bối cảnh công sở + 3 từ vựng vàng + phản xạ.' : '1-click: AI crafts real business context + 3 high-yield words.'}
+            </p>
+          </div>
+        </button>
+
         <button
           type="button"
           onClick={() => setDailyMode('dose')}
@@ -195,10 +371,10 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
           </div>
           <div>
             <h4 className="text-sm font-bold text-white mb-0.5">
-              {lang === 'vi' ? 'Bài Học 5 Phút Hôm Nay' : 'Daily 5-Min Spark'}
+              {lang === 'vi' ? '1 Cụm Từ Hàng Ngày' : 'Daily Idiom Spark'}
             </h4>
             <p className="text-xs text-neutral-400 line-clamp-2">
-              {lang === 'vi' ? '1 Cụm từ vàng + IPA + Âm thanh + Ví dụ thực chiến.' : '1 High-value idiom with audio, IPA, and native examples.'}
+              {lang === 'vi' ? 'Thành ngữ giao tiếp + IPA + Âm thanh + Ví dụ thực chiến.' : '1 High-value idiom with audio, IPA, and native examples.'}
             </p>
           </div>
         </button>
@@ -238,7 +414,7 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between w-full">
-            <span className="text-2xl">🎯</span>
+            <span className="text-2xl">🧪</span>
             <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${dailyMode === 'mini_quiz' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-neutral-800 text-neutral-400'}`}>
               2 Phút
             </span>
@@ -253,6 +429,84 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
           </div>
         </button>
       </div>
+
+      {/* Mode: TOEIC 700+ Scenario Panel */}
+      {dailyMode === 'toeic' && (
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-purple-950/30 border border-neutral-800 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-800">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Học Tự Nhiên Không Cày Đề</span>
+                </span>
+                <span className="text-xs text-neutral-400">• Mục tiêu: 700+</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-white">
+                {lang === 'vi' ? 'Tạo Bài Học TOEIC 700+ Bằng Trí Tuệ Nhân Tạo (1-Click)' : 'AI-Generated TOEIC 700+ Scenario Lesson'}
+              </h3>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                {lang === 'vi'
+                  ? 'Mỗi lần bấm nút, AI sẽ tự động tạo một bối cảnh công sở thực tế, bóc tách 3 từ vựng cốt lõi (Gia đình từ, Từ đồng nghĩa trong đề thi, Bẫy điểm) và 1 thử thách phản xạ nhẹ nhàng.'
+                  : 'Zero test-fatigue. Every click triggers AI to craft a realistic business situation with 3 high-yield words and a quick reflex challenge.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Theme Pills */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-neutral-300">
+              {lang === 'vi' ? 'Chọn bối cảnh bạn muốn học hôm nay (hoặc để Ngẫu nhiên):' : 'Select workplace context (or keep Random):'}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {TOEIC_TOPICS.map((topic) => (
+                <button
+                  key={topic.id}
+                  type="button"
+                  onClick={() => setSelectedToeicTopic(topic)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                    selectedToeicTopic.id === topic.id
+                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                      : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-750 hover:text-white border border-neutral-700/60'
+                  }`}
+                >
+                  <span>{topic.icon}</span>
+                  <span>{lang === 'vi' ? topic.label : topic.enLabel}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Hero Action Button */}
+          <div className="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-neutral-400 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+              <span>
+                {lang === 'vi' ? 'Trí tuệ nhân tạo:' : 'AI Engine:'}{' '}
+                <strong className="text-white">{provider.toUpperCase()} Web Automation / agy</strong>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              disabled={isAutomating}
+              onClick={() => handleGenerateToeicLesson()}
+              className={`w-full sm:w-auto px-7 py-3.5 rounded-xl font-black text-sm text-white shadow-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+                isAutomating
+                  ? 'bg-neutral-800 text-neutral-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-sky-600 hover:from-purple-500 hover:via-indigo-500 hover:to-sky-500 shadow-purple-600/30 hover:shadow-purple-500/50 hover:-translate-y-0.5'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>
+                {isAutomating
+                  ? (lang === 'vi' ? 'AI Đang Soạn Bài Học...' : 'AI is Crafting Lesson...')
+                  : (lang === 'vi' ? '✨ Bấm Để AI Tạo Bài Học Hôm Nay (1-Click)' : '✨ Generate Today’s TOEIC Lesson')}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mode 1: Daily Dose Panel */}
       {dailyMode === 'dose' && (
@@ -275,7 +529,7 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
               <button
                 key={topic.id}
                 type="button"
-                onClick={() => setSelectedTopic(topic)}
+                onClick={() => handleSelectTopic(topic)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
                   selectedTopic.id === topic.id
                     ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
@@ -286,6 +540,56 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
                 <span>{lang === 'vi' ? topic.label : topic.enLabel}</span>
               </button>
             ))}
+          </div>
+
+          {/* Active Phrase Card with Shuffle / Quick Pick */}
+          <div className="p-4 rounded-xl bg-neutral-950/80 border border-neutral-800 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-sky-400 tracking-wider">
+                  {lang === 'vi' ? 'Cụm từ được chọn cho lượt này:' : 'Selected phrase for this round:'}
+                </span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <h4 className="text-base font-extrabold text-white">
+                    "{currentPhrase.term}"
+                  </h4>
+                  <span className="text-xs text-neutral-400">• {currentPhrase.context}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleShufflePhrase}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white text-xs font-medium transition-colors cursor-pointer border border-neutral-700"
+                title={lang === 'vi' ? 'Đổi cụm từ ngẫu nhiên khác trong chủ đề này' : 'Shuffle random phrase'}
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span>{lang === 'vi' ? '🎲 Đổi Cụm Từ Khác' : '🎲 Shuffle Phrase'}</span>
+              </button>
+            </div>
+
+            {/* Quick Chips of all phrases in category */}
+            <div className="space-y-1.5 pt-2 border-t border-neutral-800/80">
+              <span className="text-[11px] text-neutral-400 block">
+                {lang === 'vi' ? 'Hoặc chọn nhanh 1 cụm từ bên dưới:' : 'Or quickly choose any phrase below:'}
+              </span>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {selectedTopic.phrases.map((phrase, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedPhraseIndex(idx)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                      selectedPhraseIndex === idx
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500 font-semibold'
+                        : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
+                    }`}
+                  >
+                    {phrase.term}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="pt-3 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -308,7 +612,11 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isAutomating ? (lang === 'vi' ? 'Đang Lấy Bài Học...' : 'Fetching Lesson...') : (lang === 'vi' ? '✨ Nhận Bài Học Ngay (1-Click)' : '✨ Get Today’s Lesson')}</span>
+              <span>
+                {isAutomating
+                  ? (lang === 'vi' ? 'Đang Lấy Bài Học...' : 'Fetching Lesson...')
+                  : (lang === 'vi' ? `✨ Học "${currentPhrase.term}" (1-Click)` : `✨ Learn "${currentPhrase.term}"`)}
+              </span>
             </button>
           </div>
         </div>
@@ -477,6 +785,15 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
             )}
           </div>
 
+          {/* If TOEIC Lesson Result */}
+          {currentResult.type === 'toeic_lesson' && (
+            <ToeicLessonResultView
+              result={currentResult.data}
+              onGenerateAnother={() => handleGenerateToeicLesson()}
+              isAutomating={isAutomating}
+            />
+          )}
+
           {/* If Vocab Result (from Dose) */}
           {currentResult.type === 'vocab' && (
             <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-sm space-y-5">
@@ -614,31 +931,44 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
                 {lang === 'vi' ? '3 Câu Trắc Nghiệm Phản Xạ Nhanh:' : 'Quick Reaction Questions:'}
               </span>
               <div className="space-y-4">
-                {currentResult.data.questions.slice(0, 3).map((q, idx) => (
-                  <div key={idx} className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2.5">
-                    <p className="text-sm font-semibold text-white">
-                      {idx + 1}. {q.prompt}
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {q.options.map((opt, optIdx) => (
-                        <div
-                          key={optIdx}
-                          className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
-                            opt.key === q.correctAnswer
-                              ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 font-semibold'
-                              : 'bg-neutral-900 border-neutral-800 text-neutral-300'
-                          }`}
-                        >
-                          <span className="font-bold">{opt.key}.</span>
-                          <span>{opt.text}</span>
-                        </div>
-                      ))}
+                {currentResult.data.questions.slice(0, 3).map((q: any, idx: number) => {
+                  const questionText = q.question || q.prompt;
+                  return (
+                    <div key={idx} className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2.5">
+                      <p className="text-sm font-semibold text-white leading-relaxed">
+                        {idx + 1}. {questionText}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {q.options?.map((opt: any, optIdx: number) => {
+                          const letter = String.fromCharCode(65 + optIdx);
+                          const optText = typeof opt === 'string' ? opt : (opt?.text ?? opt);
+                          const isCorrect =
+                            q.correctAnswerIndex !== undefined
+                              ? optIdx === q.correctAnswerIndex
+                              : (opt?.key ? opt.key === q.correctAnswer : false);
+                          return (
+                            <div
+                              key={optIdx}
+                              className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
+                                isCorrect
+                                  ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 font-semibold'
+                                  : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                              }`}
+                            >
+                              <span className="font-bold font-mono">[{letter}]</span>
+                              <span>{optText}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {q.explanation && (
+                        <p className="text-xs text-neutral-400 pt-1 border-t border-neutral-800/80">
+                          💡 {q.explanation}
+                        </p>
+                      )}
                     </div>
-                    <p className="text-xs text-neutral-400 pt-1 border-t border-neutral-800/80">
-                      💡 {q.explanation}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-export type TaskType = 'writing' | 'vocab' | 'roleplay' | 'quiz';
+export type TaskType = 'writing' | 'vocab' | 'roleplay' | 'quiz' | 'toeic_lesson';
 export type RoleplayLength = 'short' | 'medium' | 'long';
 export type DialogueDifficulty = 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type Language = 'vi' | 'en';
@@ -161,11 +161,40 @@ export interface QuizResult {
   questions: QuizQuestion[];
 }
 
+export interface ToeicWord {
+  term: string;
+  ipa: string;
+  partOfSpeech: string;
+  vietnameseMeaning: string;
+  wordFamily?: string;
+  toeicParaphrase?: string;
+  exampleSentence: string;
+  exampleTranslation: string;
+  etsTrapTip?: string;
+}
+
+export interface ToeicLessonResult {
+  topic: string;
+  situationType: 'email' | 'memo' | 'meeting' | 'chat' | 'announcement';
+  situationTitle: string;
+  scenarioText: string;
+  scenarioTranslationVi: string;
+  targetWords: ToeicWord[];
+  interactiveChallenge: {
+    prompt: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+    takeawayTip: string;
+  };
+}
+
 export type TaskResult =
   | { type: 'writing'; data: WritingResult }
   | { type: 'vocab'; data: VocabResult }
   | { type: 'roleplay'; data: RoleplayResult }
-  | { type: 'quiz'; data: QuizResult };
+  | { type: 'quiz'; data: QuizResult }
+  | { type: 'toeic_lesson'; data: ToeicLessonResult };
 
 export interface AutomationStreamPayload {
   type: 'step' | 'log' | 'raw_chunk' | 'result' | 'error' | 'done';

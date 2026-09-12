@@ -19,6 +19,14 @@ const PORT = 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Request logger middleware
+app.use((req, res, next) => {
+  if (!req.originalUrl.startsWith('/@') && !req.originalUrl.startsWith('/src')) {
+    console.log(`[${new Date().toLocaleTimeString()}] [REQ] ${req.method} ${req.originalUrl}`);
+  }
+  next();
+});
+
 // Health endpoint
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({
@@ -132,6 +140,8 @@ async function handlePipelineExecution(
       },
     });
 
+    console.log(`[PlayEng Task] Started [${taskType.toUpperCase()}] targeting ${config.provider.toUpperCase()} Web (Headless: ${config.headless})`);
+
     const result = await runChatbotPipeline({
       taskType,
       inputData,
@@ -139,6 +149,7 @@ async function handlePipelineExecution(
       config,
       callbacks: {
         onStep: (stepId: PipelineStepId, status: StepState, subtext?: string) => {
+          console.log(`[PlayEng Step] ${stepId} -> ${status}${subtext ? ` (${subtext})` : ''}`);
           sendSSE({
             type: 'step',
             stepId,
@@ -146,6 +157,7 @@ async function handlePipelineExecution(
           });
         },
         onLog: (log) => {
+          console.log(`[PlayEng Log][${log.level.toUpperCase()}] ${log.message}${log.detail ? ` | ${log.detail}` : ''}`);
           sendSSE({
             type: 'log',
             log: {
@@ -164,6 +176,8 @@ async function handlePipelineExecution(
       },
     });
 
+    console.log(`[PlayEng Result] Successfully generated result for task [${taskType.toUpperCase()}]`);
+
     sendSSE({
       type: 'result',
       result,
@@ -173,6 +187,7 @@ async function handlePipelineExecution(
       type: 'done',
     });
   } catch (error: any) {
+    console.error(`[PlayEng Error] ${error.message || error}`);
     sendSSE({
       type: 'error',
       error: error.message || 'Pipeline encountered a critical failure',

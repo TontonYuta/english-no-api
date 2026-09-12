@@ -205,6 +205,62 @@ JSON Structure:
       };
     }
 
+    case 'toeic_lesson': {
+      const topic = (inputData.topic as string) || 'Random Authentic Workplace Scenario';
+      const userPrompt = `You are a Senior ETS TOEIC 700+ Master Coach and International Business Communication Expert.
+Create a bespoke, engaging, zero-stress daily micro-lesson for a motivated student aiming for TOEIC 700+ without tedious exam grinding.
+
+Theme / Focus: "${topic}"
+
+Requirements:
+1. Create an authentic, contemporary workplace scenario (email, corporate memo, client negotiation, project Slack exchange, or business travel update).
+2. The scenario text should be 3-4 sentences of realistic native business English.
+3. Extract exactly 3 high-value, high-frequency TOEIC 700+ vocabulary words / collocations / phrasal verbs embedded naturally inside this scenario.
+4. For each word, provide:
+   - Accurate IPA phonetic transcription
+   - Vietnamese meaning tailored to business context
+   - Word Family (Noun / Verb / Adj / Adv variants crucial for TOEIC Part 5)
+   - TOEIC Paraphrase (Equivalent synonyms commonly tested in Part 7 / Part 3-4)
+   - ETS Trap Tip (Common trick or grammatical trap ETS uses with this word)
+5. Include ONE quick, engaging situational reflex challenge (NOT a boring test, but a practical workplace communication choice, e.g., how the professional should respond or complete the thought), with 4 options and a crystal-clear explanation.
+
+Format your response strictly as valid JSON enclosed in \`\`\`json and \`\`\`.
+
+JSON Structure:
+{
+  "topic": "${topic}",
+  "situationType": "email | memo | meeting | chat | announcement",
+  "situationTitle": "Engaging, concise title of the scenario",
+  "scenarioText": "3-4 sentences of high-yield business English",
+  "scenarioTranslationVi": "Natural Vietnamese translation of the scenario",
+  "targetWords": [
+    {
+      "term": "High-yield TOEIC word",
+      "ipa": "/.../",
+      "partOfSpeech": "verb / noun / adjective / collocation",
+      "vietnameseMeaning": "Súc tích, tự nhiên",
+      "wordFamily": "e.g. comply (v) - compliance (n) - compliant (adj)",
+      "toeicParaphrase": "e.g. adhere to ≈ follow, observe",
+      "exampleSentence": "A concise corporate sentence",
+      "exampleTranslation": "Vietnamese translation",
+      "etsTrapTip": "ETS exam insider tip on prepositions or word-form traps"
+    }
+  ],
+  "interactiveChallenge": {
+    "prompt": "Practical situational reflex question",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctIndex": 0,
+    "explanation": "Why this response is the most professional and fits the TOEIC standard",
+    "takeawayTip": "Golden takeaway rule for 700+ candidates"
+  }
+}`;
+
+      return {
+        systemInstruction: 'You are an elite ETS TOEIC 700+ coach. Output strictly valid JSON enclosed in ```json ```.',
+        userPrompt,
+      };
+    }
+
     default:
       throw new Error(`Unknown task type: ${taskType}`);
   }
