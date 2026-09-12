@@ -1,0 +1,6 @@
+{
+  "name": "PlayEng Studio",
+  "description": "Full-stack English learning web app automating web chatbots (Gemini & ChatGPT) with Playwright for CEFR writing checks, idiom deep-dives, roleplay dialogues, and smart quizzes.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
