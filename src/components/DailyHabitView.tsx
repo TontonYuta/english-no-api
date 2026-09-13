@@ -181,14 +181,25 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
   // Daily Mode sub-tab: default to 'toeic'
   const [dailyMode, setDailyMode] = useState<'toeic' | 'dose' | 'quick_fix' | 'mini_quiz'>('toeic');
 
+  // Progressive User Level State (Default to A1 for beginners)
+  const [userLevel, setUserLevel] = useState<'A1' | 'A2' | 'B1' | 'B2'>(() => {
+    return (localStorage.getItem('playeng_user_level') as 'A1' | 'A2' | 'B1' | 'B2') || 'A1';
+  });
+
+  const handleSetUserLevel = (lvl: 'A1' | 'A2' | 'B1' | 'B2') => {
+    setUserLevel(lvl);
+    localStorage.setItem('playeng_user_level', lvl);
+  };
+
   // TOEIC State
   const [selectedToeicTopic, setSelectedToeicTopic] = useState(TOEIC_TOPICS[0]);
   const handleGenerateToeicLesson = (customTopic?: string) => {
     const topicToUse = customTopic || selectedToeicTopic.label;
     onRunDailyTask('toeic_lesson', {
       topic: topicToUse.includes('Ngẫu Nhiên') || topicToUse.includes('Surprise')
-        ? 'Random High-Yield Workplace TOEIC 700+ Scenario'
-        : topicToUse,
+        ? `Workplace Scenario for Level ${userLevel}`
+        : `${topicToUse} (Level ${userLevel})`,
+      userLevel,
     });
   };
 
@@ -443,13 +454,54 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
                 <span className="text-xs text-neutral-400">• Mục tiêu: 700+</span>
               </div>
               <h3 className="text-base sm:text-lg font-black text-white">
-                {lang === 'vi' ? 'Tạo Bài Học TOEIC 700+ Bằng Trí Tuệ Nhân Tạo (1-Click)' : 'AI-Generated TOEIC 700+ Scenario Lesson'}
+                {lang === 'vi' ? 'Lộ Trình Học Từ Nền Tảng A1 Lên TOEIC 700+ (1-Click AI)' : 'A1 to TOEIC 700+ Progressive AI Lesson'}
               </h3>
               <p className="text-xs text-neutral-400 mt-0.5">
                 {lang === 'vi'
-                  ? 'Mỗi lần bấm nút, AI sẽ tự động tạo một bối cảnh công sở thực tế, bóc tách 3 từ vựng cốt lõi (Gia đình từ, Từ đồng nghĩa trong đề thi, Bẫy điểm) và 1 thử thách phản xạ nhẹ nhàng.'
-                  : 'Zero test-fatigue. Every click triggers AI to craft a realistic business situation with 3 high-yield words and a quick reflex challenge.'}
+                  ? 'Thiết kế riêng cho người mới bắt đầu (A1), phát triển với tốc độ vừa phải, câu ngắn dễ hiểu kèm mẹo phát âm tiếng Việt, nâng dần trình độ lên TOEIC 700+ mà không bị ngợp.'
+                  : 'Tailored for beginners (A1), progressing at a balanced pace with Vietnamese phonetic guides, leveling up smoothly to TOEIC 700+.'}
               </p>
+            </div>
+          </div>
+
+          {/* Progressive Level Ladder */}
+          <div className="p-4 rounded-xl bg-neutral-950/80 border border-neutral-800 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="text-xs font-bold text-neutral-300 flex items-center gap-1.5 uppercase tracking-wider">
+                <span>Trình Độ Hiện Tại:</span>
+              </label>
+              <span className="text-xs text-purple-300 font-mono">
+                {userLevel === 'A1'
+                  ? '🌱 Level A1: Khởi đầu (Mất gốc) - Tốc độ nhẹ nhàng, câu 5-8 từ, có mẹo phát âm'
+                  : userLevel === 'A2'
+                  ? '🌿 Level A2: Cơ bản công sở - Câu 10 từ, giao tiếp thường ngày'
+                  : userLevel === 'B1'
+                  ? '🌳 Level B1: Trung cấp - Phrasal verbs & Collocations (TOEIC 500-650)'
+                  : '🎯 Level B2: Nâng cao - Đàm phán, Hợp đồng & Bẫy đề TOEIC 700+'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { id: 'A1', label: '🌱 Level A1: Khởi Đầu', sub: 'Mất gốc / Mới học' },
+                { id: 'A2', label: '🌿 Level A2: Cơ Bản', sub: 'Công sở quen thuộc' },
+                { id: 'B1', label: '🌳 Level B1: Trung Cấp', sub: 'TOEIC 500 - 650' },
+                { id: 'B2', label: '🎯 Level B2: Nâng Cao', sub: 'Chinh phục 700+' },
+              ].map((lvl) => (
+                <button
+                  key={lvl.id}
+                  type="button"
+                  onClick={() => handleSetUserLevel(lvl.id as any)}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    userLevel === lvl.id
+                      ? 'bg-purple-600/30 border-purple-500 text-white shadow-md shadow-purple-600/20'
+                      : 'bg-neutral-900/80 border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200'
+                  }`}
+                >
+                  <span className="text-xs font-bold block">{lvl.label}</span>
+                  <span className="text-[10px] text-neutral-400 block mt-0.5">{lvl.sub}</span>
+                </button>
+              ))}
             </div>
           </div>
 

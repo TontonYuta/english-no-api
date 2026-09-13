@@ -43,7 +43,7 @@ app.get('/api/playwright/status', (req: Request, res: Response) => {
   const profileDir = path.resolve(process.cwd(), '.playwright-profile');
   res.json({
     ready: true,
-    supportedProviders: ['gemini', 'chatgpt'],
+    supportedProviders: ['gemini', 'chatgpt', 'antigravity'],
     defaultProvider: 'gemini',
     userDataDir: profileDir,
     headlessDefault: true,

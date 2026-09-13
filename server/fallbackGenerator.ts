@@ -328,9 +328,79 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
     }
 
     case 'toeic_lesson': {
-      const topic = (inputData.topic as string) || 'Contract Renewal & Vendor Negotiation';
+      const userLevel = (inputData.userLevel as string) || 'A1';
+      const topic = (inputData.topic as string) || (userLevel === 'A1' ? 'First Day at the Office' : 'Contract Renewal & Vendor Negotiation');
+      
+      if (userLevel === 'A1') {
+        const a1Data: ToeicLessonResult = {
+          topic: 'First Day at the Office & Meeting Colleagues',
+          userLevel: 'A1',
+          situationType: 'email',
+          situationTitle: 'Welcome to the Team & Meeting Schedule',
+          scenarioText:
+            'Good morning Alex. Welcome to our office! Please check your meeting schedule for today. If you need any help, your colleague Sarah is ready to assist you.',
+          scenarioTranslationVi:
+            'Chào buổi sáng Alex. Chào mừng bạn đến với văn phòng của chúng tôi! Vui lòng kiểm tra lịch họp của bạn cho ngày hôm nay. Nếu bạn cần bất kỳ sự giúp đỡ nào, đồng nghiệp Sarah sẵn sàng hỗ trợ bạn.',
+          targetWords: [
+            {
+              term: 'Schedule',
+              ipa: '/ˈskedʒ.uːl/',
+              vietnamesePhonetic: 'x-két-giu-ồ',
+              partOfSpeech: 'noun (countable)',
+              vietnameseMeaning: 'Lịch trình, thời gian biểu làm việc',
+              wordFamily: 'schedule (n - lịch) / schedule (v - lên lịch)',
+              toeicParaphrase: 'schedule ≈ timetable, agenda',
+              exampleSentence: 'I have a busy schedule this morning.',
+              exampleTranslation: 'Sáng nay tôi có một lịch trình rất bận rộn.',
+              simpleBreakdown: 'I (Chủ ngữ) + have (có) + a busy schedule (một lịch trình bận rộn).',
+              etsTrapTip: 'Người Việt hay đọc sai âm đầu "sk-". Hãy phát âm âm "s" nhẹ rồi sang "két".'
+            },
+            {
+              term: 'Colleague',
+              ipa: '/ˈkɑː.liːɡ/',
+              vietnamesePhonetic: 'co-li-g (âm g nhẹ ở cuối)',
+              partOfSpeech: 'noun (countable)',
+              vietnameseMeaning: 'Đồng nghiệp cùng công ty',
+              wordFamily: 'colleague (n)',
+              toeicParaphrase: 'colleague ≈ coworker, teammate',
+              exampleSentence: 'Sarah is my new colleague in marketing.',
+              exampleTranslation: 'Sarah là đồng nghiệp mới của tôi ở phòng marketing.',
+              simpleBreakdown: 'Sarah (Tên người) + is (là) + my new colleague (đồng nghiệp mới của tôi).',
+              etsTrapTip: 'Đừng đọc thành "cô-lê-gơ". Trọng âm rơi vào âm tiết thứ nhất "co-".'
+            },
+            {
+              term: 'Confirm',
+              ipa: '/kənˈfɜːrm/',
+              vietnamesePhonetic: 'cơn-fơm (kéo dài âm fơm)',
+              partOfSpeech: 'verb',
+              vietnameseMeaning: 'Xác nhận (lịch hẹn, email, thông tin)',
+              wordFamily: 'confirm (v) - confirmation (n - sự xác nhận)',
+              toeicParaphrase: 'confirm ≈ verify, check',
+              exampleSentence: 'Please confirm the meeting time by email.',
+              exampleTranslation: 'Vui lòng xác nhận giờ họp qua email.',
+              simpleBreakdown: 'Please (Xin vui lòng) + confirm (xác nhận) + the meeting time (giờ họp).',
+              etsTrapTip: 'Trong đề thi TOEIC, sau "Please" luôn là động từ nguyên mẫu không chia: "Please confirm".'
+            }
+          ],
+          interactiveChallenge: {
+            prompt: 'Tình huống A1: Đồng nghiệp hỏi bạn: "Do you have time for a quick meeting at 2 PM?" (Bạn có thời gian cho cuộc họp nhanh lúc 2 giờ chiều không?). Nếu bạn bận, câu trả lời nào lịch sự và đúng nhất?',
+            options: [
+              'No, I go now.',
+              'I am sorry, I am busy at 2 PM. Can we meet at 3 PM?',
+              'Why you ask me?',
+              'Meeting is bad today.'
+            ],
+            correctIndex: 1,
+            explanation: 'Câu 2 là phản hồi chuẩn mực, lịch sự nhất: vừa xin lỗi khéo léo ("I am sorry, I am busy"), vừa đưa ra giờ thay thế hợp lý ("Can we meet at 3 PM?"). Cấu trúc đơn giản, đúng ngữ pháp A1.',
+            takeawayTip: 'Khi từ chối lịch hẹn trong công sở, luôn kèm lời xin lỗi ngắn và đề xuất một mốc giờ khác.'
+          }
+        };
+        return { type: 'toeic_lesson', data: a1Data };
+      }
+
       const toeicData: ToeicLessonResult = {
         topic,
+        userLevel: 'B2',
         situationType: 'email',
         situationTitle: 'Urgent: Revised Terms for Q3 Software Licensing Agreement',
         scenarioText:

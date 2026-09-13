@@ -88,7 +88,24 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
               <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800 flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-sky-400" />
-                <span>TOEIC 700+ Workplace Scenario</span>
+                <span>TOEIC Progressive Scenario</span>
+              </span>
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                result.userLevel === 'A1'
+                  ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                  : result.userLevel === 'A2'
+                  ? 'bg-sky-950 text-sky-300 border-sky-800'
+                  : result.userLevel === 'B1'
+                  ? 'bg-amber-950 text-amber-300 border-amber-800'
+                  : 'bg-purple-950 text-purple-300 border-purple-800'
+              }`}>
+                {result.userLevel === 'A1'
+                  ? '🌱 Cấp độ A1: Khởi Đầu'
+                  : result.userLevel === 'A2'
+                  ? '🌿 Cấp độ A2: Cơ Bản'
+                  : result.userLevel === 'B1'
+                  ? '🌳 Cấp độ B1: Trung Cấp'
+                  : '🎯 Cấp độ B2: TOEIC 700+'}
               </span>
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700 flex items-center gap-1">
                 {getSituationIcon()}
@@ -208,6 +225,12 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                     <span className="text-xs font-mono text-neutral-400 block mt-0.5">
                       {word.ipa} • <span className="text-neutral-500">{word.partOfSpeech}</span>
                     </span>
+                    {word.vietnamesePhonetic && (
+                      <div className="mt-1 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/60 text-[11px] text-purple-300 font-mono inline-flex items-center gap-1">
+                        <span>🗣️</span>
+                        <span>Đọc là: <strong>"{word.vietnamesePhonetic}"</strong></span>
+                      </div>
+                    )}
                   </div>
 
                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">
@@ -259,6 +282,11 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                   <p className="text-[11px] text-neutral-500">
                     ↳ {word.exampleTranslation}
                   </p>
+                  {word.simpleBreakdown && (
+                    <div className="pt-1.5 mt-1 border-t border-neutral-800/40 text-[11px] text-sky-300/90 font-mono">
+                      <span>🧩 Mổ xẻ câu: {word.simpleBreakdown}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

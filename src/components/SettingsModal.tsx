@@ -153,7 +153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Bot className="w-4 h-4 text-emerald-400" />
               <span>{t.settingProviderLabel}</span>
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setLocalSettings({ ...localSettings, defaultProvider: 'gemini' })}
@@ -184,6 +184,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span className="text-[10px] text-neutral-400">chatgpt.com</span>
                 </div>
                 {localSettings.defaultProvider === 'chatgpt' && <Check className="w-4 h-4 text-emerald-400" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLocalSettings({ ...localSettings, defaultProvider: 'antigravity' })}
+                className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
+                  localSettings.defaultProvider === 'antigravity'
+                    ? 'bg-purple-950/40 border-purple-500 text-white font-semibold'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <div>
+                  <span className="block font-bold text-purple-300">Antigravity</span>
+                  <span className="text-[10px] text-neutral-400">Local CLI (agy Engine)</span>
+                </div>
+                {localSettings.defaultProvider === 'antigravity' && <Check className="w-4 h-4 text-purple-400" />}
               </button>
             </div>
           </div>

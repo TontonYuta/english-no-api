@@ -128,6 +128,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               ChatGPT
             </button>
+            <button
+              id="provider-antigravity-btn"
+              type="button"
+              disabled={isAutomating}
+              onClick={() => setProvider('antigravity')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all ${
+                provider === 'antigravity'
+                  ? 'bg-purple-600 text-white shadow-sm font-semibold'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              } ${isAutomating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              title="Antigravity (agy CLI Engine)"
+            >
+              🪐 Antigravity
+            </button>
           </div>
 
           {/* Headless Toggle */}

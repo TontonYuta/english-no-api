@@ -206,57 +206,79 @@ JSON Structure:
     }
 
     case 'toeic_lesson': {
+      const userLevel = (inputData.userLevel as string) || 'A1';
       const topic = (inputData.topic as string) || 'Random Authentic Workplace Scenario';
-      const userPrompt = `You are a Senior ETS TOEIC 700+ Master Coach and International Business Communication Expert.
-Create a bespoke, engaging, zero-stress daily micro-lesson for a motivated student aiming for TOEIC 700+ without tedious exam grinding.
 
+      let levelGuidance = '';
+      if (userLevel === 'A1') {
+        levelGuidance = `
+TARGET LEARNER LEVEL: A1 (ABSOLUTE BEGINNER / MỚI BẮT ĐẦU)
+- The learner has basic English knowledge (A1). You MUST adapt the pace to be gentle, crystal-clear, and encouraging. Do NOT overwhelm with complex C1/C2 vocabulary.
+- Keep the workplace scenario very simple, friendly, and practical (2-3 short sentences, 5-8 words per sentence). Topics like: asking for meeting time, saying hello to a colleague, asking to send an email, confirming office location.
+- Select 3 high-yield foundational words/phrases that every beginner must know for basic workplace communication (e.g., "schedule", "colleague", "send", "confirm", "meeting", "busy", "available", "report").
+- Provide "vietnamesePhonetic": a friendly Vietnamese-approximated pronunciation guide (e.g., /ˈskedʒ.uːl/ -> "x-két-giu-ồ") so the learner can speak immediately.
+- Provide "simpleBreakdown": a 1-sentence breakdown explaining the simple grammatical structure (Subject + Verb + Object) in Vietnamese.
+- The reflex challenge must be very friendly and easy to understand, encouraging the learner.`;
+      } else if (userLevel === 'A2') {
+        levelGuidance = `
+TARGET LEARNER LEVEL: A2 (ELEMENTARY WORKPLACE)
+- Practical workplace sentences with slightly richer vocabulary (e.g., "receive", "cancel", "appointment", "inquire", "request").
+- Focus on common prepositions and basic business email phrasings.`;
+      } else if (userLevel === 'B1') {
+        levelGuidance = `
+TARGET LEARNER LEVEL: B1 (INTERMEDIATE / PRE-TOEIC 500-600)
+- Moderate complexity scenario (3-4 sentences).
+- Focus on workplace collocations, phrasal verbs ("attend a meeting", "meet a deadline", "responsible for").`;
+      } else {
+        levelGuidance = `
+TARGET LEARNER LEVEL: B2 (UPPER-INTERMEDIATE / TOEIC 700+)
+- Authentic corporate context (contracts, negotiations, memos).
+- Focus on Word Families, TOEIC Paraphrase pairs, and ETS exam trap alerts.`;
+      }
+
+      const userPrompt = `You are a Patient, Oxford/ETS Certified Master English Educator specializing in Vietnamese learners.
+Create a bespoke, engaging, zero-stress daily micro-lesson with precise pedagogical scaffolding.
+
+Current Learner Level: ${userLevel}
 Theme / Focus: "${topic}"
-
-Requirements:
-1. Create an authentic, contemporary workplace scenario (email, corporate memo, client negotiation, project Slack exchange, or business travel update).
-2. The scenario text should be 3-4 sentences of realistic native business English.
-3. Extract exactly 3 high-value, high-frequency TOEIC 700+ vocabulary words / collocations / phrasal verbs embedded naturally inside this scenario.
-4. For each word, provide:
-   - Accurate IPA phonetic transcription
-   - Vietnamese meaning tailored to business context
-   - Word Family (Noun / Verb / Adj / Adv variants crucial for TOEIC Part 5)
-   - TOEIC Paraphrase (Equivalent synonyms commonly tested in Part 7 / Part 3-4)
-   - ETS Trap Tip (Common trick or grammatical trap ETS uses with this word)
-5. Include ONE quick, engaging situational reflex challenge (NOT a boring test, but a practical workplace communication choice, e.g., how the professional should respond or complete the thought), with 4 options and a crystal-clear explanation.
+${levelGuidance}
 
 Format your response strictly as valid JSON enclosed in \`\`\`json and \`\`\`.
 
 JSON Structure:
 {
   "topic": "${topic}",
+  "userLevel": "${userLevel}",
   "situationType": "email | memo | meeting | chat | announcement",
   "situationTitle": "Engaging, concise title of the scenario",
-  "scenarioText": "3-4 sentences of high-yield business English",
-  "scenarioTranslationVi": "Natural Vietnamese translation of the scenario",
+  "scenarioText": "Short, natural, level-appropriate business English text",
+  "scenarioTranslationVi": "Natural, clear Vietnamese translation of the scenario",
   "targetWords": [
     {
-      "term": "High-yield TOEIC word",
+      "term": "Target word or phrase",
       "ipa": "/.../",
-      "partOfSpeech": "verb / noun / adjective / collocation",
-      "vietnameseMeaning": "Súc tích, tự nhiên",
-      "wordFamily": "e.g. comply (v) - compliance (n) - compliant (adj)",
-      "toeicParaphrase": "e.g. adhere to ≈ follow, observe",
-      "exampleSentence": "A concise corporate sentence",
+      "vietnamesePhonetic": "Friendly Vietnamese phonetic guide e.g. x-két-giu-ồ",
+      "partOfSpeech": "verb / noun / adjective",
+      "vietnameseMeaning": "Rõ ràng, súc tích, dễ hiểu cho người học",
+      "wordFamily": "e.g. schedule (v) - scheduled (adj) or N/A",
+      "toeicParaphrase": "Equivalent simple word or synonym",
+      "exampleSentence": "Level-appropriate sentence",
       "exampleTranslation": "Vietnamese translation",
-      "etsTrapTip": "ETS exam insider tip on prepositions or word-form traps"
+      "simpleBreakdown": "Phân tích ngữ pháp/cấu trúc câu ngắn gọn, dễ hiểu",
+      "etsTrapTip": "Mẹo tránh lỗi sai phổ biến của người Việt"
     }
   ],
   "interactiveChallenge": {
-    "prompt": "Practical situational reflex question",
+    "prompt": "Practical situational reflex question appropriate for level ${userLevel}",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correctIndex": 0,
-    "explanation": "Why this response is the most professional and fits the TOEIC standard",
-    "takeawayTip": "Golden takeaway rule for 700+ candidates"
+    "explanation": "Friendly, encouraging pedagogical explanation in Vietnamese",
+    "takeawayTip": "1-sentence golden takeaway rule"
   }
 }`;
 
       return {
-        systemInstruction: 'You are an elite ETS TOEIC 700+ coach. Output strictly valid JSON enclosed in ```json ```.',
+        systemInstruction: `You are an elite, patient English educator helping a Vietnamese student progress systematically from level ${userLevel} to TOEIC 700+. Output strictly valid JSON enclosed in \`\`\`json \`\`\`.`,
         userPrompt,
       };
     }

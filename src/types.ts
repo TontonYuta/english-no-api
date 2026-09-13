@@ -3,7 +3,7 @@ export type RoleplayLength = 'short' | 'medium' | 'long';
 export type DialogueDifficulty = 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type Language = 'vi' | 'en';
 
-export type ChatbotProvider = 'gemini' | 'chatgpt';
+export type ChatbotProvider = 'gemini' | 'chatgpt' | 'antigravity';
 
 export type PipelineStepId =
   | 'launching_browser'
@@ -164,17 +164,20 @@ export interface QuizResult {
 export interface ToeicWord {
   term: string;
   ipa: string;
+  vietnamesePhonetic?: string; // Mẹo phát âm tiếng Việt gần đúng cho người mới A1 (e.g. "x-két-giu-ồ")
   partOfSpeech: string;
   vietnameseMeaning: string;
   wordFamily?: string;
   toeicParaphrase?: string;
   exampleSentence: string;
   exampleTranslation: string;
+  simpleBreakdown?: string; // Mổ xẻ cấu trúc câu đơn giản cho người A1
   etsTrapTip?: string;
 }
 
 export interface ToeicLessonResult {
   topic: string;
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
   situationType: 'email' | 'memo' | 'meeting' | 'chat' | 'announcement';
   situationTitle: string;
   scenarioText: string;
