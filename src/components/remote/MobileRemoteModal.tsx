@@ -12,7 +12,10 @@ import {
   ExternalLink,
   Lock,
   Sparkles,
-  AlertCircle,
+  QrCode,
+  ArrowRight,
+  Globe,
+  Loader2,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -78,10 +81,10 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
     if (!targetUrl) return;
 
     QRCode.toDataURL(targetUrl, {
-      width: 260,
+      width: 280,
       margin: 2,
       color: {
-        dark: '#09090b',
+        dark: '#0a0a0c',
         light: '#ffffff',
       },
     })
@@ -101,10 +104,10 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
         : networkInfo.tunnel.url;
 
     QRCode.toDataURL(targetUrl, {
-      width: 260,
+      width: 280,
       margin: 2,
       color: {
-        dark: '#09090b',
+        dark: '#0a0a0c',
         light: '#ffffff',
       },
     })
@@ -141,6 +144,7 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
   };
 
   const copyToClipboard = (text: string, label: string) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopied(label);
     setTimeout(() => setCopied(null), 2000);
@@ -160,30 +164,30 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
       : networkInfo.tunnel.url
     : '';
 
-  const isTunnelActive = networkInfo?.tunnel?.active && networkInfo?.tunnel?.url;
+  const isTunnelActive = Boolean(networkInfo?.tunnel?.active && networkInfo?.tunnel?.url);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-xl max-w-xl w-full flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/70">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-lg w-full flex flex-col shadow-2xl overflow-hidden">
+        {/* Sleek Top Header */}
+        <div className="px-5 py-4 border-b border-zinc-850 bg-zinc-900/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">
-              <Smartphone className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center shadow-inner">
+              <QrCode className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white tracking-tight">
-                  {lang === 'vi' ? 'Bản Remote Mobile (Quét QR)' : 'Mobile Remote Access (Scan QR)'}
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                  {lang === 'vi' ? 'Quét QR Kết Nối Điện Thoại' : 'Connect Phone via QR Code'}
                 </h3>
-                <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800/80 px-2 py-0.5 rounded-full">
                   LIVE
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-[11px] text-zinc-400 mt-0.5 font-sans">
                 {lang === 'vi'
-                  ? 'Mở điện thoại quét mã để luyện phát âm, flashcard và bài tập bất cứ đâu'
-                  : 'Scan QR with your phone to practice speaking, flashcards, and lessons anywhere'}
+                  ? 'Luyện phát âm & Flashcard một tay mượt mà trên smartphone'
+                  : 'Practice speech & flashcards on your mobile device'}
               </p>
             </div>
           </div>
@@ -191,149 +195,140 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer border border-zinc-800"
+            className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition-colors cursor-pointer border border-zinc-800"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Tab Switcher: LAN vs 4G/5G Cloudflare */}
-        <div className="px-6 pt-4 pb-2 flex items-center gap-2 border-b border-zinc-850 bg-zinc-950">
-          <button
-            type="button"
-            onClick={() => setActiveTab('lan')}
-            className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === 'lan'
-                ? 'bg-sky-950/60 border border-sky-500/80 text-sky-300 shadow-sm'
-                : 'bg-zinc-900/60 border border-zinc-800 text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Wifi className="w-4 h-4" />
-            <span>{lang === 'vi' ? '1. Wi-Fi / LAN Nội Bộ' : '1. Local Wi-Fi / LAN'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('tunnel')}
-            className={`flex-1 py-2.5 px-3 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeTab === 'tunnel'
-                ? 'bg-amber-950/60 border border-amber-500/80 text-amber-300 shadow-sm'
-                : 'bg-zinc-900/60 border border-zinc-800 text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Radio className="w-4 h-4" />
-            <span>{lang === 'vi' ? '2. 4G / 5G (Cloudflare Tunnel)' : '2. 4G / 5G (Cloudflare)'}</span>
-            {isTunnelActive && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            )}
-          </button>
-        </div>
-
-        {/* Target Destination Switcher (Remote Mobile UI vs Full App) */}
-        <div className="px-6 py-2.5 bg-zinc-900/40 border-b border-zinc-850 flex items-center justify-between text-xs font-mono">
-          <span className="text-zinc-400 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-            {lang === 'vi' ? 'Giao diện đích khi quét:' : 'Destination interface:'}
-          </span>
-          <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+        {/* Tab Switcher: Segmented Modern Control */}
+        <div className="p-3 bg-zinc-950 border-b border-zinc-850">
+          <div className="grid grid-cols-2 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
             <button
               type="button"
-              onClick={() => setOpenTarget('remote')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                openTarget === 'remote'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setActiveTab('lan')}
+              className={`py-2 px-3 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeTab === 'lan'
+                  ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              📱 Bản Remote Mobile (Đề xuất)
+              <Wifi className={`w-3.5 h-3.5 ${activeTab === 'lan' ? 'text-sky-400' : ''}`} />
+              <span>Wi-Fi / LAN Nội Bộ</span>
             </button>
+
             <button
               type="button"
-              onClick={() => setOpenTarget('full')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                openTarget === 'full'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+              onClick={() => setActiveTab('tunnel')}
+              className={`py-2 px-3 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeTab === 'tunnel'
+                  ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              💻 Toàn Bộ App
+              <Radio className={`w-3.5 h-3.5 ${activeTab === 'tunnel' ? 'text-amber-400' : ''}`} />
+              <span>4G / 5G Cloudflare</span>
+              {isTunnelActive && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Content Body */}
-        <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+        {/* Main Content Area */}
+        <div className="p-5 overflow-y-auto max-h-[65vh] space-y-4">
           {/* TAB 1: LAN / Wi-Fi */}
           {activeTab === 'lan' && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="flex flex-col sm:flex-row items-center gap-6 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800">
-                {/* QR Code Container */}
-                <div className="p-3 bg-white rounded-xl shadow-lg shrink-0 flex items-center justify-center">
+            <div className="space-y-4 animate-fade-in text-center">
+              {/* QR Code Presentation Box */}
+              <div className="relative inline-block mx-auto">
+                <div className="p-4 bg-white rounded-2xl shadow-xl shadow-sky-500/5 border-4 border-zinc-800/60 inline-flex flex-col items-center justify-center">
                   {lanQrDataUrl ? (
                     <img
                       src={lanQrDataUrl}
                       alt="LAN Remote QR Code"
-                      className="w-48 h-48 block rounded-md"
+                      className="w-48 h-48 sm:w-52 sm:h-52 block rounded-lg"
                     />
                   ) : (
                     <div className="w-48 h-48 flex items-center justify-center text-zinc-500 font-mono text-xs">
-                      {loading ? 'Đang tạo mã QR...' : 'Chưa có mạng LAN'}
+                      <Loader2 className="w-6 h-6 animate-spin text-sky-400" />
                     </div>
                   )}
+                  <div className="mt-2 text-[10px] font-mono font-bold text-zinc-800 tracking-wider flex items-center gap-1 uppercase">
+                    <Wifi className="w-3 h-3 text-sky-600" />
+                    <span>MẠNG WI-FI NỘI BỘ</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* URL & Action Bar */}
+              <div className="space-y-2 text-left">
+                <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block font-bold">
+                  {lang === 'vi' ? 'Đường dẫn kết nối điện thoại:' : 'Mobile Connection URL:'}
+                </span>
+
+                <div className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-between gap-2 shadow-inner">
+                  <span className="text-xs font-mono text-sky-300 font-bold truncate">
+                    {currentLanUrl || 'http://127.0.0.1:3000/remote'}
+                  </span>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(currentLanUrl, 'lan')}
+                      className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-750 text-zinc-200 hover:text-white rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="Sao chép"
+                    >
+                      {copied === 'lan' ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Đã chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Sao chép</span>
+                        </>
+                      )}
+                    </button>
+
+                    <a
+                      href={currentLanUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+                      title="Mở tab mới trên máy tính"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2-Step Quick Guide */}
+              <div className="grid grid-cols-2 gap-2 text-left pt-1">
+                <div className="p-3 bg-zinc-900/40 rounded-xl border border-zinc-850 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                    <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 text-[10px] flex items-center justify-center font-mono">
+                      1
+                    </span>
+                    <span>Cùng Wi-Fi</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
+                    Điện thoại và máy tính kết nối chung mạng Wi-Fi.
+                  </p>
                 </div>
 
-                {/* Connection info */}
-                <div className="flex-1 space-y-3 text-left">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-mono text-sky-400 uppercase tracking-wider block font-bold">
-                      {lang === 'vi' ? 'Địa chỉ mạng LAN cục bộ:' : 'Local LAN Address:'}
+                <div className="p-3 bg-zinc-900/40 rounded-xl border border-zinc-850 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] flex items-center justify-center font-mono">
+                      2
                     </span>
-                    <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono text-white font-bold truncate">
-                        {currentLanUrl || 'http://127.0.0.1:3000/remote'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(currentLanUrl, 'lan')}
-                        className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-md transition-colors shrink-0"
-                        title="Sao chép liên kết"
-                      >
-                        {copied === 'lan' ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
+                    <span>Quét mã QR</span>
                   </div>
-
-                  <div className="space-y-1.5 text-xs text-zinc-400 leading-relaxed font-sans">
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-bold">✓</span>
-                      <span>
-                        {lang === 'vi'
-                          ? 'Mở Camera điện thoại hoặc Zalo quét trực tiếp mã QR ở trên.'
-                          : 'Open Phone Camera or QR scanner to open instantly.'}
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-sky-400 font-bold">✓</span>
-                      <span>
-                        {lang === 'vi'
-                          ? 'Đảm bảo điện thoại và máy tính đang kết nối chung mạng Wi-Fi.'
-                          : 'Ensure your phone and computer are on the same Wi-Fi.'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={fetchNetworkInfo}
-                    className="text-xs font-mono text-zinc-400 hover:text-zinc-200 flex items-center gap-1.5 transition-colors pt-1 cursor-pointer"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                    <span>{lang === 'vi' ? 'Làm mới IP mạng' : 'Refresh network info'}</span>
-                  </button>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
+                    Dùng Camera hoặc Zalo quét mã là vào học ngay.
+                  </p>
                 </div>
               </div>
             </div>
@@ -341,36 +336,31 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
 
           {/* TAB 2: 4G / 5G CLOUDFLARE TUNNEL */}
           {activeTab === 'tunnel' && (
-            <div className="space-y-4 animate-fade-in">
-              {/* Security Banner */}
-              <div className="p-3 bg-amber-950/30 border border-amber-800/60 rounded-xl flex items-start gap-2.5 text-amber-200 text-xs">
-                <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
+            <div className="space-y-4 animate-fade-in text-center">
+              {/* Security Badge Card */}
+              <div className="p-3 bg-amber-950/25 border border-amber-800/40 rounded-xl text-left flex items-start gap-2.5 text-amber-200 text-xs">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="leading-relaxed font-sans">
                   <strong className="text-amber-300 font-bold block mb-0.5">
-                    {lang === 'vi'
-                      ? 'Đường Hầm Mã Hóa Đầu Cuối (Cloudflare Zero-Trust Tunnel)'
-                      : 'End-to-End Encrypted Cloudflare Tunnel'}
+                    Đường Hầm Cloudflare Tunnel (Bảo Mật Tuyệt Đối)
                   </strong>
-                  {lang === 'vi'
-                    ? 'Bảo mật tuyệt đối qua hạ tầng mạng biên Cloudflare toàn cầu. Tự động mã hóa HTTPS TLS 1.3, không để lộ địa chỉ IP nhà riêng và không cần mở cổng modem.'
-                    : 'Encrypted via Cloudflare Edge Network. Provides HTTPS TLS 1.3 encryption without opening router ports or exposing home IP.'}
+                  Mã hóa HTTPS TLS 1.3 qua mạng biên toàn cầu của Cloudflare. Không để lộ IP nhà, không cần mở port modem, truy cập mọi lúc mọi nơi bằng mạng 4G/5G.
                 </div>
               </div>
 
               {!isTunnelActive ? (
-                /* Start Tunnel CTA */
-                <div className="p-6 bg-zinc-900/50 rounded-xl border border-zinc-800 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
-                    <Radio className="w-6 h-6" />
+                /* Inactive State: CTA to start tunnel */
+                <div className="p-6 bg-zinc-900/50 rounded-2xl border border-zinc-800 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-sm">
+                    <Radio className="w-7 h-7" />
                   </div>
-                  <div>
+
+                  <div className="space-y-1">
                     <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                      {lang === 'vi' ? 'Đường hầm Cloudflare đang tắt' : 'Cloudflare Tunnel is inactive'}
+                      Đường hầm Cloudflare đang tắt
                     </h4>
-                    <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
-                      {lang === 'vi'
-                        ? 'Nhấn nút bên dưới để tạo ngay liên kết HTTPS bảo mật công khai. Bạn có thể dùng 4G, 5G ở quán café, trên xe buýt hoặc bất cứ đâu.'
-                        : 'Click below to launch an instant public HTTPS tunnel to connect via 4G/5G mobile data.'}
+                    <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed font-sans">
+                      Bấm nút dưới đây để tạo liên kết HTTPS bảo mật công khai, sẵn sàng quét QR khi dùng 4G hoặc 5G.
                     </p>
                   </div>
 
@@ -378,125 +368,179 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
                     type="button"
                     disabled={tunnelStarting}
                     onClick={handleStartTunnel}
-                    className="px-6 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-mono text-xs font-bold flex items-center gap-2 mx-auto cursor-pointer transition-all shadow-md"
+                    className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-zinc-950 font-mono text-xs font-black flex items-center gap-2 mx-auto cursor-pointer transition-all shadow-lg shadow-amber-500/20 hover:scale-[1.02]"
                   >
-                    <Power className={`w-4 h-4 ${tunnelStarting ? 'animate-spin' : ''}`} />
-                    <span>
-                      {tunnelStarting
-                        ? lang === 'vi'
-                          ? 'Đang kết nối Cloudflare...'
-                          : 'Connecting to Cloudflare...'
-                        : lang === 'vi'
-                        ? '🚀 Khởi Động Đường Hầm (1-Click)'
-                        : '🚀 Start Cloudflare Tunnel (1-Click)'}
-                    </span>
+                    {tunnelStarting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                        <span>Đang kết nối Cloudflare...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Power className="w-4 h-4 text-zinc-950" />
+                        <span>🚀 Bật Đường Hầm Cloudflare (1-Click)</span>
+                      </>
+                    )}
                   </button>
 
                   {networkInfo?.tunnel?.error && (
-                    <p className="text-xs font-mono text-rose-400 bg-rose-950/40 p-2 rounded-lg border border-rose-900/60">
+                    <p className="text-xs font-mono text-rose-400 bg-rose-950/40 p-2.5 rounded-xl border border-rose-900/60">
                       {networkInfo.tunnel.error}
                     </p>
                   )}
                 </div>
               ) : (
-                /* Tunnel is Active with QR */
-                <div className="flex flex-col sm:flex-row items-center gap-6 bg-zinc-900/50 p-4 rounded-xl border border-zinc-800">
-                  {/* QR Code Container */}
-                  <div className="p-3 bg-white rounded-xl shadow-lg shrink-0 flex items-center justify-center">
-                    {tunnelQrDataUrl ? (
-                      <img
-                        src={tunnelQrDataUrl}
-                        alt="Cloudflare 4G/5G QR Code"
-                        className="w-48 h-48 block rounded-md"
-                      />
-                    ) : (
-                      <div className="w-48 h-48 flex items-center justify-center text-zinc-500 font-mono text-xs">
-                        Đang tạo mã QR...
+                /* Active Tunnel with QR Code */
+                <div className="space-y-4">
+                  <div className="relative inline-block mx-auto">
+                    <div className="p-4 bg-white rounded-2xl shadow-xl shadow-amber-500/5 border-4 border-zinc-800/60 inline-flex flex-col items-center justify-center">
+                      {tunnelQrDataUrl ? (
+                        <img
+                          src={tunnelQrDataUrl}
+                          alt="Cloudflare 4G/5G QR Code"
+                          className="w-48 h-48 sm:w-52 sm:h-52 block rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-48 h-48 flex items-center justify-center text-zinc-500 font-mono text-xs">
+                          <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                        </div>
+                      )}
+                      <div className="mt-2 text-[10px] font-mono font-bold text-zinc-800 tracking-wider flex items-center gap-1 uppercase">
+                        <Lock className="w-3 h-3 text-amber-600" />
+                        <span>CLOUDFLARE 4G/5G HTTPS</span>
                       </div>
-                    )}
+                    </div>
                   </div>
 
-                  {/* Connection info */}
-                  <div className="flex-1 space-y-3 text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-bold text-emerald-400 font-mono">
-                        {lang === 'vi' ? 'ĐƯỜNG HẦM ĐANG KẾT NỐI' : 'TUNNEL ACTIVE'}
+                  {/* URL & Action Bar */}
+                  <div className="space-y-2 text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block font-bold">
+                        Liên kết Cloudflare công khai:
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Đang truyền phát
                       </span>
                     </div>
 
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-mono text-amber-400 uppercase tracking-wider block font-bold">
-                        {lang === 'vi' ? 'Liên kết HTTPS Bảo Mật 4G/5G:' : 'Public HTTPS URL (4G/5G):'}
+                    <div className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-between gap-2 shadow-inner">
+                      <span className="text-xs font-mono text-amber-300 font-bold truncate">
+                        {currentTunnelUrl}
                       </span>
-                      <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg flex items-center justify-between gap-2">
-                        <span className="text-xs font-mono text-white font-bold truncate">
-                          {currentTunnelUrl}
-                        </span>
+
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
                           onClick={() => copyToClipboard(currentTunnelUrl, 'tunnel')}
-                          className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-md transition-colors shrink-0"
-                          title="Sao chép liên kết"
+                          className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-750 text-zinc-200 hover:text-white rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          title="Sao chép"
                         >
                           {copied === 'tunnel' ? (
-                            <Check className="w-4 h-4 text-emerald-400" />
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400">Đã chép</span>
+                            </>
                           ) : (
-                            <Copy className="w-4 h-4" />
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                              <span>Sao chép</span>
+                            </>
                           )}
                         </button>
+
+                        <a
+                          href={currentTunnelUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+                          title="Mở tab mới trên máy tính"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-zinc-400 font-sans">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>
-                        {lang === 'vi'
-                          ? 'Dùng điện thoại bật 4G/5G quét mã QR là truy cập được ngay.'
-                          : 'Connect anytime using 4G/5G cellular data.'}
-                      </span>
-                    </div>
-
-                    <div className="pt-2 flex items-center gap-3">
+                    <div className="pt-2 flex items-center justify-between">
                       <button
                         type="button"
                         onClick={handleStopTunnel}
                         disabled={tunnelStarting}
-                        className="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800/80 text-rose-300 hover:text-rose-100 font-mono text-xs font-bold transition-all cursor-pointer"
+                        className="text-xs font-mono text-rose-400 hover:text-rose-300 py-1 px-2.5 rounded-lg hover:bg-rose-950/40 transition-colors cursor-pointer"
                       >
-                        {lang === 'vi' ? 'Tắt Đường Hầm' : 'Stop Tunnel'}
+                        [ Tắt đường hầm ]
                       </button>
 
-                      <a
-                        href={currentTunnelUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-mono flex items-center gap-1.5 transition-colors"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>{lang === 'vi' ? 'Mở thử tab mới' : 'Test Open'}</span>
-                      </a>
+                      <span className="text-[11px] font-sans text-zinc-400">
+                        Bật 4G/5G trên điện thoại và quét QR để vào học.
+                      </span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* Destination Interface Mode Picker */}
+          <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-850 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-zinc-300 font-medium">
+              <Sparkles className="w-4 h-4 text-sky-400" />
+              <span>Giao diện khi quét:</span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800 font-mono text-[11px]">
+              <button
+                type="button"
+                onClick={() => setOpenTarget('remote')}
+                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  openTarget === 'remote'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                📱 Bản Mobile Gọn
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpenTarget('full')}
+                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                  openTarget === 'full'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                💻 Toàn Bộ App
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-zinc-800 bg-zinc-900/60 flex items-center justify-between font-mono text-xs text-zinc-400">
-          <span className="flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Port: <strong className="text-zinc-200">{networkInfo?.port || 3000}</strong></span>
+        <div className="px-5 py-3 border-t border-zinc-850 bg-zinc-900/40 flex items-center justify-between font-mono text-xs text-zinc-400">
+          <span className="flex items-center gap-1 text-[11px]">
+            <Globe className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Port: {networkInfo?.port || 3000}</span>
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg border border-zinc-700 font-bold transition-colors cursor-pointer"
-          >
-            {lang === 'vi' ? 'Đóng' : 'Close'}
-          </button>
+
+          <div className="flex items-center gap-2">
+            <a
+              href="/remote"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-750 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Xem thử Remote</span>
+              <ArrowRight className="w-3 h-3" />
+            </a>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     </div>

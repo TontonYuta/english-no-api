@@ -33,14 +33,16 @@ export interface FlashcardDeckViewProps {
 }
 
 export const FlashcardDeckView: React.FC<FlashcardDeckViewProps> = ({
-  items: initialItems,
+  items: initialItems = [],
   title = 'BỘ THẺ FLASHCARD ÔN TẬP',
   onClose,
   onWordMastered,
   onDeckCompleted,
   lang = 'vi',
 }) => {
-  const [deck, setDeck] = useState<FlashcardItem[]>(() => [...initialItems]);
+  const [deck, setDeck] = useState<FlashcardItem[]>(() =>
+    Array.isArray(initialItems) ? [...initialItems] : []
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -60,7 +62,7 @@ export const FlashcardDeckView: React.FC<FlashcardDeckViewProps> = ({
 
   // Sync if initialItems change
   useEffect(() => {
-    setDeck([...initialItems]);
+    setDeck(Array.isArray(initialItems) ? [...initialItems] : []);
     setCurrentIndex(0);
     setIsFlipped(false);
     setShowHint(false);
