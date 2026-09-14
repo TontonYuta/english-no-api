@@ -1003,6 +1003,21 @@ test('resetAllAppData: Wipes all learning memory, streak, level and resets to cl
   assert.equal(localStorage.getItem('playeng_last_progress_date'), null, 'Progress date must be reset');
 });
 
+test('tunnelService: getLocalIpAddresses returns valid IPv4 addresses and detects cloudflared', async () => {
+  const { getLocalIpAddresses, getCloudflaredPath, getTunnelStatus } = await import('../server/tunnelService');
+  const ips = getLocalIpAddresses();
+  assert.ok(Array.isArray(ips), 'Must return an array of IP strings');
+  assert.ok(ips.length > 0, 'Must contain at least 1 IP address');
+  assert.match(ips[0], /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, 'IP must be valid IPv4 format');
+
+  const binaryPath = getCloudflaredPath();
+  assert.ok(typeof binaryPath === 'string', 'Binary path must be string');
+
+  const status = getTunnelStatus();
+  assert.ok('active' in status, 'Status must contain active flag');
+});
+
+
 
 
 

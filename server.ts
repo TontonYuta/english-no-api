@@ -7,6 +7,12 @@ import { evaluateSpeechLocally } from './server/speechEvaluator';
 import { generateContextualReply } from './src/utils/chatUtils';
 import { getTTSAudioBuffer } from './server/ttsService';
 import {
+  getLocalIpAddresses,
+  startCloudflareTunnel,
+  stopCloudflareTunnel,
+  getTunnelStatus,
+} from './server/tunnelService';
+import {
   AutomationStreamPayload,
   PipelineStepId,
   StepState,
@@ -57,6 +63,48 @@ app.get('/api/playwright/status', (req: Request, res: Response) => {
       'Pedagogical fallback generator for cloud sandboxes',
     ],
   });
+});
+
+// Network & Mobile Remote Info endpoint (Local LAN + Cloudflare Tunnel)
+app.get('/api/network/info', (req: Request, res: Response) => {
+  try {
+    const lanIps = getLocalIpAddresses();
+    const primaryIp = lanIps[0] || '127.0.0.1';
+    const tunnel = getTunnelStatus();
+
+    res.json({
+      port: PORT,
+      lanIps,
+      lanUrl: `http://${primaryIp}:${PORT}`,
+      remoteLanUrl: `http://${primaryIp}:${PORT}/remote`,
+      tunnel: {
+        ...tunnel,
+        remoteUrl: tunnel.url ? `${tunnel.url}/remote` : null,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Start Cloudflare Tunnel (for 4G / 5G zero-config HTTPS tunnel)
+app.post('/api/tunnel/start', async (req: Request, res: Response) => {
+  try {
+    const status = await startCloudflareTunnel(PORT);
+    res.json(status);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Stop Cloudflare Tunnel
+app.post('/api/tunnel/stop', (req: Request, res: Response) => {
+  try {
+    const status = stopCloudflareTunnel();
+    res.json(status);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Evaluate user speech endpoint
@@ -312,7 +360,10 @@ app.post('/api/playwright/run', async (req: Request, res: Response) => {
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        allowedHosts: true,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

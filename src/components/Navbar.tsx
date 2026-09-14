@@ -13,6 +13,8 @@ import {
   ChevronDown,
   Zap,
   Target,
+  Smartphone,
+  QrCode,
 } from 'lucide-react';
 import { translations } from '../translations';
 
@@ -28,6 +30,7 @@ interface NavbarProps {
   lang: Language;
   onToggleLang: () => void;
   onOpenSettings: () => void;
+  onOpenMobileRemote?: () => void;
   focusMode?: boolean;
   onToggleFocusMode?: () => void;
 }
@@ -44,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   lang,
   onToggleLang,
   onOpenSettings,
+  onOpenMobileRemote,
   focusMode = false,
   onToggleFocusMode,
 }) => {
@@ -234,6 +238,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>{lang === 'vi' ? '🇻🇳' : '🇬🇧'}</span>
             <span className="font-bold">{lang === 'vi' ? 'VI' : 'EN'}</span>
           </button>
+
+          {/* Mobile Remote QR Button */}
+          {onOpenMobileRemote && (
+            <button
+              id="navbar-mobile-remote-btn"
+              type="button"
+              onClick={onOpenMobileRemote}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/40 hover:bg-sky-900/60 border border-sky-500/40 text-xs font-mono font-bold text-sky-300 hover:text-sky-200 transition-all cursor-pointer shadow-xs"
+              title={lang === 'vi' ? 'Mở Remote Mobile qua mã QR (LAN & 4G/5G Cloudflare)' : 'Open Mobile Remote via QR (LAN & 4G/5G Cloudflare)'}
+            >
+              <QrCode className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">Mobile QR</span>
+            </button>
+          )}
 
           {/* Settings Button */}
           <button

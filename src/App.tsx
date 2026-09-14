@@ -22,6 +22,8 @@ import { QuizForm } from './components/forms/QuizForm';
 import { AutomationModal } from './components/AutomationModal';
 import { PromptPreviewModal } from './components/PromptPreviewModal';
 import { SettingsModal } from './components/SettingsModal';
+import { MobileRemoteModal } from './components/remote/MobileRemoteModal';
+import { MobileRemoteView } from './components/remote/MobileRemoteView';
 import { WritingResultView } from './components/results/WritingResultView';
 import { VocabResultView } from './components/results/VocabResultView';
 import { RoleplayResultView } from './components/results/RoleplayResultView';
@@ -169,6 +171,16 @@ export default function App() {
     return savedLang === 'en' ? 'en' : 'vi';
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileRemoteModalOpen, setIsMobileRemoteModalOpen] = useState(false);
+  const [isMobileRemoteMode, setIsMobileRemoteMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        window.location.pathname.startsWith('/remote') ||
+        window.location.search.includes('remote')
+      );
+    }
+    return false;
+  });
 
   const t = translations[lang];
 
@@ -470,6 +482,23 @@ export default function App() {
     };
   };
 
+  if (isMobileRemoteMode) {
+    return (
+      <MobileRemoteView
+        settings={settings}
+        userLevel={userLevel}
+        streak={streak}
+        onSetUserLevel={handleSetUserLevel}
+        onSwitchToFullApp={() => {
+          setIsMobileRemoteMode(false);
+          if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+            window.history.pushState({}, '', '/');
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0b0e] text-neutral-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       {/* Top Header */}
@@ -485,6 +514,7 @@ export default function App() {
         lang={lang}
         onToggleLang={handleToggleLang}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenMobileRemote={() => setIsMobileRemoteModalOpen(true)}
         focusMode={focusMode}
         onToggleFocusMode={handleToggleFocusMode}
       />
@@ -891,6 +921,13 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
+      />
+
+      {/* Mobile Remote QR Modal */}
+      <MobileRemoteModal
+        isOpen={isMobileRemoteModalOpen}
+        onClose={() => setIsMobileRemoteModalOpen(false)}
+        lang={lang}
       />
     </div>
   );
