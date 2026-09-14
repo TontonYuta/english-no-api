@@ -1,4 +1,16 @@
-import { TaskType, TaskResult, WritingResult, VocabResult, RoleplayResult, QuizResult, ToeicLessonResult } from '../src/types';
+import {
+  TaskType,
+  TaskResult,
+  WritingResult,
+  VocabResult,
+  RoleplayResult,
+  QuizResult,
+  ToeicLessonResult,
+  GrammarLessonResult,
+  ReadingLessonResult,
+  ListeningLessonResult,
+  ReflexChallengeResult
+} from '../src/types';
 
 export function generateRealisticFallback(taskType: TaskType, inputData: Record<string, unknown>): TaskResult {
   switch (taskType) {
@@ -260,12 +272,12 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             id: 1,
             question: 'Had the weather conditions _______ so volatile, the harbor authorities would not have suspended the ferry services.',
             options: [
-              'not been',
-              'not were',
               'had not been',
+              'not were',
+              'not been',
               'haven’t been',
             ],
-            correctAnswerIndex: 0,
+            correctAnswerIndex: 2,
             explanation: 'This is an inverted Third Conditional expressing an unreal past condition. The standard form "If the weather had not been..." becomes "Had the weather not been..." via subject-auxiliary inversion. "Had not been" is incorrect because "Had" has already been placed before the subject.',
             grammarRule: 'Third Conditional Inversion with Negative Adverbial',
           },
@@ -286,12 +298,12 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             id: 3,
             question: 'Should any unexpected discrepancies _______ during the audit, please inform the financial controller without delay.',
             options: [
-              'arise',
               'arises',
-              'arose',
               'will arise',
+              'arose',
+              'arise',
             ],
-            correctAnswerIndex: 0,
+            correctAnswerIndex: 3,
             explanation: 'Inverted First Conditional with "Should" replaces "If any unexpected discrepancies should arise". After the modal auxiliary "Should", the verb must remain in its bare infinitive form ("arise").',
             grammarRule: 'First Conditional Inversion with Modal "Should"',
           },
@@ -312,12 +324,12 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             id: 5,
             question: 'Provided that all safety protocols _______ adhered to, the plant will resume full operations on Monday.',
             options: [
+              'were strictly',
               'are strictly',
               'will be strictly',
-              'were strictly',
               'would be strictly',
             ],
-            correctAnswerIndex: 0,
+            correctAnswerIndex: 1,
             explanation: '"Provided that" acts as a conditional conjunction equivalent to "if/on condition that". In present-future conditionals, the conditional clause takes the present simple ("are strictly adhered to"), not the future tense.',
             grammarRule: 'Conditional Conjunctions ("Provided that / As long as")',
           },
@@ -349,6 +361,18 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
               partOfSpeech: 'noun (countable)',
               vietnameseMeaning: 'Lịch trình, thời gian biểu làm việc',
               wordFamily: 'schedule (n - lịch) / schedule (v - lên lịch)',
+              wordFamilyDetails: {
+                noun: 'schedule',
+                verb: 'schedule',
+                adjective: 'scheduled',
+              },
+              wordFormExercise: {
+                sentence: 'The project manager asked the team to _______ the weekly status meeting.',
+                options: ['schedule', 'scheduled', 'scheduling', 'scheduler'],
+                correctIndex: 0,
+                targetForm: 'verb',
+                explanation: "Sau cấu trúc 'ask someone to + V (bare infinitive)', ta cần một động từ nguyên thể 'schedule'."
+              },
               toeicParaphrase: 'schedule ≈ timetable, agenda',
               exampleSentence: 'I have a busy schedule this morning.',
               exampleTranslation: 'Sáng nay tôi có một lịch trình rất bận rộn.',
@@ -362,6 +386,18 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
               partOfSpeech: 'noun (countable)',
               vietnameseMeaning: 'Đồng nghiệp cùng công ty',
               wordFamily: 'colleague (n)',
+              wordFamilyDetails: {
+                noun: 'colleague',
+                adjective: 'collegial',
+                adverb: 'collegially',
+              },
+              wordFormExercise: {
+                sentence: 'Mr. David works well with all of his _______ in the sales department.',
+                options: ['colleague', 'colleagues', 'collegial', 'collegially'],
+                correctIndex: 1,
+                targetForm: 'noun',
+                explanation: "Sau lượng từ 'all of his', ta cần một danh từ đếm được số nhiều 'colleagues' chỉ người."
+              },
               toeicParaphrase: 'colleague ≈ coworker, teammate',
               exampleSentence: 'Sarah is my new colleague in marketing.',
               exampleTranslation: 'Sarah là đồng nghiệp mới của tôi ở phòng marketing.',
@@ -375,6 +411,18 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
               partOfSpeech: 'verb',
               vietnameseMeaning: 'Xác nhận (lịch hẹn, email, thông tin)',
               wordFamily: 'confirm (v) - confirmation (n - sự xác nhận)',
+              wordFamilyDetails: {
+                noun: 'confirmation',
+                verb: 'confirm',
+                adjective: 'confirmed',
+              },
+              wordFormExercise: {
+                sentence: 'Please send an email _______ of your hotel booking as soon as possible.',
+                options: ['confirm', 'confirmation', 'confirmed', 'confirming'],
+                correctIndex: 1,
+                targetForm: 'noun',
+                explanation: "Cụm danh từ 'email confirmation' (sự xác nhận qua email) cần danh từ 'confirmation' làm danh từ chính."
+              },
               toeicParaphrase: 'confirm ≈ verify, check',
               exampleSentence: 'Please confirm the meeting time by email.',
               exampleTranslation: 'Vui lòng xác nhận giờ họp qua email.',
@@ -414,6 +462,19 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             partOfSpeech: 'verb (transitive)',
             vietnameseMeaning: 'Đáp ứng, thu xếp thỏa đáng (nguyện vọng, yêu cầu, lịch trình)',
             wordFamily: 'accommodate (v) - accommodation (n) - accommodating (adj)',
+            wordFamilyDetails: {
+              noun: 'accommodation',
+              verb: 'accommodate',
+              adjective: 'accommodating',
+              adverb: 'accommodatingly'
+            },
+            wordFormExercise: {
+              sentence: 'The hotel management made every effort to be _______ to our special requests.',
+              options: ['accommodate', 'accommodation', 'accommodating', 'accommodatingly'],
+              correctIndex: 2,
+              targetForm: 'adjective',
+              explanation: "Sau động từ liên kết 'to be', ta cần một tính từ 'accommodating' (chu đáo, sẵn lòng giúp đỡ) để bổ nghĩa cho chủ ngữ."
+            },
             toeicParaphrase: 'accommodate ≈ cater to, fulfill, meet (a demand/need)',
             exampleSentence: 'The conference organizers were happy to accommodate our special dietary requests.',
             exampleTranslation: 'Ban tổ chức hội nghị rất sẵn lòng đáp ứng các yêu cầu ăn uống đặc biệt của chúng tôi.',
@@ -426,6 +487,18 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             partOfSpeech: 'adjective phrase',
             vietnameseMeaning: 'Phụ thuộc vào, tùy thuộc vào điều kiện nào đó',
             wordFamily: 'contingency (n - phương án dự phòng) - contingent (adj)',
+            wordFamilyDetails: {
+              noun: 'contingency',
+              adjective: 'contingent',
+              adverb: 'contingently'
+            },
+            wordFormExercise: {
+              sentence: 'The year-end bonus is strictly _______ upon achieving our quarterly revenue target.',
+              options: ['contingency', 'contingent', 'contingently', 'contingence'],
+              correctIndex: 1,
+              targetForm: 'adjective',
+              explanation: "Cấu trúc 'is strictly contingent upon' cần tính từ 'contingent' theo sau to be và trạng từ strictly."
+            },
             toeicParaphrase: 'contingent upon ≈ dependent on, subject to, conditional upon',
             exampleSentence: 'The merger is contingent upon receiving regulatory approval from the antitrust commission.',
             exampleTranslation: 'Thương vụ sáp nhập phụ thuộc vào việc nhận được sự chấp thuận từ ủy ban chống độc quyền.',
@@ -438,6 +511,18 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             partOfSpeech: 'noun (countable)',
             vietnameseMeaning: 'Điều khoản quy định bắt buộc trong hợp đồng/thỏa thuận',
             wordFamily: 'stipulate (v) - stipulation (n)',
+            wordFamilyDetails: {
+              noun: 'stipulation',
+              verb: 'stipulate',
+              adjective: 'stipulated'
+            },
+            wordFormExercise: {
+              sentence: 'The partnership contract clearly _______ that all financial audits must be conducted quarterly.',
+              options: ['stipulation', 'stipulates', 'stipulatedly', 'stipulating'],
+              correctIndex: 1,
+              targetForm: 'verb',
+              explanation: "Chủ ngữ 'The partnership contract' (ngôi thứ 3 số ít) cần một động từ chính 'stipulates' chia thì hiện tại đơn."
+            },
             toeicParaphrase: 'stipulation ≈ clause, provision, condition, requirement',
             exampleSentence: 'Failure to adhere to the environmental stipulations will result in severe contractual penalties.',
             exampleTranslation: 'Việc không tuân thủ các điều khoản về môi trường sẽ dẫn đến các hình phạt nghiêm khắc trong hợp đồng.',
@@ -463,6 +548,303 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
       };
 
       return { type: 'toeic_lesson', data: toeicData };
+    }
+
+    case 'grammar_lesson': {
+      const userLevel = (inputData.userLevel as 'A1' | 'A2' | 'B1' | 'B2') || 'A1';
+
+      const grammarA1: GrammarLessonResult = {
+        ruleName: 'Mẫu câu nhờ vả lịch sự công sở với Please',
+        userLevel: 'A1',
+        formula: 'Please + Động từ nguyên thể (Bare Verb) + Tân ngữ / Thông tin bổ trợ',
+        vietnameseMeaning: 'Dùng để nhờ đồng nghiệp hoặc đối tác làm một việc gì đó một cách lịch sự, nhã nhặn nhưng dứt khoát.',
+        explanation: 'Khi mới bắt đầu (A1), thay vì chỉ ra lệnh cộc lốc hoặc dịch từng từ tiếng Việt ("You do this"), ta chỉ cần đặt từ "Please" ở đầu câu rồi cộng ngay với động từ nguyên mẫu không chia. Đây là quy tắc vàng số 1 trong văn hóa email và giao tiếp công sở quốc tế.',
+        examples: [
+          {
+            en: 'Please send me the report before 5 PM.',
+            vi: 'Vui lòng gửi cho tôi bản báo cáo trước 5 giờ chiều.',
+            note: '"send" giữ nguyên thể, không thêm -s, không thêm -ing'
+          },
+          {
+            en: 'Please check your email for the meeting link.',
+            vi: 'Vui lòng kiểm tra email của bạn để lấy đường link cuộc họp.',
+            note: 'Động từ "check" đi trực tiếp sau Please'
+          },
+          {
+            en: 'Please let me know if you need any assistance.',
+            vi: 'Vui lòng cho tôi biết nếu bạn cần bất kỳ sự hỗ trợ nào.',
+            note: 'Cụm mẫu câu cực kỳ phổ biến ở cuối email công sở'
+          }
+        ],
+        vietnameseTrap: 'Người Việt hay quen thói quen thêm "to" sau Please (ví dụ: "Please to send..."), hoặc chia thì theo quá khứ. Nhớ tuyệt đối: Sau Please là ĐỘNG TỪ NGUYÊN THỂ KHÔNG TO!',
+        practiceSentence: {
+          prompt: 'Hãy thử ghép câu: "Vui lòng ký vào tài liệu này và gửi lại cho tôi."',
+          hint: 'Dùng: sign (ký), this document (tài liệu này), send back to me (gửi lại cho tôi)'
+        }
+      };
+
+      const grammarB1: GrammarLessonResult = {
+        ruleName: 'Cấu trúc chịu trách nhiệm: Be responsible for + V-ing/Noun',
+        userLevel: 'B1',
+        formula: 'S + be + responsible for + V-ing / Noun',
+        vietnameseMeaning: 'Diễn đạt ai đó chịu trách nhiệm hoặc đảm nhiệm một phân việc, dự án cụ thể.',
+        explanation: 'Trong mô tả công việc (Job Description) và phỏng vấn, cấu trúc này xuất hiện với tần suất cực cao. Giới từ "for" bắt buộc động từ đi sau phải chuyển thành danh động từ (V-ing).',
+        examples: [
+          {
+            en: 'Our department is responsible for quality assurance and compliance.',
+            vi: 'Phòng ban của chúng tôi chịu trách nhiệm về đảm bảo chất lượng và tuân thủ quy chuẩn.',
+            note: 'responsible for + Danh từ kép'
+          },
+          {
+            en: 'She is responsible for organizing the quarterly shareholder meeting.',
+            vi: 'Cô ấy chịu trách nhiệm tổ chức cuộc họp cổ đông hàng quý.',
+            note: 'organizing ở dạng V-ing sau giới từ for'
+          }
+        ],
+        vietnameseTrap: 'Hay nhầm giữa "responsible for + V-ing" và "take responsibility to...". Sau responsible luôn là giới từ FOR, không dùng to verb.',
+        practiceSentence: {
+          prompt: 'Hãy thử ghép câu: "Tôi chịu trách nhiệm quản lý đội ngũ bán hàng."',
+          hint: 'Dùng: I am responsible for..., managing (quản lý), the sales team (đội ngũ bán hàng)'
+        }
+      };
+
+      return {
+        type: 'grammar_lesson',
+        data: userLevel === 'B1' || userLevel === 'B2' ? grammarB1 : grammarA1
+      };
+    }
+
+    case 'reflex_challenge': {
+      const userLevel = (inputData.userLevel as 'A1' | 'A2' | 'B1' | 'B2') || 'A1';
+      const reviewTerms = (inputData.reviewTerms as string[]) || [];
+
+      const reviewedNames = reviewTerms.length > 0 ? reviewTerms : ['Accommodate', 'Stipulation'];
+
+      const reflexData: ReflexChallengeResult = {
+        sourceType: reviewTerms.length > 0 ? 'memory_review' : 'general',
+        userLevel,
+        reviewedTerms: reviewedNames,
+        situationContext: 'Tình huống: Bạn nhận được email từ khách hàng đối tác yêu cầu điều chỉnh lịch giao hàng sang tuần sau, nhưng hợp đồng quy định cần báo trước 3 ngày.',
+        question: 'Đâu là câu trả lời chuyên nghiệp, thể hiện sự linh hoạt ("Accommodate") nhưng vẫn tuân thủ điều khoản hợp đồng ("Stipulation")?',
+        options: [
+          'No, we cannot change anything because you did not tell us earlier.',
+          'We accommodate you unconditionally with no contract needed.',
+          'We can accommodate your revised delivery schedule, provided that it complies with the stipulations outlined in Section 4.',
+          'You must obey the stipulations and pay fine immediately.'
+        ],
+        correctIndex: 2,
+        explanation: 'Câu trả lời này sử dụng chính xác từ "accommodate" (đáp ứng/thu xếp thỏa đáng) kết hợp "stipulations" (các điều khoản quy định) với cấu trúc liên từ điều kiện "provided that..." (với điều kiện là). Đây là phong thái đàm phán chuẩn mực trong văn hóa kinh doanh quốc tế.',
+        memoryTip: 'Nhớ nhanh: "Accommodate a request" (đáp ứng yêu cầu) + "Contractual stipulations" (các điều khoản hợp đồng) là bộ đôi luôn đi cùng nhau trong Part 7 TOEIC.'
+      };
+
+      return { type: 'reflex_challenge', data: reflexData };
+    }
+
+    case 'reading_lesson': {
+      const userLevel = (inputData.userLevel as 'A1' | 'A2' | 'B1' | 'B2') || 'A1';
+      const topic = (inputData.topic as string) || 'Đời sống, Khám phá & Giao tiếp thường ngày';
+
+      const isTravelOrLife = /du lịch|travel|life|ẩm thực|dining|cà phê|coffee|văn hóa|khám phá/i.test(topic);
+      const isTech = /công nghệ|tech|ai|khoa học|science/i.test(topic);
+
+      let readingData: ReadingLessonResult;
+
+      if (isTravelOrLife) {
+        readingData = {
+          title: 'A Perfect Morning at a Local Coffee Shop',
+          userLevel,
+          topic,
+          genre: 'story',
+          passage: 'Every Saturday morning, Liam visits a cozy neighborhood cafe near the park. The aroma of freshly brewed coffee fills the warm room. He orders a warm croissant and an iced latte, then spends an hour reading his favorite travel novel before meeting his friends.',
+          translationVi: 'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng gần công viên. Hương thơm của cà phê mới pha lan tỏa khắp căn phòng ấm áp. Anh gọi một chiếc bánh sừng bò nóng hổi cùng một ly latte đá, rồi dành một tiếng đọc cuốn tiểu thuyết du lịch yêu thích trước khi gặp bạn bè.',
+          keyVocabulary: [
+            { term: 'Cozy', ipa: '/ˈkoʊ.zi/', meaning: 'Ấm cúng, dễ chịu', contextHint: 'a cozy neighborhood cafe' },
+            { term: 'Aroma', ipa: '/əˈroʊ.mə/', meaning: 'Hương thơm dễ chịu', contextHint: 'aroma of freshly brewed coffee' },
+            { term: 'Neighborhood', ipa: '/ˈneɪ.bər.hʊd/', meaning: 'Khu phố lân cận, quanh nhà', contextHint: 'neighborhood cafe' },
+          ],
+          comprehensionQuiz: {
+            question: 'Liam thường làm gì tại quán cà phê trước khi gặp bạn?',
+            options: [
+              'Làm thêm bài tập văn phòng',
+              'Đọc cuốn tiểu thuyết du lịch yêu thích',
+              'Mua cà phê mang về nhà ngay',
+              'Chạy bộ quanh công viên'
+            ],
+            correctIndex: 1,
+            explanation: 'Trong bài nêu rõ: "then spends an hour reading his favorite travel novel before meeting his friends".'
+          }
+        };
+      } else if (isTech) {
+        readingData = {
+          title: 'How Smart Devices Shape Modern Habits',
+          userLevel,
+          topic,
+          genre: 'article',
+          passage: 'Digital devices have transformed how we organize daily tasks and communicate with others. From smart alarm clocks to language learning apps, technology helps people track their productivity and acquire new skills anytime, anywhere. However, mindful breaks from screens remain essential for mental balance.',
+          translationVi: 'Các thiết bị kỹ thuật số đã thay đổi cách chúng ta sắp xếp công việc và giao tiếp với mọi người. Từ đồng hồ báo thức thông minh đến các ứng dụng học ngoại ngữ, công nghệ giúp mọi người theo dõi hiệu suất và tích lũy kỹ năng mới mọi lúc, mọi nơi. Dẫu vậy, việc chủ động nghỉ ngơi rời xa màn hình vẫn là điều thiết yếu để cân bằng tâm trí.',
+          keyVocabulary: [
+            { term: 'Productivity', ipa: '/ˌproʊ.dʌkˈtɪv.ə.t̬i/', meaning: 'Năng suất, hiệu quả công việc', contextHint: 'track their productivity' },
+            { term: 'Acquire', ipa: '/əˈkwaɪ.ɚ/', meaning: 'Tích lũy, lĩnh hội kỹ năng', contextHint: 'acquire new skills' },
+            { term: 'Essential', ipa: '/ɪˈsen.ʃəl/', meaning: 'Cực kỳ cần thiết, cốt lõi', contextHint: 'remain essential for balance' },
+          ],
+          comprehensionQuiz: {
+            question: 'Theo bài viết, điều gì vẫn rất quan trọng để cân bằng tinh thần?',
+            options: [
+              'Luôn bật màn hình cả ngày',
+              'Tải thật nhiều ứng dụng mới',
+              'Chủ động dành thời gian nghỉ ngơi, rời xa màn hình',
+              'Bỏ dùng tất cả thiết bị thông minh'
+            ],
+            correctIndex: 2,
+            explanation: 'Bài viết kết luận: "mindful breaks from screens remain essential for mental balance" (nghỉ ngơi rời xa màn hình là thiết yếu).'
+          }
+        };
+      } else {
+        readingData = {
+          title: userLevel === 'B1' || userLevel === 'B2' ? 'Exploring New Hobbies in Daily Life' : 'A Friendly Welcome Note',
+          userLevel,
+          topic,
+          genre: userLevel === 'B1' || userLevel === 'B2' ? 'article' : 'notice',
+          passage: userLevel === 'B1' || userLevel === 'B2'
+            ? 'Discovering a new creative hobby can bring renewed energy to your daily routine. Whether it is indoor gardening, photography, or cooking international dishes, dedicating thirty minutes each evening allows you to unwind, express creativity, and build confidence outside your regular responsibilities.'
+            : 'Welcome to our community center! Every morning from 8:00 AM, free English conversation tables are open for everyone. You can meet friendly people, practice speaking naturally, and enjoy complimentary tea.',
+          translationVi: userLevel === 'B1' || userLevel === 'B2'
+            ? 'Khám phá một sở thích sáng tạo mới có thể mang lại nguồn năng lượng tươi mới cho nhịp sống thường ngày. Dù là làm vườn trong nhà, nhiếp ảnh hay nấu các món ăn quốc tế, việc dành ra 30 phút mỗi tối sẽ giúp bạn thư giãn, thể hiện sự sáng tạo và xây dựng sự tự tin bên ngoài những nghĩa vụ hàng ngày.'
+            : 'Chào mừng bạn đến với trung tâm cộng đồng của chúng tôi! Mỗi sáng từ 8:00, các bàn hội thoại tiếng Anh miễn phí mở cửa đón chào mọi người. Bạn có thể gặp gỡ những người bạn thân thiện, luyện nói tự nhiên và thưởng thức trà miễn phí.',
+          keyVocabulary: [
+            { term: 'Routine', ipa: '/ruːˈtiːn/', meaning: 'Thói quen, lịch trình hàng ngày', contextHint: 'daily routine' },
+            { term: 'Unwind', ipa: '/ʌnˈwaɪnd/', meaning: 'Nghỉ ngơi, thư giãn xả stress', contextHint: 'allows you to unwind' },
+            { term: 'Confidence', ipa: '/ˈkɑːn.fə.dəns/', meaning: 'Sự tự tin', contextHint: 'build confidence' }
+          ],
+          comprehensionQuiz: {
+            question: userLevel === 'B1' || userLevel === 'B2'
+              ? 'Dành thời gian cho sở thích mới mang lại lợi ích gì theo đoạn văn?'
+              : 'Người tham gia có thể làm gì tại trung tâm mỗi sáng?',
+            options: userLevel === 'B1' || userLevel === 'B2'
+              ? [
+                  'Tăng thêm căng thẳng công việc',
+                  'Giúp thư giãn, sáng tạo và xây dựng sự tự tin',
+                  'Bắt buộc phải bỏ hết việc khác',
+                  'Chỉ tập trung vào kiếm thêm thu nhập'
+                ]
+              : [
+                  'Luyện giao tiếp tiếng Anh tự nhiên và giao lưu thân thiện',
+                  'Tham gia thi cử áp lực',
+                  'Đăng ký khóa học trả phí đắt đỏ',
+                  'Mua sắm đồ dùng gia đình'
+                ],
+            correctIndex: userLevel === 'B1' || userLevel === 'B2' ? 1 : 0,
+            explanation: userLevel === 'B1' || userLevel === 'B2'
+              ? 'Đoạn văn nêu: "dedicating thirty minutes each evening allows you to unwind, express creativity, and build confidence".'
+              : 'Đoạn thông báo nêu: "free English conversation tables are open for everyone. You can meet friendly people, practice speaking naturally".'
+          }
+        };
+      }
+
+      return {
+        type: 'reading_lesson',
+        data: readingData
+      };
+    }
+
+    case 'listening_lesson': {
+      const userLevel = (inputData.userLevel as 'A1' | 'A2' | 'B1' | 'B2') || 'A1';
+      const topic = (inputData.topic as string) || 'Hội thoại giao tiếp & Đời sống';
+
+      const isTravel = /du lịch|travel|sân bay|hotel|khách sạn|flight/i.test(topic);
+
+      let listeningData: ListeningLessonResult;
+
+      if (isTravel) {
+        listeningData = {
+          title: 'Asking for City Directions (Hỏi Đường Khám Phá)',
+          userLevel,
+          topic,
+          situation: 'Hỏi đường đến quảng trường trung tâm thành phố',
+          dialogue: [
+            {
+              speaker: 'Emma',
+              text: 'Excuse me, could you tell me how to get to the central square from here?',
+              translationVi: 'Xin lỗi, bạn có thể chỉ giúp tôi đường đến quảng trường trung tâm từ đây không?'
+            },
+            {
+              speaker: 'Mark',
+              text: 'Sure! Walk straight past the bookstore, then turn right at the traffic lights. It is about a five-minute walk.',
+              translationVi: 'Chắc chắn rồi! Bạn đi thẳng qua hiệu sách, rồi rẽ phải ở cột đèn giao thông. Đi bộ khoảng năm phút là tới.'
+            },
+            {
+              speaker: 'Emma',
+              text: 'That sounds really easy. Thank you so much for your kindness!',
+              translationVi: 'Nghe có vẻ rất dễ tìm. Cảm ơn bạn rất nhiều vì sự nhiệt tình!'
+            }
+          ],
+          fullAudioScript: 'Excuse me, could you tell me how to get to the central square from here? Sure! Walk straight past the bookstore, then turn right at the traffic lights. It is about a five-minute walk. That sounds really easy. Thank you so much for your kindness!',
+          keyPhrases: [
+            { phrase: 'How to get to...', ipa: '/haʊ tuː ɡet tuː/', meaning: 'Cách đi đến... ở đâu' },
+            { phrase: 'Walk straight past...', ipa: '/wɑːk streɪt pæst/', meaning: 'Đi thẳng qua một địa điểm' },
+            { phrase: 'A five-minute walk', ipa: '/ə faɪv ˈmɪn.ɪt wɑːk/', meaning: 'Đi bộ khoảng 5 phút' }
+          ],
+          listeningQuiz: {
+            audioPrompt: 'Walk straight past the bookstore, then turn right at the traffic lights.',
+            question: 'Người hướng dẫn bảo rẽ ở vị trí nào?',
+            options: [
+              'Rẽ phải ngay tại cột đèn giao thông',
+              'Rẽ trái trước cửa hiệu sách',
+              'Đi ngược lại trạm xe buýt',
+              'Đi thang máy lên tầng 2'
+            ],
+            correctIndex: 0,
+            explanation: 'Người hướng dẫn nói: "turn right at the traffic lights" (rẽ phải ở cột đèn giao thông).'
+          }
+        };
+      } else {
+        listeningData = {
+          title: 'Catching Up with a Friend at a Cafe (Gặp Gỡ Bạn Bè)',
+          userLevel,
+          topic,
+          situation: 'Hẹn bạn uống cà phê cuối tuần và bàn kế hoạch',
+          dialogue: [
+            {
+              speaker: 'Sophia',
+              text: 'Hi Liam! Long time no see. How have you been lately?',
+              translationVi: 'Chào Liam! Lâu quá không gặp. Dạo này cậu thế nào rồi?'
+            },
+            {
+              speaker: 'Liam',
+              text: 'Hey Sophia! I have been great. I just started learning photography on weekends. It is so fun!',
+              translationVi: 'Chào Sophia! Mình khỏe lắm. Mình vừa mới bắt đầu học nhiếp ảnh vào cuối tuần. Vui cực kỳ luôn!'
+            },
+            {
+              speaker: 'Sophia',
+              text: 'That sounds amazing! You should definitely show me some of your photos today.',
+              translationVi: 'Nghe tuyệt quá! Hôm nay cậu nhất định phải cho mình xem vài tấm ảnh nhé.'
+            }
+          ],
+          fullAudioScript: 'Hi Liam! Long time no see. How have you been lately? Hey Sophia! I have been great. I just started learning photography on weekends. It is so fun! That sounds amazing! You should definitely show me some of your photos today.',
+          keyPhrases: [
+            { phrase: 'Long time no see', ipa: '/lɑːŋ taɪm noʊ siː/', meaning: 'Lâu rồi không gặp' },
+            { phrase: 'How have you been lately?', ipa: '/haʊ hæv juː bɪn ˈleɪt.li/', meaning: 'Dạo gần đây bạn thế nào?' },
+            { phrase: 'You should definitely...', ipa: '/juː ʃʊd ˈdef.ən.ət.li/', meaning: 'Bạn nhất định nên...' }
+          ],
+          listeningQuiz: {
+            audioPrompt: 'I just started learning photography on weekends. It is so fun!',
+            question: 'Liam vừa bắt đầu học môn gì vào cuối tuần?',
+            options: [
+              'Học nấu ăn món Ý',
+              'Học nhiếp ảnh (chụp ảnh)',
+              'Học lập trình web',
+              'Học chơi đàn guitar'
+            ],
+            correctIndex: 1,
+            explanation: 'Liam nói rõ trong đoạn thoại: "I just started learning photography on weekends".'
+          }
+        };
+      }
+
+      return {
+        type: 'listening_lesson',
+        data: listeningData
+      };
     }
   }
 }

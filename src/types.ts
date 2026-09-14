@@ -1,9 +1,27 @@
-export type TaskType = 'writing' | 'vocab' | 'roleplay' | 'quiz' | 'toeic_lesson';
+export type TaskType =
+  | 'writing'
+  | 'vocab'
+  | 'roleplay'
+  | 'quiz'
+  | 'toeic_lesson'
+  | 'grammar_lesson'
+  | 'reading_lesson'
+  | 'listening_lesson'
+  | 'reflex_challenge';
 export type RoleplayLength = 'short' | 'medium' | 'long';
 export type DialogueDifficulty = 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type Language = 'vi' | 'en';
 
-export type ChatbotProvider = 'gemini' | 'chatgpt' | 'antigravity';
+export type ChatbotProvider = 'fast' | 'gemini' | 'chatgpt' | 'antigravity';
+
+export type MainTabType =
+  | 'today'
+  | 'vocab'
+  | 'grammar'
+  | 'read_listen'
+  | 'chat'
+  | 'writing'
+  | 'memory';
 
 export type PipelineStepId =
   | 'launching_browser'
@@ -97,6 +115,9 @@ export interface RoleplayDialogueTurn {
   translationVi: string;
   audioTip?: string;
   usefulExpression?: string;
+  grammarFeedback?: string;
+  timestamp?: string;
+  isUser?: boolean;
 }
 
 export interface RoleplayResult {
@@ -133,6 +154,9 @@ export interface UserSpeechEvaluation {
   followUpChallenge: string;
 }
 
+export type TopicPreference = 'all' | 'workplace' | 'daily_life' | 'travel' | 'tech' | 'custom';
+export type GrammarFocus = 'toeic_all' | 'word_forms' | 'tenses' | 'participles' | 'conjunctions';
+
 export interface AppSettings {
   language: Language;
   defaultProvider: ChatbotProvider;
@@ -144,6 +168,12 @@ export interface AppSettings {
   defaultUserRole: string;
   defaultAiRole: string;
   simulateIfBlocked: boolean;
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  dailyVocabCount?: number; // 3, 5, 8, 10
+  topicPreference?: TopicPreference;
+  customTopic?: string;
+  grammarFocus?: GrammarFocus;
+  focusMode?: boolean;
 }
 
 export interface QuizQuestion {
@@ -161,6 +191,21 @@ export interface QuizResult {
   questions: QuizQuestion[];
 }
 
+export interface WordFamilyDetails {
+  noun?: string;
+  verb?: string;
+  adjective?: string;
+  adverb?: string;
+}
+
+export interface WordFormExercise {
+  sentence: string; // e.g. "The board was impressed by the candidate's _______ in negotiations."
+  options: string[]; // 4 choices (noun, verb, adjective, adverb)
+  correctIndex: number;
+  targetForm: 'noun' | 'verb' | 'adjective' | 'adverb';
+  explanation: string; // Detailed grammar reasoning in Vietnamese
+}
+
 export interface ToeicWord {
   term: string;
   ipa: string;
@@ -168,6 +213,8 @@ export interface ToeicWord {
   partOfSpeech: string;
   vietnameseMeaning: string;
   wordFamily?: string;
+  wordFamilyDetails?: WordFamilyDetails;
+  wordFormExercise?: WordFormExercise;
   toeicParaphrase?: string;
   exampleSentence: string;
   exampleTranslation: string;
@@ -192,12 +239,185 @@ export interface ToeicLessonResult {
   };
 }
 
+export type LeitnerRating = 'again' | 'hard' | 'good' | 'easy';
+
+export interface FlashcardItem {
+  id?: string;
+  term: string;
+  ipa: string;
+  vietnamesePhonetic?: string;
+  partOfSpeech?: string;
+  vietnameseMeaning: string;
+  wordFamily?: string;
+  wordFamilyDetails?: WordFamilyDetails;
+  exampleSentence?: string;
+  exampleTranslation?: string;
+  simpleBreakdown?: string;
+  etsTrapTip?: string;
+  mastered?: boolean;
+  reviewCount?: number;
+  level?: 'A1' | 'A2' | 'B1' | 'B2';
+}
+
+export interface LearnedWord {
+  id: string;
+  term: string;
+  ipa: string;
+  vietnamesePhonetic?: string;
+  partOfSpeech: string;
+  vietnameseMeaning: string;
+  wordFamily?: string;
+  wordFamilyDetails?: WordFamilyDetails;
+  wordFormExercise?: WordFormExercise;
+  exampleSentence?: string;
+  exampleTranslation?: string;
+  level: 'A1' | 'A2' | 'B1' | 'B2';
+  learnedAt: string;
+  reviewCount: number;
+  mastered: boolean;
+}
+
+export interface LearnedGrammar {
+  id: string;
+  ruleName: string;
+  formula: string;
+  vietnameseMeaning: string;
+  level: 'A1' | 'A2' | 'B1' | 'B2';
+  learnedAt: string;
+  reviewCount: number;
+  mastered: boolean;
+}
+
+export interface GrammarLessonResult {
+  ruleName: string;
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  formula: string;
+  vietnameseMeaning: string;
+  explanation: string;
+  examples: {
+    en: string;
+    vi: string;
+    note?: string;
+  }[];
+  vietnameseTrap: string;
+  practiceSentence: {
+    prompt: string;
+    hint: string;
+  };
+}
+
+export interface ReflexChallengeResult {
+  sourceType: 'memory_review' | 'general';
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  reviewedTerms: string[];
+  situationContext: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  memoryTip: string;
+}
+
+export interface LearnedReading {
+  id: string;
+  title: string;
+  passage: string;
+  translationVi: string;
+  level: 'A1' | 'A2' | 'B1' | 'B2';
+  topic: string;
+  learnedAt: string;
+  reviewCount: number;
+  mastered: boolean;
+  keyWords?: {
+    term: string;
+    meaning: string;
+  }[];
+  questions?: {
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
+}
+
+export interface ReadingLessonResult {
+  title: string;
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  topic: string;
+  genre: 'email' | 'announcement' | 'memo' | 'chat' | 'notice' | 'article' | 'story' | 'guide' | 'review' | string;
+  passage: string;
+  translationVi: string;
+  keyVocabulary: {
+    term: string;
+    ipa?: string;
+    meaning: string;
+    contextHint?: string;
+  }[];
+  comprehensionQuiz: {
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  };
+}
+
+export interface LearnedListening {
+  id: string;
+  title: string;
+  dialogue: {
+    speaker: string;
+    text: string;
+    translationVi: string;
+  }[];
+  level: 'A1' | 'A2' | 'B1' | 'B2';
+  topic: string;
+  learnedAt: string;
+  reviewCount: number;
+  mastered: boolean;
+  questions?: {
+    audioPrompt: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
+}
+
+export interface ListeningLessonResult {
+  title: string;
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  topic: string;
+  situation: string;
+  dialogue: {
+    speaker: string;
+    text: string;
+    translationVi: string;
+  }[];
+  fullAudioScript: string;
+  keyPhrases: {
+    phrase: string;
+    ipa?: string;
+    meaning: string;
+  }[];
+  listeningQuiz: {
+    audioPrompt: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  };
+}
+
 export type TaskResult =
   | { type: 'writing'; data: WritingResult }
   | { type: 'vocab'; data: VocabResult }
   | { type: 'roleplay'; data: RoleplayResult }
   | { type: 'quiz'; data: QuizResult }
-  | { type: 'toeic_lesson'; data: ToeicLessonResult };
+  | { type: 'toeic_lesson'; data: ToeicLessonResult }
+  | { type: 'grammar_lesson'; data: GrammarLessonResult }
+  | { type: 'reading_lesson'; data: ReadingLessonResult }
+  | { type: 'listening_lesson'; data: ListeningLessonResult }
+  | { type: 'reflex_challenge'; data: ReflexChallengeResult };
 
 export interface AutomationStreamPayload {
   type: 'step' | 'log' | 'raw_chunk' | 'result' | 'error' | 'done';

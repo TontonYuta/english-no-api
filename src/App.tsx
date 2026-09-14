@@ -10,6 +10,7 @@ import {
   DialogueDifficulty,
   Language,
   AppSettings,
+  MainTabType,
 } from './types';
 import { Navbar } from './components/Navbar';
 import { DailyHabitView } from './components/DailyHabitView';
@@ -26,6 +27,16 @@ import { VocabResultView } from './components/results/VocabResultView';
 import { RoleplayResultView } from './components/results/RoleplayResultView';
 import { QuizResultView } from './components/results/QuizResultView';
 import { ToeicLessonResultView } from './components/results/ToeicLessonResultView';
+import { GrammarLessonResultView } from './components/results/GrammarLessonResultView';
+import { ReadingLessonResultView } from './components/results/ReadingLessonResultView';
+import { ListeningLessonResultView } from './components/results/ListeningLessonResultView';
+import { ReflexChallengeResultView } from './components/results/ReflexChallengeResultView';
+import {
+  addLearnedWords,
+  addLearnedGrammar,
+  addLearnedReading,
+  addLearnedListening
+} from './utils/learningMemory';
 import { translations } from './translations';
 import {
   Play,
@@ -37,11 +48,13 @@ import {
   Cpu,
   Settings,
   Globe,
+  MessageSquare,
+  PenTool,
 } from 'lucide-react';
 
 const DEFAULT_SETTINGS: AppSettings = {
   language: 'vi',
-  defaultProvider: 'gemini',
+  defaultProvider: 'fast',
   headless: true,
   speechRate: 1.0,
   speechVoice: 'en-US',
@@ -50,12 +63,31 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultUserRole: 'Hành khách (Passenger)',
   defaultAiRole: 'Nhân viên quầy làm thủ tục (Agent)',
   simulateIfBlocked: true,
+  userLevel: 'A1',
+  focusMode: false,
 };
 
 function getSavedSettings(): AppSettings {
   try {
     const raw = localStorage.getItem('playeng_settings');
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const savedLevel = localStorage.getItem('playeng_user_level') as any;
+    const savedFocus = localStorage.getItem('playeng_focus_mode');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        userLevel: parsed.userLevel || savedLevel || 'A1',
+        focusMode: savedFocus !== null ? savedFocus === 'true' : (parsed.focusMode ?? false),
+      };
+    }
+    if (savedLevel) {
+      return {
+        ...DEFAULT_SETTINGS,
+        userLevel: savedLevel,
+        focusMode: savedFocus === 'true',
+      };
+    }
   } catch (e) {
     console.warn('Failed to parse saved settings', e);
   }
@@ -64,19 +96,79 @@ function getSavedSettings(): AppSettings {
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(getSavedSettings);
-  const [appMode, setAppMode] = useState<'daily' | 'studio'>(() => {
-    return (localStorage.getItem('playeng_app_mode') as 'daily' | 'studio') || 'daily';
+  const [focusMode, setFocusMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('playeng_focus_mode');
+    if (saved !== null) return saved === 'true';
+    return settings.focusMode ?? false;
   });
+
+  const handleToggleFocusMode = () => {
+    setFocusMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('playeng_focus_mode', String(next));
+      setSettings((s) => ({ ...s, focusMode: next }));
+      return next;
+    });
+  };
+
+  // Keyboard shortcut: Shift + F to toggle Focus Mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+        e.preventDefault();
+        handleToggleFocusMode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const [currentTab, setCurrentTab] = useState<MainTabType>(() => {
+    return (localStorage.getItem('playeng_current_tab') as MainTabType) || 'today';
+  });
+  const [isScenarioDrawerOpen, setIsScenarioDrawerOpen] = useState(false);
+
+  const handleSetCurrentTab = (tab: MainTabType) => {
+    setCurrentTab(tab);
+    localStorage.setItem('playeng_current_tab', tab);
+  };
+
+  const [userLevel, setUserLevel] = useState<'A1' | 'A2' | 'B1' | 'B2'>(() => {
+    return (localStorage.getItem('playeng_user_level') as 'A1' | 'A2' | 'B1' | 'B2') || settings.userLevel || 'A1';
+  });
+
+  const handleSetUserLevel = (lvl: 'A1' | 'A2' | 'B1' | 'B2') => {
+    setUserLevel(lvl);
+    localStorage.setItem('playeng_user_level', lvl);
+    setSettings((prev) => ({ ...prev, userLevel: lvl }));
+  };
+
+  const [streak, setStreak] = useState<number>(() => {
+    return parseInt(localStorage.getItem('playeng_streak') || '1', 10);
+  });
+  const [isCompletedToday, setIsCompletedToday] = useState<boolean>(() => {
+    const today = new Date().toDateString();
+    return localStorage.getItem('playeng_last_completed') === today;
+  });
+
+  const handleMarkCompleted = () => {
+    if (isCompletedToday) return;
+    const newStreak = streak + 1;
+    const today = new Date().toDateString();
+    setStreak(newStreak);
+    setIsCompletedToday(true);
+    localStorage.setItem('playeng_streak', newStreak.toString());
+    localStorage.setItem('playeng_last_completed', today);
+  };
+
   const [lang, setLang] = useState<Language>(() => {
     const savedLang = localStorage.getItem('playeng_lang') as Language;
     return savedLang === 'en' ? 'en' : 'vi';
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  const handleSetAppMode = (mode: 'daily' | 'studio') => {
-    setAppMode(mode);
-    localStorage.setItem('playeng_app_mode', mode);
-  };
 
   const t = translations[lang];
 
@@ -195,6 +287,13 @@ export default function App() {
     setHeadless(newSettings.headless);
     setRoleplayLength(newSettings.defaultRoleplayLength);
     setRoleplayDifficulty(newSettings.defaultRoleplayDifficulty);
+    if (newSettings.userLevel) {
+      localStorage.setItem('playeng_user_level', newSettings.userLevel);
+    }
+    if (newSettings.focusMode !== undefined) {
+      setFocusMode(newSettings.focusMode);
+      localStorage.setItem('playeng_focus_mode', String(newSettings.focusMode));
+    }
     localStorage.setItem('playeng_settings', JSON.stringify(newSettings));
     localStorage.setItem('playeng_lang', newSettings.language);
   };
@@ -327,6 +426,29 @@ export default function App() {
           setRawChunk(data.rawChunk);
         } else if (data.type === 'result' && data.result) {
           setResult(data.result);
+          if (data.result.type === 'toeic_lesson' && data.result.data?.targetWords) {
+            addLearnedWords(data.result.data.targetWords);
+          } else if (data.result.type === 'grammar_lesson' && data.result.data) {
+            addLearnedGrammar(data.result.data);
+          } else if (data.result.type === 'reading_lesson' && data.result.data) {
+            addLearnedReading({
+              title: data.result.data.title,
+              passage: data.result.data.passage,
+              translationVi: data.result.data.translationVi,
+              level: data.result.data.userLevel || 'A1',
+              topic: data.result.data.topic,
+              keyWords: data.result.data.keyVocabulary?.map((k: any) => ({ term: k.term, meaning: k.meaning })),
+              questions: data.result.data.comprehensionQuiz ? [data.result.data.comprehensionQuiz] : [],
+            });
+          } else if (data.result.type === 'listening_lesson' && data.result.data) {
+            addLearnedListening({
+              title: data.result.data.title,
+              dialogue: data.result.data.dialogue,
+              level: data.result.data.userLevel || 'A1',
+              topic: data.result.data.topic,
+              questions: data.result.data.listeningQuiz ? [data.result.data.listeningQuiz] : [],
+            });
+          }
         } else if (data.type === 'error') {
           setErrorMessage(data.error);
           setIsAutomating(false);
@@ -352,22 +474,29 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0b0e] text-neutral-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       {/* Top Header */}
       <Navbar
-        appMode={appMode}
-        setAppMode={handleSetAppMode}
+        currentTab={currentTab}
+        setCurrentTab={handleSetCurrentTab}
+        userLevel={userLevel}
+        setUserLevel={handleSetUserLevel}
+        streak={streak}
         provider={provider}
         setProvider={setProvider}
-        headless={headless}
-        setHeadless={setHeadless}
-        onOpenTerminal={() => setIsModalOpen(true)}
         isAutomating={isAutomating}
         lang={lang}
         onToggleLang={handleToggleLang}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        focusMode={focusMode}
+        onToggleFocusMode={handleToggleFocusMode}
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {appMode === 'daily' ? (
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* TABS: Hôm Nay, Từ Vựng, Ngữ Pháp, Đọc & Nghe, Sổ Nhớ */}
+        {(currentTab === 'today' ||
+          currentTab === 'vocab' ||
+          currentTab === 'grammar' ||
+          currentTab === 'read_listen' ||
+          currentTab === 'memory') && (
           <DailyHabitView
             provider={provider}
             isAutomating={isAutomating}
@@ -379,100 +508,292 @@ export default function App() {
             }}
             lang={lang}
             onOpenTerminal={() => setIsModalOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            activeTab={currentTab}
+            onSwitchTab={handleSetCurrentTab}
+            userLevel={userLevel}
+            setUserLevel={handleSetUserLevel}
+            streak={streak}
+            isCompletedToday={isCompletedToday}
+            onMarkCompleted={handleMarkCompleted}
+            focusMode={focusMode}
           />
-        ) : (
-          <>
-        {/* Banner / Info Bar with Quick Settings Trigger */}
-        <div className="p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
-                  {t.browserEngine}
-                </span>
-                <span className="text-neutral-500 text-xs">•</span>
-                <span className="text-xs text-neutral-300">
-                  {t.persistentContext}
-                </span>
+        )}
+
+        {/* TAB 5: Live Messenger (Trò Chuyện & Nhắn Tin 2 Chiều) */}
+        {currentTab === 'chat' && (
+          <div className="space-y-6">
+            {/* If a roleplay dialogue is active: */}
+            {result && result.type === 'roleplay' && result.data ? (
+              <div className="space-y-4">
+                {/* Collapsible Scenario Settings Drawer */}
+                {isScenarioDrawerOpen && (
+                  <div className="p-5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 space-y-4 animate-fade-in backdrop-blur-sm">
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-sky-400">
+                        [ THIẾT LẬP KỊCH BẢN HỘI THOẠI ]
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsScenarioDrawerOpen(false)}
+                        className="text-xs text-neutral-400 hover:text-white cursor-pointer"
+                      >
+                        ✕ Đóng lại
+                      </button>
+                    </div>
+                    <RoleplayForm
+                      scenario={roleplayScenario}
+                      setScenario={setRoleplayScenario}
+                      userRole={roleplayUserRole}
+                      setUserRole={setRoleplayUserRole}
+                      aiRole={roleplayAiRole}
+                      setAiRole={setRoleplayAiRole}
+                      length={roleplayLength}
+                      setLength={setRoleplayLength}
+                      difficulty={roleplayDifficulty}
+                      setDifficulty={setRoleplayDifficulty}
+                      onSelectSample={(s, u, a) => {
+                        setRoleplayScenario(s);
+                        setRoleplayUserRole(u);
+                        setRoleplayAiRole(a);
+                      }}
+                      disabled={isAutomating}
+                      lang={lang}
+                    />
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        disabled={isAutomating}
+                        onClick={() => {
+                          setIsScenarioDrawerOpen(false);
+                          setActiveTask('roleplay');
+                          runAutomationPipeline('roleplay', {
+                            scenario: roleplayScenario,
+                            userRole: roleplayUserRole,
+                            aiRole: roleplayAiRole,
+                            length: roleplayLength,
+                            difficulty: roleplayDifficulty,
+                          }, false);
+                        }}
+                        className="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase border border-sky-400/80 cursor-pointer transition-all duration-150 shadow-md"
+                      >
+                        Bắt Đầu Kịch Bản Mới ➔
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional Slim Scenario Bar (Only shown outside Focus Mode) */}
+                {!focusMode && !isScenarioDrawerOpen && (
+                  <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-zinc-900/70 border border-zinc-800/80 text-xs font-mono backdrop-blur-sm">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-neutral-500 uppercase text-[10px]">Tình huống:</span>
+                      <span className="text-sky-300 font-bold truncate max-w-sm sm:max-w-md">{roleplayScenario}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsScenarioDrawerOpen(true)}
+                      className="px-2.5 py-1 rounded-lg bg-zinc-850 hover:bg-zinc-800 text-neutral-300 hover:text-white border border-zinc-750 text-[11px] cursor-pointer transition-all duration-150 shrink-0"
+                    >
+                      ⚙ Đổi Kịch Bản
+                    </button>
+                  </div>
+                )}
+
+                {/* Pure Live Messenger View */}
+                <RoleplayResultView result={result.data} lang={lang} />
               </div>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                {t.bannerDesc(provider === 'gemini' ? 'Gemini Web' : 'ChatGPT Web')}
-              </p>
-            </div>
-          </div>
+            ) : (
+              /* Starter Screen if no active dialogue yet */
+              <div className="space-y-6">
+                {isScenarioDrawerOpen && (
+                  <div className="p-5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 space-y-4 backdrop-blur-sm">
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-sky-400">
+                        [ TÙY BIẾN KỊCH BẢN HỘI THOẠI ]
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setIsScenarioDrawerOpen(false)}
+                        className="text-xs text-neutral-400 hover:text-white cursor-pointer"
+                      >
+                        ✕ Đóng lại
+                      </button>
+                    </div>
+                    <RoleplayForm
+                      scenario={roleplayScenario}
+                      setScenario={setRoleplayScenario}
+                      userRole={roleplayUserRole}
+                      setUserRole={setRoleplayUserRole}
+                      aiRole={roleplayAiRole}
+                      setAiRole={setRoleplayAiRole}
+                      length={roleplayLength}
+                      setLength={setRoleplayLength}
+                      difficulty={roleplayDifficulty}
+                      setDifficulty={setRoleplayDifficulty}
+                      onSelectSample={(s, u, a) => {
+                        setRoleplayScenario(s);
+                        setRoleplayUserRole(u);
+                        setRoleplayAiRole(a);
+                      }}
+                      disabled={isAutomating}
+                      lang={lang}
+                    />
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        disabled={isAutomating}
+                        onClick={() => {
+                          setIsScenarioDrawerOpen(false);
+                          setActiveTask('roleplay');
+                          runAutomationPipeline('roleplay', {
+                            scenario: roleplayScenario,
+                            userRole: roleplayUserRole,
+                            aiRole: roleplayAiRole,
+                            length: roleplayLength,
+                            difficulty: roleplayDifficulty,
+                          }, false);
+                        }}
+                        className="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase border border-sky-400/80 cursor-pointer transition-all duration-150 shadow-md"
+                      >
+                        Lưu &amp; Bắt Đầu Trò Chuyện ➔
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 hover:text-white transition-colors cursor-pointer"
-            >
-              <Settings className="w-3.5 h-3.5 text-sky-400" />
-              <span>{t.settingsBtn}</span>
-            </button>
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-950 border border-neutral-800 text-neutral-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{t.persistentDirBadge}</span>
-            </span>
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-neutral-950 border border-neutral-800 text-neutral-300">
-              <CheckCircle2 className="w-3.5 h-3.5 text-sky-400" />
-              <span>{t.realtimeSSEBadge}</span>
-            </span>
-          </div>
+                {/* Messenger Starter Screen if no active dialogue */}
+                <div className="p-8 rounded-xl bg-zinc-900/70 border border-zinc-800/80 text-center space-y-5 backdrop-blur-sm">
+                <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mx-auto flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <div className="max-w-md mx-auto">
+                  <h3 className="text-base font-bold text-white uppercase tracking-tight">
+                    Sẵn sàng trò chuyện phản xạ 2 chiều
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Giao diện tin nhắn Live Messenger mô phỏng trò chuyện thực tế. Bấm vào một tình huống phổ biến bên dưới hoặc bấm nút bắt đầu để AI nhập vai cùng bạn!
+                  </p>
+                </div>
+
+                {/* Quick Starter Scenario Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto text-left">
+                  {[
+                    {
+                      title: '☕ Cafe & Đồ Uống',
+                      desc: 'Gọi cà phê tại quầy, yêu cầu ít đường & thêm đá',
+                      scenario: 'Ordering at a busy coffee shop with special drink customization',
+                      userRole: 'Khách hàng (Customer)',
+                      aiRole: 'Nhân viên pha chế (Barista)',
+                    },
+                    {
+                      title: '✈️ Sân Bay & Hành Lý',
+                      desc: 'Check-in tại quầy vé, xử lý hành lý quá cân 2kg',
+                      scenario: 'Airport check-in counter with 2kg overweight luggage',
+                      userRole: 'Hành khách (Passenger)',
+                      aiRole: 'Nhân viên mặt đất (Agent)',
+                    },
+                    {
+                      title: '💼 Phỏng Vấn Công Việc',
+                      desc: 'Tự giới thiệu bản thân và kinh nghiệm làm việc',
+                      scenario: 'Job interview introduction and discussing relevant experience',
+                      userRole: 'Ứng viên (Candidate)',
+                      aiRole: 'Người phỏng vấn (Interviewer)',
+                    },
+                    {
+                      title: '🍽️ Nhà Hàng & Đặt Bàn',
+                      desc: 'Hỏi thực đơn đặc biệt và đặt bàn cho 2 người',
+                      scenario: 'Booking a table for two and asking for chef specials',
+                      userRole: 'Thực khách (Diner)',
+                      aiRole: 'Quản lý nhà hàng (Host)',
+                    },
+                  ].map((pill, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      disabled={isAutomating}
+                      onClick={() => {
+                        setRoleplayScenario(pill.scenario);
+                        setRoleplayUserRole(pill.userRole);
+                        setRoleplayAiRole(pill.aiRole);
+                        setActiveTask('roleplay');
+                        runAutomationPipeline('roleplay', {
+                          scenario: pill.scenario,
+                          userRole: pill.userRole,
+                          aiRole: pill.aiRole,
+                          length: 'medium',
+                          difficulty: userLevel,
+                        }, false);
+                      }}
+                      className="p-3.5 rounded-xl bg-zinc-850/60 hover:bg-zinc-800/80 border border-zinc-800 hover:border-sky-500/50 transition-all duration-150 text-left group cursor-pointer"
+                    >
+                      <div className="text-xs font-bold text-white group-hover:text-sky-400 transition-colors">
+                        {pill.title}
+                      </div>
+                      <div className="text-[11px] text-neutral-400 mt-0.5 font-sans">
+                        {pill.desc}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isAutomating}
+                  onClick={() => {
+                    setActiveTask('roleplay');
+                    runAutomationPipeline('roleplay', {
+                      scenario: roleplayScenario,
+                      userRole: roleplayUserRole,
+                      aiRole: roleplayAiRole,
+                      length: roleplayLength,
+                      difficulty: roleplayDifficulty,
+                    }, false);
+                  }}
+                  className="px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer transition-all duration-150 border border-sky-400/80 shadow-md shadow-sky-600/20"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>{isAutomating ? 'ĐANG KẾT NỐI MESSENGER...' : 'BẮT ĐẦU TRÒ CHUYỆN NGAY ➔'}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Preset Task Selector */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
-              {t.selectPresetTitle}
-            </h2>
-            <span className="text-xs text-neutral-500">{t.presetSubtitle}</span>
-          </div>
-          <TaskSelector
-            activeTask={activeTask}
-            onSelectTask={(task) => {
-              setActiveTask(task);
-            }}
-            disabled={isAutomating}
-            lang={lang}
-          />
-        </section>
+        {/* TAB 6: Writing Assessor (Luyện Viết & Chấm Chữa) */}
+        {currentTab === 'writing' && (
+          <div className="space-y-6">
+            <div className="p-6 rounded-xl bg-zinc-900/70 border border-zinc-800/80 shadow-sm space-y-6 backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800/80">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-1.5">
+                      <PenTool className="w-3.5 h-3.5 text-rose-400" />
+                      <span>✍️ CHUYÊN ĐỀ 06: LUYỆN VIẾT &amp; CHẤM CHỮA</span>
+                    </span>
+                    <span className="text-xs font-mono text-neutral-400">[ CEFR / IELTS BAND ]</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
+                    CHẤM BÀI LUẬN &amp; NÂNG CẤP BAND ĐIỂM TỰ ĐỘNG
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Nhập bài luận hoặc đoạn văn của bạn. AI sẽ chấm điểm theo 4 tiêu chí chuẩn quốc tế (Task Response, Coherence, Lexical Resource, Grammatical Accuracy), chỉ rõ lỗi sai và viết lại phiên bản Band cao hơn.
+                  </p>
+                </div>
 
-        {/* Task Form Configuration & Trigger Box */}
-        <section className="p-6 rounded-2xl bg-neutral-950 border border-neutral-800 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-4 flex-wrap gap-2">
-            <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
-                {activeTask === 'writing' && (lang === 'vi' ? '✍️ Chấm Chữa Writing Chuẩn CEFR & IELTS' : '✍️ IELTS/Cambridge Writing Examiner')}
-                {activeTask === 'vocab' && (lang === 'vi' ? '📖 Phân Tích Từ Vựng Chuyên Sâu & Thành Ngữ' : '📖 Lexical & Deep Idiom Master')}
-                {activeTask === 'roleplay' && (lang === 'vi' ? '💬 Hội Thoại 2 Chiều & Đánh Giá Giọng Nói' : '💬 2-Party Dialogue & Speech Evaluator')}
-                {activeTask === 'quiz' && (lang === 'vi' ? '🎯 Tạo Bộ Đề Trắc Nghiệm Ngữ Pháp Tự Động' : '🎯 Smart 5-Item Exam Quiz Generator')}
-              </h3>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                {lang === 'vi'
-                  ? `Thiết lập tham số bên dưới. Bot Playwright sẽ tự động nhập vào ${provider.toUpperCase()} Web để tạo tài liệu chuẩn.`
-                  : `Configure your learning parameters below. The Playwright bot will inject this into ${provider.toUpperCase()} Web.`}
-              </p>
-            </div>
+                {!focusMode && (
+                  <button
+                    type="button"
+                    onClick={() => setIsPromptModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-zinc-850 hover:bg-zinc-800 border border-zinc-750 text-neutral-300 hover:text-white transition-all duration-150 cursor-pointer uppercase self-start sm:self-center"
+                  >
+                    <FileCode2 className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{t.inspectPrompt}</span>
+                  </button>
+                )}
+              </div>
 
-            <button
-              id="inspect-prompt-payload-btn"
-              type="button"
-              onClick={() => setIsPromptModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer"
-            >
-              <FileCode2 className="w-3.5 h-3.5 text-sky-400" />
-              <span>{t.inspectPrompt}</span>
-            </button>
-          </div>
-
-          {/* Form Switcher */}
-          <div>
-            {activeTask === 'writing' && (
               <WritingForm
                 topic={writingTopic}
                 setTopic={setWritingTopic}
@@ -489,134 +810,52 @@ export default function App() {
                 disabled={isAutomating}
                 lang={lang}
               />
-            )}
 
-            {activeTask === 'vocab' && (
-              <VocabForm
-                term={vocabTerm}
-                setTerm={setVocabTerm}
-                context={vocabContext}
-                setContext={setVocabContext}
-                onSelectSample={(term, context) => {
-                  setVocabTerm(term);
-                  setVocabContext(context);
-                }}
-                disabled={isAutomating}
-                lang={lang}
-              />
-            )}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-zinc-800/80">
+                {!focusMode ? (
+                  <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
+                    <span className="w-2 h-2 rounded-full bg-sky-400" />
+                    <span>Động cơ: {provider === 'fast' ? '⚡ Siêu Tốc (0.5s)' : provider.toUpperCase()}</span>
+                  </div>
+                ) : <div />}
 
-            {activeTask === 'roleplay' && (
-              <RoleplayForm
-                scenario={roleplayScenario}
-                setScenario={setRoleplayScenario}
-                userRole={roleplayUserRole}
-                setUserRole={setRoleplayUserRole}
-                aiRole={roleplayAiRole}
-                setAiRole={setRoleplayAiRole}
-                length={roleplayLength}
-                setLength={setRoleplayLength}
-                difficulty={roleplayDifficulty}
-                setDifficulty={setRoleplayDifficulty}
-                onSelectSample={(s, u, a) => {
-                  setRoleplayScenario(s);
-                  setRoleplayUserRole(u);
-                  setRoleplayAiRole(a);
-                }}
-                disabled={isAutomating}
-                lang={lang}
-              />
-            )}
-
-            {activeTask === 'quiz' && (
-              <QuizForm
-                topic={quizTopic}
-                setTopic={setQuizTopic}
-                difficulty={quizDifficulty}
-                setDifficulty={setQuizDifficulty}
-                onSelectSample={(t, d) => {
-                  setQuizTopic(t);
-                  setQuizDifficulty(d);
-                }}
-                disabled={isAutomating}
-                lang={lang}
-              />
-            )}
-          </div>
-
-          {/* Bottom Execution Bar */}
-          <div className="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 text-xs text-neutral-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
-                {t.targetLabel}: {provider === 'gemini' ? 'Gemini Web' : 'ChatGPT Web'}
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                {t.modeLabel}: {headless ? t.headless : t.headed}
-              </span>
+                <button
+                  type="button"
+                  disabled={isAutomating}
+                  onClick={() => {
+                    setActiveTask('writing');
+                    handleStartAutomation();
+                  }}
+                  className="px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 border border-sky-400/80 shadow-md shadow-sky-600/20"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>{isAutomating ? 'ĐANG CHẤM BÀI...' : 'CHẤM CHỮA BÀI LUẬN NGAY ➔'}</span>
+                </button>
+              </div>
             </div>
 
+            {/* Writing Assessment Result */}
+            {result && result.type === 'writing' && result.data && (
+              <WritingResultView result={result.data} />
+            )}
+          </div>
+        )}
+
+        {/* Floating Focus Mode Indicator Pill */}
+        {focusMode && (
+          <div className="fixed bottom-4 right-4 z-40 animate-fade-in">
             <button
-              id="start-playwright-automation-btn"
               type="button"
-              disabled={isAutomating}
-              onClick={handleStartAutomation}
-              className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm text-white shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                isAutomating
-                  ? 'bg-neutral-800 text-neutral-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 shadow-sky-600/25 hover:shadow-sky-500/40 hover:-translate-y-0.5'
-              }`}
+              onClick={handleToggleFocusMode}
+              className="px-3.5 py-1.5 rounded-full bg-zinc-900/95 hover:bg-zinc-850 text-amber-300 border border-amber-500/40 shadow-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer backdrop-blur-md transition-all duration-150 hover:scale-105"
+              title="Nhấn Shift+F hoặc bấm để thoát Focus Mode"
             >
-              <Play className="w-4 h-4 fill-white" />
-              <span>{isAutomating ? t.automatingBtn : t.startAutomation(provider)}</span>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>🎯 FOCUS MODE</span>
+              <span className="text-[10px] text-neutral-400 border-l border-zinc-700 pl-1.5 font-normal">Shift+F</span>
             </button>
           </div>
-        </section>
-
-        {/* Output Section */}
-        {result && (
-          <section id="learning-output-section" className="space-y-4 pt-4 border-t border-neutral-800">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-sky-400" />
-                <h2 className="text-lg font-bold text-white tracking-tight">
-                  {t.extractedResults}
-                </h2>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 font-medium">
-                  {t.scrapedVia(provider)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 hover:underline cursor-pointer"
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>{t.reopenTerminal}</span>
-              </button>
-            </div>
-
-            {/* Render matched result view */}
-            {result.type === 'writing' && <WritingResultView result={result.data} />}
-            {result.type === 'vocab' && <VocabResultView result={result.data} />}
-            {result.type === 'roleplay' && (
-              <RoleplayResultView result={result.data} lang={lang} />
-            )}
-            {result.type === 'quiz' && <QuizResultView result={result.data} />}
-            {result.type === 'toeic_lesson' && (
-              <ToeicLessonResultView
-                result={result.data}
-                onGenerateAnother={() => runAutomationPipeline('toeic_lesson', { topic: 'Random Authentic Workplace Scenario' }, true)}
-                isAutomating={isAutomating}
-              />
-            )}
-          </section>
         )}
-        </>
-      )}
       </main>
 
       {/* Real-time Automation Terminal Modal */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ToeicLessonResult, ToeicWord } from '../../types';
 import {
   Volume2,
@@ -17,8 +17,15 @@ import {
   EyeOff,
   RotateCcw,
   Layers,
-  Repeat
+  Repeat,
+  Mic,
+  Bookmark
 } from 'lucide-react';
+import { shuffleOptionsWithCorrectIndex } from '../../utils/quizUtils';
+import { playAudioPronunciation } from '../../utils/speechUtils';
+import { PronunciationCoachModal, PronunciationCoachTarget } from '../speech/PronunciationCoachModal';
+import { getLearnedWords, toggleWordMastery } from '../../utils/learningMemory';
+import { FlashcardDeckView } from '../flashcard/FlashcardDeckView';
 
 interface ToeicLessonResultViewProps {
   result: ToeicLessonResult;
@@ -34,22 +41,73 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
   const [copied, setCopied] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
+  const [vocabDisplayMode, setVocabDisplayMode] = useState<'grid' | 'flashcard'>('grid');
+
+  // Pronunciation Coach Modal State
+  const [coachTarget, setCoachTarget] = useState<PronunciationCoachTarget | null>(null);
+  const [isCoachOpen, setIsCoachOpen] = useState(false);
+
+  // Word Mastery State
+  const [masteredMap, setMasteredMap] = useState<Record<string, boolean>>(() => {
+    try {
+      const words = getLearnedWords();
+      const map: Record<string, boolean> = {};
+      words.forEach((w) => {
+        if (w.mastered && w.term) map[w.term.toLowerCase()] = true;
+      });
+      return map;
+    } catch {
+      return {};
+    }
+  });
+
+  const handleToggleMastery = (term: string) => {
+    toggleWordMastery(term);
+    setMasteredMap((prev) => ({
+      ...prev,
+      [term.toLowerCase()]: !prev[term.toLowerCase()],
+    }));
+  };
 
   // Interactive Challenge State
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.95;
-      utterance.onstart = () => setSpeakingWord(text);
-      utterance.onend = () => setSpeakingWord(null);
-      utterance.onerror = () => setSpeakingWord(null);
-      window.speechSynthesis.speak(utterance);
+  // Word Form Practice Challenge State (per word card)
+  const [wordFormAnswers, setWordFormAnswers] = useState<Record<number, number>>({});
+
+  const handleSelectWordFormOption = (wordIdx: number, optIdx: number) => {
+    setWordFormAnswers((prev) => ({
+      ...prev,
+      [wordIdx]: optIdx,
+    }));
+  };
+
+  // Shuffle options so correct answer is randomly distributed among A, B, C, D
+  const { shuffledOptions, newCorrectIndex, cleanedExplanation } = useMemo(() => {
+    if (!result.interactiveChallenge?.options) {
+      return { shuffledOptions: [], newCorrectIndex: 0, cleanedExplanation: '' };
     }
+    return shuffleOptionsWithCorrectIndex(
+      result.interactiveChallenge.options,
+      result.interactiveChallenge.correctIndex ?? 0,
+      result.interactiveChallenge.explanation || ''
+    );
+  }, [result.interactiveChallenge]);
+
+  const speakText = (text: string, rate: number = 1.0) => {
+    setSpeakingWord(text);
+    playAudioPronunciation(text, {
+      rate,
+      onStart: () => setSpeakingWord(text),
+      onEnd: () => setSpeakingWord(null),
+      onError: () => setSpeakingWord(null),
+    });
+  };
+
+  const handleOpenCoach = (target: PronunciationCoachTarget) => {
+    setCoachTarget(target);
+    setIsCoachOpen(true);
   };
 
   const handleCopyLesson = () => {
@@ -80,34 +138,20 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Lesson Header Banner */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-900 to-sky-950/40 border border-neutral-800 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+      <div className="p-6 rounded-xl bg-zinc-900/70 border border-zinc-800/80 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800/70">
           <div>
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800 flex items-center gap-1.5">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-sky-400" />
-                <span>TOEIC Progressive Scenario</span>
+                <span>TOEIC PROGRESSIVE SCENARIO</span>
               </span>
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                result.userLevel === 'A1'
-                  ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                  : result.userLevel === 'A2'
-                  ? 'bg-sky-950 text-sky-300 border-sky-800'
-                  : result.userLevel === 'B1'
-                  ? 'bg-amber-950 text-amber-300 border-amber-800'
-                  : 'bg-purple-950 text-purple-300 border-purple-800'
-              }`}>
-                {result.userLevel === 'A1'
-                  ? '🌱 Cấp độ A1: Khởi Đầu'
-                  : result.userLevel === 'A2'
-                  ? '🌿 Cấp độ A2: Cơ Bản'
-                  : result.userLevel === 'B1'
-                  ? '🌳 Cấp độ B1: Trung Cấp'
-                  : '🎯 Cấp độ B2: TOEIC 700+'}
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                LEVEL {result.userLevel || 'A1'}
               </span>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700 flex items-center gap-1">
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-zinc-800/60 text-zinc-300 border border-zinc-700/40 flex items-center gap-1">
                 {getSituationIcon()}
                 <span className="capitalize">{result.situationType || 'Business Scenario'}</span>
               </span>
@@ -116,7 +160,7 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               {result.situationTitle}
             </h2>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-zinc-400 mt-1">
               Chủ đề: <strong className="text-sky-300">{result.topic}</strong>
             </p>
           </div>
@@ -125,11 +169,11 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
             <button
               type="button"
               onClick={handleCopyLesson}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors cursor-pointer border border-neutral-700"
-              title="Copy study summary"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-zinc-800/80 hover:bg-zinc-750 text-zinc-200 transition-colors cursor-pointer border border-zinc-700/60 uppercase"
+              title="Sao chép tóm tắt"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Đã sao chép' : 'Sao chép bài'}</span>
+              <span>{copied ? 'ĐÃ CHÉP' : 'SAO CHÉP'}</span>
             </button>
 
             {onGenerateAnother && (
@@ -137,204 +181,472 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                 type="button"
                 disabled={isAutomating}
                 onClick={onGenerateAnother}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md shadow-sky-600/20 cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all border border-sky-400 cursor-pointer disabled:opacity-50 uppercase shadow-sm"
               >
                 <RotateCcw className={`w-3.5 h-3.5 ${isAutomating ? 'animate-spin' : ''}`} />
-                <span>{isAutomating ? 'Đang tạo...' : 'Đổi tình huống khác'}</span>
+                <span>{isAutomating ? 'ĐANG TẠO...' : 'ĐỔI BÀI KHÁC'}</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Workplace Scenario Reader Box */}
-        <div className="pt-5 space-y-3">
+        <div className="pt-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
-              <span>🏢 Bối Cảnh Thực Tế (Authentic Context)</span>
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+              <span>🏢 BỐI CẢNH THỰC TẾ (AUTHENTIC CONTEXT)</span>
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => speakText(result.scenarioText)}
-                className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded-lg bg-sky-950/50 hover:bg-sky-900/50 border border-sky-800/60 transition-colors cursor-pointer"
-                title="Listen to native narration"
+                onClick={() => speakText(result.scenarioText, 1.0)}
+                className="flex items-center gap-1 text-xs font-mono text-sky-400 hover:text-sky-300 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-750 border border-sky-500/30 transition-colors cursor-pointer"
+                title="Nghe toàn bộ đoạn văn (tốc độ chuẩn 1.0x)"
               >
-                <Volume2 className="w-3.5 h-3.5" />
-                <span>Nghe đoạn văn</span>
+                <Volume2 className={`w-3.5 h-3.5 ${speakingWord === result.scenarioText ? 'animate-bounce' : ''}`} />
+                <span>🔊 1.0x</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => speakText(result.scenarioText, 0.75)}
+                className="flex items-center gap-1 text-xs font-mono text-amber-400 hover:text-amber-300 px-2 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-750 border border-amber-500/30 transition-colors cursor-pointer"
+                title="Nghe chậm toàn bộ đoạn văn (0.75x)"
+              >
+                <span>🐢 0.75x</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleOpenCoach({
+                    term: result.situationTitle,
+                    exampleSentence: result.scenarioText,
+                    exampleTranslation: result.scenarioTranslationVi,
+                    level: 'A1-B2',
+                  })
+                }
+                className="flex items-center gap-1 text-xs font-mono text-emerald-400 hover:text-emerald-300 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors cursor-pointer"
+                title="Luyện đọc đoạn văn và chấm điểm"
+              >
+                <Mic className="w-3.5 h-3.5 text-emerald-400" />
+                <span>🎙️ LUYỆN ĐỌC</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowTranslation(!showTranslation)}
-                className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200 px-2 py-1 rounded-lg bg-neutral-800/80 hover:bg-neutral-800 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-xs font-mono text-zinc-300 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/60 transition-colors cursor-pointer"
               >
                 {showTranslation ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                <span>{showTranslation ? 'Ẩn dịch' : 'Xem bản dịch'}</span>
+                <span>{showTranslation ? 'ẨN BẢN DỊCH' : 'XEM DỊCH'}</span>
               </button>
             </div>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-xl bg-neutral-950 border border-neutral-800 relative">
-            <p className="text-sm sm:text-base text-neutral-200 leading-relaxed font-sans">
-              "{result.scenarioText}"
-            </p>
-
-            {showTranslation && (
-              <div className="mt-3 pt-3 border-t border-neutral-800/80 text-xs sm:text-sm text-neutral-400 italic leading-relaxed">
-                ↳ {result.scenarioTranslationVi}
-              </div>
-            )}
+          <div className="p-4 rounded-lg bg-zinc-850/50 border border-zinc-800/80 text-zinc-100 text-sm leading-relaxed font-sans">
+            {result.scenarioText}
           </div>
+
+          {showTranslation && (
+            <div className="p-3.5 rounded-lg bg-sky-950/20 border-l-2 border-l-sky-500 border border-sky-900/30 text-xs text-zinc-300 leading-relaxed font-sans">
+              <strong className="text-sky-300 block mb-1 font-mono uppercase">Bản dịch tiếng Việt:</strong>
+              {result.scenarioTranslationVi}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 3 Target Vocabulary Cards */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>3 Từ Vựng / Collocations Vàng Chuẩn 700+ Trong Bối Cảnh Này</span>
-          </h3>
-          <span className="text-xs text-neutral-400 font-mono">Part 5 &amp; 7 Focus</span>
+      {/* Target Vocabulary Section (Grid vs 3D Flashcard Deck) */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-black text-white flex items-center gap-2 uppercase tracking-tight">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>{result.targetWords?.length || 3} TỪ VỰNG / COLLOCATIONS VÀNG CHUẨN 700+</span>
+            </h3>
+            <span className="text-xs text-neutral-400 font-mono hidden sm:inline">[ PART 5 &amp; 7 FOCUS ]</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 font-mono text-xs">
+            <button
+              type="button"
+              onClick={() => setVocabDisplayMode('grid')}
+              className={`px-3 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                vocabDisplayMode === 'grid'
+                  ? 'bg-zinc-800 text-white border-zinc-700 shadow-sm'
+                  : 'bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 border-zinc-800'
+              }`}
+            >
+              <span>📋 Lưới chi tiết</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVocabDisplayMode('flashcard')}
+              className={`px-3 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                vocabDisplayMode === 'flashcard'
+                  ? 'bg-sky-600 text-white border-sky-400 shadow-sm'
+                  : 'bg-zinc-900/60 text-zinc-400 hover:text-sky-300 border-zinc-800'
+              }`}
+            >
+              <span>🎴 Thẻ Flashcard 3D</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {vocabDisplayMode === 'flashcard' ? (
+          <FlashcardDeckView
+            items={(result.targetWords || []).map((word) => ({
+              term: word.term,
+              ipa: word.ipa,
+              vietnamesePhonetic: word.vietnamesePhonetic,
+              partOfSpeech: word.partOfSpeech,
+              vietnameseMeaning: word.vietnameseMeaning,
+              wordFamilyDetails: word.wordFamilyDetails,
+              exampleSentence: word.exampleSentence || result.scenarioText,
+              exampleTranslation: word.exampleTranslation || result.scenarioTranslationVi,
+              simpleBreakdown: word.simpleBreakdown,
+              etsTrapTip: word.etsTrapTip,
+              mastered: !!masteredMap[word.term.toLowerCase()],
+            }))}
+            title={`FLASHCARD BÀI HỌC: ${result.situationTitle}`}
+            onWordMastered={(term, mastered) => {
+              setMasteredMap((prev) => ({ ...prev, [term.toLowerCase()]: mastered }));
+            }}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {result.targetWords?.map((word: ToeicWord, idx: number) => (
             <div
               key={idx}
-              className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all flex flex-col justify-between space-y-4 shadow-sm"
+              className="p-5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 transition-all duration-200 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md"
             >
               <div className="space-y-3">
                 {/* Word Header & Audio */}
-                <div className="flex items-start justify-between gap-2 pb-2 border-b border-neutral-800">
+                <div className="flex items-start justify-between gap-2 pb-3 border-b border-zinc-800/70">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xl font-extrabold text-white tracking-tight">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-xl font-bold text-white tracking-tight">
                         {word.term}
                       </h4>
-                      <button
-                        type="button"
-                        onClick={() => speakText(word.term)}
-                        className="p-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sky-400 transition-colors cursor-pointer"
-                        title="Listen to pronunciation"
-                      >
-                        <Volume2 className={`w-3.5 h-3.5 ${speakingWord === word.term ? 'animate-bounce' : ''}`} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => speakText(word.term, 1.0)}
+                          className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-750 text-sky-400 transition-colors cursor-pointer border border-zinc-700/60"
+                          title="Nghe phát âm chuẩn (1.0x)"
+                        >
+                          <Volume2 className={`w-3.5 h-3.5 ${speakingWord === word.term ? 'animate-bounce' : ''}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => speakText(word.term, 0.7)}
+                          className="px-1.5 py-0.5 rounded-lg bg-zinc-800 hover:bg-zinc-750 text-amber-400 text-[10px] font-mono transition-colors cursor-pointer border border-zinc-700/60"
+                          title="Nghe chậm từng âm tiết (0.7x)"
+                        >
+                          🐢 0.7x
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-xs font-mono text-neutral-400 block mt-0.5">
-                      {word.ipa} • <span className="text-neutral-500">{word.partOfSpeech}</span>
+                    <span className="text-xs text-zinc-400 block mt-0.5 font-mono">
+                      {word.ipa} • <span className="text-zinc-500 font-sans italic">{word.partOfSpeech}</span>
                     </span>
                     {word.vietnamesePhonetic && (
-                      <div className="mt-1 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/60 text-[11px] text-purple-300 font-mono inline-flex items-center gap-1">
-                        <span>🗣️</span>
-                        <span>Đọc là: <strong>"{word.vietnamesePhonetic}"</strong></span>
+                      <div className="mt-1 px-2 py-0.5 rounded-md bg-zinc-800/70 border border-zinc-700/50 text-[10px] text-zinc-300 font-sans inline-flex items-center gap-1">
+                        <span>Đọc là: "{word.vietnamesePhonetic}"</span>
                       </div>
                     )}
                   </div>
 
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">
-                    Word {idx + 1}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono text-zinc-500">
+                      #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCoach({
+                          term: word.term,
+                          ipa: word.ipa,
+                          vietnamesePhonetic: word.vietnamesePhonetic,
+                          vietnameseMeaning: word.vietnameseMeaning,
+                          exampleSentence: result.scenarioText,
+                          exampleTranslation: result.scenarioTranslationVi,
+                        })
+                      }
+                      className="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Luyện phát âm từ này và chấm điểm ngay"
+                    >
+                      <Mic className="w-3 h-3 text-emerald-400" />
+                      <span>LUYỆN ĐỌC</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMastery(word.term)}
+                      className={`px-2 py-1 rounded-lg border text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                        masteredMap[word.term.toLowerCase()]
+                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                          : 'bg-zinc-800/80 hover:bg-zinc-750 border-zinc-700/60 text-zinc-400 hover:text-amber-300'
+                      }`}
+                      title={
+                        masteredMap[word.term.toLowerCase()]
+                          ? 'Đã thuộc lòng (Bấm để chuyển sang cần ôn)'
+                          : 'Đánh dấu đã thuộc từ này'
+                      }
+                    >
+                      <Bookmark
+                        className={`w-3 h-3 ${
+                          masteredMap[word.term.toLowerCase()]
+                            ? 'fill-emerald-400 text-emerald-400'
+                            : ''
+                        }`}
+                      />
+                      <span>{masteredMap[word.term.toLowerCase()] ? 'ĐÃ THUỘC' : 'ĐÁNH DẤU'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Meaning */}
-                <div className="p-2.5 rounded-xl bg-sky-950/30 border border-sky-900/40">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 block mb-0.5">
-                    Nghĩa công sở
+                <div className="border-l-2 border-sky-500 pl-3 py-1 space-y-0.5">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400 block">
+                    Ý NGHĨA TIẾNG VIỆT:
                   </span>
-                  <p className="text-xs sm:text-sm font-semibold text-sky-100 leading-snug">
+                  <p className="text-sm font-semibold text-zinc-100 font-sans leading-snug">
                     {word.vietnameseMeaning}
                   </p>
                 </div>
 
-                {/* Word Family (Part 5 Secret) */}
-                {word.wordFamily && (
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-neutral-300 flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-emerald-400" />
-                      <span>Gia đình từ (Word Family - Part 5):</span>
-                    </span>
-                    <p className="text-xs text-neutral-400 font-mono bg-neutral-950 px-2.5 py-1.5 rounded-lg border border-neutral-800/80">
-                      {word.wordFamily}
-                    </p>
+                {/* Word Family Matrix */}
+                {(word.wordFamilyDetails || word.wordFamily) && (
+                  <div className="space-y-2 pt-1 border-t border-zinc-850">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-zinc-300 flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Họ từ vựng (Word Family):</span>
+                      </span>
+                    </div>
+
+                    {word.wordFamilyDetails ? (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {word.wordFamilyDetails.noun && (
+                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                            <div className="overflow-hidden">
+                              <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Danh từ</span>
+                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.noun}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => speakText(word.wordFamilyDetails!.noun!)}
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              title="Nghe phát âm"
+                            >
+                              <Volume2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        {word.wordFamilyDetails.verb && (
+                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                            <div className="overflow-hidden">
+                              <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Động từ</span>
+                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.verb}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => speakText(word.wordFamilyDetails!.verb!)}
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              title="Nghe phát âm"
+                            >
+                              <Volume2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        {word.wordFamilyDetails.adjective && (
+                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                            <div className="overflow-hidden">
+                              <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Tính từ</span>
+                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.adjective}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => speakText(word.wordFamilyDetails!.adjective!)}
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              title="Nghe phát âm"
+                            >
+                              <Volume2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        {word.wordFamilyDetails.adverb && (
+                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                            <div className="overflow-hidden">
+                              <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Trạng từ</span>
+                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.adverb}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => speakText(word.wordFamilyDetails!.adverb!)}
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              title="Nghe phát âm"
+                            >
+                              <Volume2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-300 font-mono bg-zinc-850 px-2.5 py-1.5 rounded-md border border-zinc-800">
+                        {word.wordFamily}
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* TOEIC Paraphrase (Part 7 Secret) */}
+                {/* Word Form Practice Challenge */}
+                {word.wordFormExercise && (
+                  <div className="p-3.5 rounded-lg bg-zinc-850/40 border border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-sky-400 flex items-center gap-1 uppercase tracking-wider">
+                        <Sparkles className="w-3 h-3 text-sky-400" />
+                        <span>Luyện Word Form (Part 5):</span>
+                      </span>
+                      {word.wordFormExercise.targetForm && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700 uppercase">
+                          Cần: {word.wordFormExercise.targetForm}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-zinc-200 font-medium font-sans leading-relaxed">
+                      "{word.wordFormExercise.sentence}"
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {word.wordFormExercise.options.map((opt: string, optIdx: number) => {
+                        const isAnswered = wordFormAnswers[idx] !== undefined;
+                        const isSelected = wordFormAnswers[idx] === optIdx;
+                        const isCorrect = optIdx === word.wordFormExercise!.correctIndex;
+
+                        let btnClass = 'bg-zinc-900 hover:bg-zinc-850 text-zinc-300 border-zinc-800';
+                        if (isAnswered) {
+                          if (isCorrect) {
+                            btnClass = 'bg-emerald-500/15 text-emerald-200 border-emerald-500/50 font-bold';
+                          } else if (isSelected) {
+                            btnClass = 'bg-rose-500/15 text-rose-200 border-rose-500/50';
+                          } else {
+                            btnClass = 'opacity-40 bg-zinc-900 text-zinc-500 border-zinc-800';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={optIdx}
+                            type="button"
+                            disabled={isAnswered}
+                            onClick={() => handleSelectWordFormOption(idx, optIdx)}
+                            className={`p-2 rounded-lg border text-xs text-left transition-colors cursor-pointer flex items-center justify-between ${btnClass}`}
+                          >
+                            <span className="font-mono">
+                              <span className="text-zinc-500 mr-1.5 font-bold">
+                                {String.fromCharCode(65 + optIdx)}.
+                              </span>
+                              {opt}
+                            </span>
+                            {isAnswered && isCorrect && <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />}
+                            {isAnswered && isSelected && !isCorrect && <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {wordFormAnswers[idx] !== undefined && (
+                      <div className="p-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-[11px] text-zinc-200 font-sans leading-relaxed">
+                        <strong className="text-sky-300 font-mono block mb-0.5 uppercase">
+                          {wordFormAnswers[idx] === word.wordFormExercise.correctIndex ? '✓ CHÍNH XÁC!' : '✕ GIẢI THÍCH:'}
+                        </strong>
+                        {word.wordFormExercise.explanation}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {word.toeicParaphrase && (
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-neutral-300 flex items-center gap-1">
-                      <Repeat className="w-3 h-3 text-amber-400" />
-                      <span>Từ đồng nghĩa trong đề thi (Paraphrase):</span>
+                    <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1">
+                      <Repeat className="w-3 h-3 text-zinc-400" />
+                      <span>Từ đồng nghĩa (Part 7):</span>
                     </span>
-                    <p className="text-xs text-amber-300/90 font-mono bg-neutral-950 px-2.5 py-1.5 rounded-lg border border-neutral-800/80">
+                    <p className="text-xs text-zinc-300 font-mono bg-zinc-850 px-2.5 py-1.5 rounded-md border border-zinc-800">
                       {word.toeicParaphrase}
                     </p>
                   </div>
                 )}
 
                 {/* Example sentence */}
-                <div className="pt-2 text-xs text-neutral-300 border-t border-neutral-800/60 space-y-1">
-                  <p className="italic text-neutral-300 leading-relaxed">
+                <div className="space-y-1 pt-2 border-t border-zinc-850">
+                  <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
+                    <span>VÍ DỤ THỰC CHIẾN:</span>
+                    <button
+                      type="button"
+                      onClick={() => speakText(word.exampleSentence)}
+                      className="text-sky-400 hover:text-sky-300 cursor-pointer p-0.5"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-200 italic font-sans">
                     "{word.exampleSentence}"
                   </p>
-                  <p className="text-[11px] text-neutral-500">
-                    ↳ {word.exampleTranslation}
+                  <p className="text-[11px] text-zinc-400 font-sans">
+                    {word.exampleTranslation}
                   </p>
-                  {word.simpleBreakdown && (
-                    <div className="pt-1.5 mt-1 border-t border-neutral-800/40 text-[11px] text-sky-300/90 font-mono">
-                      <span>🧩 Mổ xẻ câu: {word.simpleBreakdown}</span>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* ETS Trap Tip */}
+              {/* Trap Tip */}
               {word.etsTrapTip && (
-                <div className="p-3 rounded-xl bg-amber-950/20 border border-amber-800/40 text-[11px] text-amber-200/90 space-y-1 mt-auto">
-                  <div className="flex items-center gap-1 font-bold text-amber-400 uppercase tracking-wide">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>Bẫy đề thi ETS:</span>
-                  </div>
+                <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-[11px] text-amber-200/90 font-sans">
+                  <strong className="text-amber-300 font-mono uppercase block mb-0.5">💡 Bẫy đề thi:</strong>
                   <p className="leading-relaxed">{word.etsTrapTip}</p>
                 </div>
               )}
             </div>
           ))}
         </div>
+      )}
       </div>
 
       {/* Interactive Reflex Challenge */}
       {result.interactiveChallenge && (
-        <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-sm space-y-5">
+        <div className="p-6 rounded-xl bg-zinc-900/70 border border-zinc-850 shadow-sm space-y-4">
           <div className="flex items-center gap-2 text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
-            <h3 className="text-base font-bold text-white tracking-tight">
-              Thử Thách Phản Xạ Tình Huống (Workplace Reflex Challenge)
+            <h3 className="text-base font-bold text-white uppercase tracking-tight">
+              THỬ THÁCH PHẢN XẠ CÔNG SỞ (REFLEX CHALLENGE)
             </h3>
           </div>
 
-          <p className="text-sm font-semibold text-neutral-200 leading-relaxed">
+          <p className="text-sm font-semibold text-zinc-200 leading-relaxed font-sans">
             {result.interactiveChallenge.prompt}
           </p>
 
-          <div className="grid grid-cols-1 gap-2.5">
-            {result.interactiveChallenge.options.map((opt: string, idx: number) => {
+          <div className="grid grid-cols-1 gap-2">
+            {shuffledOptions.map((opt: string, idx: number) => {
               const isSelected = selectedOption === idx;
-              const isCorrect = idx === result.interactiveChallenge.correctIndex;
-              let btnStyle = 'bg-neutral-950 border-neutral-800 hover:border-neutral-700 text-neutral-300';
+              const isCorrect = idx === newCorrectIndex;
+              let btnStyle = 'bg-zinc-850/60 border-zinc-800 hover:border-zinc-700 text-zinc-200';
 
               if (hasSubmitted) {
                 if (isCorrect) {
-                  btnStyle = 'bg-emerald-950/50 border-emerald-500 text-emerald-200 font-semibold';
+                  btnStyle = 'bg-emerald-500/15 border border-emerald-500/60 text-emerald-200 font-semibold';
                 } else if (isSelected && !isCorrect) {
-                  btnStyle = 'bg-rose-950/50 border-rose-500 text-rose-200';
+                  btnStyle = 'bg-rose-500/15 border border-rose-500/60 text-rose-200';
                 } else {
-                  btnStyle = 'bg-neutral-950/60 border-neutral-800/60 text-neutral-500';
+                  btnStyle = 'bg-zinc-900/40 border-zinc-850 text-zinc-500';
                 }
               } else if (isSelected) {
-                btnStyle = 'bg-sky-950/60 border-sky-500 text-white font-medium';
+                btnStyle = 'bg-sky-500/15 border border-sky-500/60 text-white font-medium';
               }
 
               return (
@@ -345,9 +657,9 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                     setSelectedOption(idx);
                     setHasSubmitted(true);
                   }}
-                  className={`p-3.5 rounded-xl border text-left text-xs sm:text-sm transition-all flex items-start gap-3 cursor-pointer ${btnStyle}`}
+                  className={`p-3.5 rounded-lg border text-left text-xs sm:text-sm transition-all duration-150 flex items-start gap-3 cursor-pointer ${btnStyle}`}
                 >
-                  <span className="w-5 h-5 rounded-full border border-neutral-700 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">
+                  <span className="w-5 h-5 rounded-md border border-zinc-700 font-mono flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">
                     {String.fromCharCode(65 + idx)}
                   </span>
                   <span className="leading-relaxed">{opt}</span>
@@ -356,32 +668,32 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
             })}
           </div>
 
-          {/* Explanation Box after Selection */}
+          {/* Explanation Box */}
           {hasSubmitted && (
-            <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-3 animate-in fade-in duration-300">
+            <div className="p-4 rounded-lg bg-zinc-850/60 border border-zinc-800 space-y-3">
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded ${
-                    selectedOption === result.interactiveChallenge.correctIndex
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                      : 'bg-amber-950 text-amber-300 border border-amber-800'
+                  className={`text-xs font-mono font-bold uppercase px-2.5 py-1 rounded-md ${
+                    selectedOption === newCorrectIndex
+                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                   }`}
                 >
-                  {selectedOption === result.interactiveChallenge.correctIndex
-                    ? '🎉 Chuẩn xác 100%!'
-                    : '💡 Chưa tối ưu - Xem phân tích bên dưới:'}
+                  {selectedOption === newCorrectIndex
+                    ? '✓ CHUẨN XÁC 100%'
+                    : '✕ CHƯA TỐI ƯU - XEM PHÂN TÍCH'}
                 </span>
               </div>
 
-              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                {result.interactiveChallenge.explanation}
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
+                {cleanedExplanation || result.interactiveChallenge.explanation}
               </p>
 
               {result.interactiveChallenge.takeawayTip && (
-                <div className="p-3 rounded-lg bg-sky-950/30 border border-sky-900/40 text-xs text-sky-200 flex items-start gap-2">
+                <div className="p-3 rounded-lg bg-sky-950/20 border-l-2 border-l-sky-500 border border-sky-900/30 text-xs text-sky-200 flex items-start gap-2">
                   <Lightbulb className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <div>
-                    <strong className="text-sky-300">Bí kíp 700+:</strong> {result.interactiveChallenge.takeawayTip}
+                    <strong className="text-sky-300 font-mono uppercase">Bí kíp 700+:</strong> {result.interactiveChallenge.takeawayTip}
                   </div>
                 </div>
               )}
@@ -389,6 +701,13 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
           )}
         </div>
       )}
+
+      {/* Pronunciation Coach Modal */}
+      <PronunciationCoachModal
+        isOpen={isCoachOpen}
+        onClose={() => setIsCoachOpen(false)}
+        target={coachTarget}
+      />
     </div>
   );
 };

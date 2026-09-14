@@ -210,14 +210,14 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
   };
 
   return (
-    <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-sm space-y-4">
+    <div className="p-5 rounded-none bg-neutral-950 border border-neutral-800 shadow-sm space-y-4 border-l-4 border-l-sky-500">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+          <div className="p-2 rounded-none bg-sky-500/10 text-sky-400 border border-sky-500/20">
             <Mic className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white tracking-tight">
+            <h4 className="text-sm font-mono font-bold text-white uppercase tracking-wider">
               {t.evaluateSpeechTitle}
             </h4>
             <p className="text-xs text-neutral-400">
@@ -228,8 +228,8 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
           </div>
         </div>
 
-        <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-neutral-950 border border-neutral-800 text-neutral-300">
-          Target: {targetDifficulty}
+        <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-none bg-neutral-900 border border-neutral-700 text-neutral-300">
+          [ TARGET: {targetDifficulty} ]
         </span>
       </div>
 
@@ -240,17 +240,17 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
           value={speechText}
           onChange={(e) => setSpeechText(e.target.value)}
           placeholder={t.speechInputPlaceholder}
-          className="w-full pl-4 pr-28 py-3 bg-neutral-950 border border-neutral-800 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors leading-relaxed font-sans"
+          className="w-full pl-4 pr-28 py-3 bg-neutral-950 border border-neutral-800 rounded-none text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors leading-relaxed font-sans"
         />
 
         <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
           <button
             type="button"
             onClick={toggleRecording}
-            className={`p-2 rounded-lg text-xs font-medium transition-all ${
+            className={`p-2 rounded-none text-xs font-mono font-bold uppercase transition-all border ${
               isRecording
-                ? 'bg-rose-600 text-white animate-pulse shadow-lg shadow-rose-600/30'
-                : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white cursor-pointer'
+                ? 'bg-rose-600 text-white animate-pulse border-rose-500'
+                : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white border-neutral-700 cursor-pointer'
             }`}
             title={isRecording ? 'Dừng thu âm' : 'Bật micro thu âm giọng nói'}
           >
@@ -261,10 +261,10 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
             type="button"
             disabled={!speechText.trim() || isEvaluating}
             onClick={handleEvaluate}
-            className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-2 rounded-none text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 border transition-all ${
               !speechText.trim() || isEvaluating
-                ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
-                : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm cursor-pointer'
+                ? 'bg-neutral-900 text-neutral-500 border-neutral-800 cursor-not-allowed'
+                : 'bg-sky-600 hover:bg-sky-500 text-white border-sky-400 shadow-sm cursor-pointer'
             }`}
           >
             {isEvaluating ? (
@@ -280,14 +280,14 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
       </div>
 
       {isRecording && (
-        <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-950/30 border border-rose-900/40 p-2.5 rounded-lg animate-pulse">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+        <div className="flex items-center gap-2 text-xs font-mono text-rose-400 bg-rose-950/30 border border-rose-900/40 p-2.5 rounded-none animate-pulse">
+          <span className="w-2 h-2 rounded-none bg-rose-500 animate-ping" />
           <span>{t.micListening}</span>
         </div>
       )}
 
       {recognitionError && (
-        <div className="flex items-center gap-2 text-xs text-amber-300 bg-amber-950/30 border border-amber-900/40 p-2.5 rounded-lg">
+        <div className="flex items-center gap-2 text-xs font-mono text-amber-300 bg-amber-950/30 border border-amber-900/40 p-2.5 rounded-none">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{recognitionError}</span>
         </div>
@@ -295,21 +295,21 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
 
       {/* Evaluation Results Card */}
       {evaluation && (
-        <div className="mt-4 p-5 rounded-xl bg-neutral-950 border border-neutral-800/80 space-y-4 animate-fade-in">
+        <div className="mt-4 p-5 rounded-none bg-neutral-900/60 border border-neutral-800 space-y-4 animate-fade-in border-l-4 border-l-emerald-500">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-800">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <div className="p-2.5 rounded-none bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                 <Award className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-400">{t.speechLevelResult}:</span>
+                  <span className="text-xs font-mono text-neutral-400">{t.speechLevelResult}:</span>
                   <span
-                    className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${getLevelColor(
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-none border ${getLevelColor(
                       evaluation.assessedLevel
                     )}`}
                   >
-                    CEFR {evaluation.assessedLevel}
+                    [ CEFR {evaluation.assessedLevel} ]
                   </span>
                 </div>
                 <p className="text-xs text-neutral-300 mt-1">
@@ -320,20 +320,20 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
 
             {/* Score pills breakdown */}
             <div className="flex items-center gap-2 text-center text-xs">
-              <div className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800">
-                <span className="text-[10px] text-neutral-400 block">{t.speechFluency}</span>
+              <div className="px-2.5 py-1 rounded-none bg-neutral-950 border border-neutral-800 font-mono">
+                <span className="text-[10px] text-neutral-400 block uppercase">{t.speechFluency}</span>
                 <span className="font-bold text-sky-400">
                   {evaluation.scoreBreakdown.fluency}/10
                 </span>
               </div>
-              <div className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800">
-                <span className="text-[10px] text-neutral-400 block">{t.speechVocabulary}</span>
+              <div className="px-2.5 py-1 rounded-none bg-neutral-950 border border-neutral-800 font-mono">
+                <span className="text-[10px] text-neutral-400 block uppercase">{t.speechVocabulary}</span>
                 <span className="font-bold text-sky-400">
                   {evaluation.scoreBreakdown.vocabulary}/10
                 </span>
               </div>
-              <div className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800">
-                <span className="text-[10px] text-neutral-400 block">{t.speechGrammar}</span>
+              <div className="px-2.5 py-1 rounded-none bg-neutral-950 border border-neutral-800 font-mono">
+                <span className="text-[10px] text-neutral-400 block uppercase">{t.speechGrammar}</span>
                 <span className="font-bold text-sky-400">
                   {evaluation.scoreBreakdown.grammar}/10
                 </span>
@@ -343,7 +343,7 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
 
           {/* Upgraded Phrasings */}
           <div className="space-y-2">
-            <h5 className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
+            <h5 className="text-xs font-mono font-bold uppercase text-neutral-300 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-sky-400" />
               <span>{t.speechUpgradeTitle}</span>
             </h5>
@@ -352,15 +352,15 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
               {evaluation.upgradedPhrasings?.map((up, idx) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-lg bg-neutral-900 border border-neutral-800 flex items-start justify-between gap-3 group hover:border-neutral-700 transition-colors"
+                  className="p-3 rounded-none bg-neutral-950 border border-neutral-800 flex items-start justify-between gap-3 group hover:border-neutral-700 transition-colors"
                 >
                   <div className="flex items-start gap-2.5">
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded border mt-0.5 shrink-0 ${getLevelColor(
+                      className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-none border mt-0.5 shrink-0 ${getLevelColor(
                         up.level
                       )}`}
                     >
-                      {up.level}
+                      [{up.level}]
                     </span>
                     <p className="text-xs text-neutral-200 leading-relaxed font-sans">
                       "{up.sentence}"
@@ -370,7 +370,7 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
                   <button
                     type="button"
                     onClick={() => speakText(up.sentence)}
-                    className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-sky-400 transition-colors shrink-0 cursor-pointer"
+                    className="p-1.5 rounded-none bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 text-neutral-400 hover:text-sky-400 transition-colors shrink-0 cursor-pointer"
                     title="Nghe phát âm"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
@@ -382,8 +382,8 @@ export const UserSpeechEvaluator: React.FC<UserSpeechEvaluatorProps> = ({
 
           {/* Pragmatic & Cultural Note */}
           {evaluation.culturalTips && evaluation.culturalTips.length > 0 && (
-            <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-900/30 text-xs text-emerald-200/90 leading-relaxed">
-              <strong className="text-emerald-300 font-semibold block mb-1">
+            <div className="p-3 rounded-none bg-emerald-950/20 border border-emerald-900/40 text-xs text-emerald-200/90 leading-relaxed font-mono">
+              <strong className="text-emerald-300 font-bold block mb-1 uppercase">
                 {lang === 'vi' ? 'Mẹo ứng xử văn hóa & Ngữ dụng:' : 'Cultural Pragmatics Tip:'}
               </strong>
               {evaluation.culturalTips[0]}

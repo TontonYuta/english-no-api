@@ -4,6 +4,8 @@ import { createServer as createViteServer } from 'vite';
 import { runChatbotPipeline } from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
+import { generateContextualReply } from './src/utils/chatUtils';
+import { getTTSAudioBuffer } from './server/ttsService';
 import {
   AutomationStreamPayload,
   PipelineStepId,
@@ -43,8 +45,8 @@ app.get('/api/playwright/status', (req: Request, res: Response) => {
   const profileDir = path.resolve(process.cwd(), '.playwright-profile');
   res.json({
     ready: true,
-    supportedProviders: ['gemini', 'chatgpt', 'antigravity'],
-    defaultProvider: 'gemini',
+    supportedProviders: ['fast', 'gemini', 'chatgpt', 'antigravity'],
+    defaultProvider: 'fast',
     userDataDir: profileDir,
     headlessDefault: true,
     features: [
@@ -72,6 +74,57 @@ app.post('/api/evaluate-speech', (req: Request, res: Response) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Interactive Chat Partner Reply endpoint
+app.post('/api/chat-reply', (req: Request, res: Response) => {
+  try {
+    const {
+      scenario = '',
+      userRole = 'Speaker',
+      aiRole = 'Partner',
+      lastUserMessage = '',
+      history = [],
+      difficulty = 'B2',
+    } = req.body;
+
+    const reply = generateContextualReply({
+      scenario,
+      userRole,
+      aiRole,
+      history,
+      lastUserMessage,
+      difficulty,
+    });
+
+    res.json(reply);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// High-Quality Studio Audio TTS Proxy (Google Neural TTS Stream with chunking and cache)
+app.get('/api/tts', async (req: Request, res: Response) => {
+  try {
+    const text = ((req.query.text as string) || '').trim();
+    const requestedVoice = (req.query.voice as string) || (req.query.lang as string) || 'en-US';
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text query parameter is required' });
+    }
+
+    const buffer = await getTTSAudioBuffer(text, requestedVoice);
+    if (!buffer) {
+      return res.status(502).json({ error: 'Failed to synthesize speech audio' });
+    }
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    return res.send(buffer);
+  } catch (err: any) {
+    console.error('TTS Endpoint Error:', err);
+    return res.status(500).json({ error: 'Internal TTS server error', details: err.message });
   }
 });
 
@@ -215,7 +268,7 @@ app.get('/api/playwright/stream', async (req: Request, res: Response) => {
     }
 
     const taskType: TaskType = (params.taskType as TaskType) || 'writing';
-    const provider: ChatbotProvider = (params.provider as ChatbotProvider) || 'gemini';
+    const provider: ChatbotProvider = (params.provider as ChatbotProvider) || 'fast';
     const headless = params.headless !== 'false' && params.headless !== false;
     const userDataDir = (params.userDataDir as string) || '.playwright-profile';
     const simulateIfBlocked = params.simulateIfBlocked !== 'false' && params.simulateIfBlocked !== false;
@@ -224,7 +277,7 @@ app.get('/api/playwright/stream', async (req: Request, res: Response) => {
       provider,
       headless,
       userDataDir,
-      timeoutMs: 30000,
+      timeoutMs: 8000,
       simulateIfBlocked,
     };
 

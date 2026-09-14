@@ -3,6 +3,8 @@ import path from 'path';
 import { runChatbotPipeline } from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
+import { generateContextualReply } from './src/utils/chatUtils';
+import { getTTSAudioBuffer } from './server/ttsService';
 import {
   TaskType,
   ChatbotProvider,
@@ -47,6 +49,65 @@ export function vitePluginPlaywright(): Plugin {
           return;
         }
 
+        // Handle /api/chat-reply
+        if (req.url === '/api/chat-reply' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk) => {
+            body += chunk;
+          });
+          req.on('end', () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const reply = generateContextualReply({
+                scenario: data.scenario || '',
+                userRole: data.userRole || 'Speaker',
+                aiRole: data.aiRole || 'Partner',
+                history: data.history || [],
+                lastUserMessage: data.lastUserMessage || '',
+                difficulty: data.difficulty || 'B2',
+              });
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(reply));
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // Handle /api/tts
+        if (req.url?.startsWith('/api/tts')) {
+          try {
+            const urlObj = new URL(req.url, 'http://localhost:3000');
+            const text = (urlObj.searchParams.get('text') || '').trim();
+            const requestedVoice = urlObj.searchParams.get('voice') || urlObj.searchParams.get('lang') || 'en-US';
+
+            if (!text) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Text query parameter is required' }));
+              return;
+            }
+
+            const buffer = await getTTSAudioBuffer(text, requestedVoice);
+            if (!buffer) {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Failed to synthesize speech audio' }));
+              return;
+            }
+
+            res.writeHead(200, {
+              'Content-Type': 'audio/mpeg',
+              'Cache-Control': 'public, max-age=86400',
+            });
+            res.end(buffer);
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+
         // Handle /api/playwright/status
         if (req.url === '/api/playwright/status') {
           const profileDir = path.resolve(process.cwd(), '.playwright-profile');
@@ -81,7 +142,7 @@ export function vitePluginPlaywright(): Plugin {
         }
 
         const taskType: TaskType = params.taskType || 'writing';
-        const provider: ChatbotProvider = params.provider || 'gemini';
+        const provider: ChatbotProvider = params.provider || 'fast';
         const headless = params.headless !== false;
         const userDataDir = params.userDataDir || '.playwright-profile';
         const simulateIfBlocked = params.simulateIfBlocked !== false;
@@ -90,7 +151,7 @@ export function vitePluginPlaywright(): Plugin {
           provider,
           headless,
           userDataDir,
-          timeoutMs: 30000,
+          timeoutMs: 6000,
           simulateIfBlocked,
         };
 

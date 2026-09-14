@@ -1,5 +1,19 @@
 import React from 'react';
-import { MessageSquare, Sparkles, Users, Sliders, Volume2, Shield } from 'lucide-react';
+import {
+  MessageSquare,
+  Sparkles,
+  Users,
+  Sliders,
+  Shield,
+  Bot,
+  User,
+  Coffee,
+  Plane,
+  Briefcase,
+  Building,
+  Handshake,
+  UtensilsCrossed,
+} from 'lucide-react';
 import { DialogueDifficulty, RoleplayLength, Language } from '../../types';
 import { translations } from '../../translations';
 import { UserSpeechEvaluator } from '../speech/UserSpeechEvaluator';
@@ -36,45 +50,183 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
   lang,
 }) => {
   const t = translations[lang];
+  const isVi = lang === 'vi';
 
-  const sampleScenarios = [
+  const sampleContacts = [
     {
-      title: lang === 'vi' ? 'Check-in Sân bay' : 'Airport Check-in',
+      icon: Plane,
+      title: isVi ? 'Check-in Sân bay' : 'Airport Check-in',
       scenario:
-        lang === 'vi'
+        isVi
           ? 'Quầy làm thủ tục sân bay, hành lý bị quá cân 2.5kg và chỉ còn 25 phút trước giờ lên máy bay'
           : 'Airport check-in counter with 2.5kg overweight baggage and tight boarding cutoff',
-      userRole: lang === 'vi' ? 'Hành khách (Passenger)' : 'Passenger',
-      aiRole: lang === 'vi' ? 'Nhân viên quầy bay (Agent)' : 'SkyWings Check-in Agent',
+      userRole: isVi ? 'Hành khách (Passenger)' : 'Passenger',
+      aiRole: isVi ? 'Nhân viên quầy bay (SkyWings Agent)' : 'SkyWings Check-in Agent',
+      accent: 'border-l-sky-500',
     },
     {
-      title: lang === 'vi' ? 'Phỏng vấn Tech Lead' : 'Tech Job Interview',
+      icon: Briefcase,
+      title: isVi ? 'Phỏng vấn Tech Lead' : 'Tech Job Interview',
       scenario:
-        lang === 'vi'
+        isVi
           ? 'Giải thích giải pháp kiến trúc hệ thống và cách xử lý sự cố máy chủ chịu tải cao'
           : 'Explaining a complex technical challenge and architectural trade-off',
-      userRole: lang === 'vi' ? 'Ứng viên lập trình' : 'Software Engineer Candidate',
-      aiRole: lang === 'vi' ? 'Giám đốc công nghệ' : 'Engineering Director',
+      userRole: isVi ? 'Ứng viên lập trình' : 'Software Engineer Candidate',
+      aiRole: isVi ? 'Giám đốc công nghệ (Director)' : 'Engineering Director',
+      accent: 'border-l-purple-500',
     },
     {
-      title: lang === 'vi' ? 'Khiếu nại Khách sạn' : 'Hotel Complaint',
+      icon: Building,
+      title: isVi ? 'Khiếu nại Khách sạn' : 'Hotel Complaint',
       scenario:
-        lang === 'vi'
+        isVi
           ? 'Check-in lúc nửa đêm, điều hòa phòng bị hỏng và không có nước nóng'
           : 'Arrived at hotel after midnight to discover AC broken and no hot water',
-      userRole: lang === 'vi' ? 'Khách lưu trú' : 'Hotel Guest',
-      aiRole: lang === 'vi' ? 'Quản lý trực đêm' : 'Duty Front Desk Manager',
+      userRole: isVi ? 'Khách lưu trú' : 'Hotel Guest',
+      aiRole: isVi ? 'Quản lý trực đêm (Duty Manager)' : 'Duty Front Desk Manager',
+      accent: 'border-l-amber-500',
+    },
+    {
+      icon: Coffee,
+      title: isVi ? 'Quán Cà Phê & Bánh' : 'Coffee Shop Order',
+      scenario:
+        isVi
+          ? 'Gọi đồ uống cà phê đặc biệt, yêu cầu ít đường, sữa hạt yến mạch và xin mật khẩu Wi-Fi'
+          : 'Ordering a specialty coffee with oat milk, less sugar, and requesting the Wi-Fi password',
+      userRole: isVi ? 'Khách hàng (Customer)' : 'Customer',
+      aiRole: isVi ? 'Nhân viên pha chế (Barista)' : 'Artisan Barista',
+      accent: 'border-l-emerald-500',
+    },
+    {
+      icon: Handshake,
+      title: isVi ? 'Đàm phán Hợp đồng' : 'Contract Negotiation',
+      scenario:
+        isVi
+          ? 'Thương thảo chiết khấu giá 10% theo số lượng và điều khoản gia hạn thanh toán 30 ngày'
+          : 'Negotiating a 10% volume discount and 30-day payment term extension',
+      userRole: isVi ? 'Trưởng phòng mua hàng (Purchasing Manager)' : 'Purchasing Manager',
+      aiRole: isVi ? 'Đại diện nhà cung cấp (Vendor Rep)' : 'Key Account Manager',
+      accent: 'border-l-rose-500',
+    },
+    {
+      icon: UtensilsCrossed,
+      title: isVi ? 'Đặt bàn Nhà hàng' : 'Fine Dining Reservation',
+      scenario:
+        isVi
+          ? 'Đặt bàn tối 4 người gần cửa sổ cho lễ kỷ niệm, yêu cầu thực đơn không có đậu phộng'
+          : 'Reserving a window table for 4 guests for an anniversary, noting a peanut allergy',
+      userRole: isVi ? 'Thực khách (Diner)' : 'Diner',
+      aiRole: isVi ? 'Quản lý lễ tân (Maitre d\')' : 'Restaurant Maitre d\'',
+      accent: 'border-l-indigo-500',
     },
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* Active Messenger Waiting State when Automating */}
+      {disabled && (
+        <div className="p-6 rounded-none bg-neutral-950 border border-neutral-800 border-l-4 border-l-purple-500 space-y-4 shadow-2xl animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-none bg-gradient-to-br from-purple-800 to-indigo-950 border border-purple-600/60 flex items-center justify-center text-purple-200 font-mono font-black text-sm">
+                {(aiRole || 'AI').charAt(0).toUpperCase()}
+              </div>
+              <span className="w-2.5 h-2.5 rounded-none bg-emerald-400 absolute -bottom-0.5 -right-0.5 border-2 border-neutral-950" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white font-sans">{aiRole || 'Đối tác'}</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none bg-purple-950 text-purple-300 border border-purple-800 font-bold">
+                  [LIVE CHAT]
+                </span>
+              </div>
+              <p className="text-xs font-mono text-sky-400 flex items-center gap-1.5 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+                <span>
+                  {isVi ? 'Đang kết nối & soạn tin nhắn mở đầu...' : 'Connecting & preparing opening dialogue...'}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Typing Indicator Box */}
+          <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-none space-y-2 max-w-md">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="font-bold text-purple-300">{aiRole || 'Đối tác'}</span>
+              <span className="text-[10px] text-sky-400 italic">
+                {isVi ? 'Đang soạn tin...' : 'Typing...'}
+              </span>
+            </div>
+
+            {/* 3 Animated Bouncing Dots */}
+            <div className="flex items-center gap-1.5 py-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-bounce" />
+            </div>
+
+            <p className="text-xs text-neutral-400 font-sans italic leading-relaxed">
+              {isVi
+                ? `Bên kia đang nhập vai và soạn kịch bản phản xạ cho: "${scenario || 'Cuộc trò chuyện'}"...`
+                : `Partner is typing an authentic in-character response for: "${scenario || 'Conversation'}"...`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Select Quick Contact Persona */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-mono font-bold uppercase text-neutral-300 flex items-center gap-1.5">
+            <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
+            <span>{isVi ? 'Danh bạ đối tác trò chuyện (Chọn nhanh):' : 'Chat Partner Personas (Quick Select):'}</span>
+          </label>
+          <span className="text-[10px] font-mono text-neutral-500">
+            {isVi ? 'Bấm để nạp sẵn bối cảnh' : 'Click to load context'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {sampleContacts.map((contact, idx) => {
+            const Icon = contact.icon;
+            const isSelected = scenario === contact.scenario;
+
+            return (
+              <button
+                key={idx}
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelectSample(contact.scenario, contact.userRole, contact.aiRole)}
+                className={`p-3 text-left rounded-none border transition-all cursor-pointer flex items-start gap-2.5 ${
+                  isSelected
+                    ? 'bg-neutral-900 border-sky-500 border-l-4 text-white shadow-sm'
+                    : `bg-neutral-950 hover:bg-neutral-900 border-neutral-800 ${contact.accent} border-l-2 text-neutral-300`
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <div className="p-2 rounded-none bg-neutral-900 border border-neutral-800 shrink-0 text-sky-400 mt-0.5">
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5 overflow-hidden">
+                  <div className="text-xs font-bold text-white font-sans flex items-center gap-1.5">
+                    <span className="truncate">{contact.title}</span>
+                    {isSelected && <span className="text-[9px] font-mono text-sky-400 uppercase font-bold">[ĐANG CHỌN]</span>}
+                  </div>
+                  <div className="text-[11px] font-mono text-neutral-400 truncate">
+                    {contact.aiRole}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Scenario Input */}
       <div>
-        <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
-          <span>{t.scenarioLabel}</span>
-          <span className="text-[11px] text-neutral-500 font-normal">
-            {lang === 'vi' ? 'Bối cảnh chi tiết' : 'Detailed context'}
+        <label className="block text-xs font-mono font-bold uppercase text-neutral-300 mb-1.5 flex items-center justify-between">
+          <span>{isVi ? 'Bối cảnh cuộc trò chuyện (Scenario):' : 'Chat Scenario & Topic:'}</span>
+          <span className="text-[10px] font-mono text-neutral-500 lowercase">
+            {isVi ? 'tự do tùy chỉnh tình huống' : 'freeform custom topic'}
           </span>
         </label>
         <input
@@ -84,16 +236,20 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
           value={scenario}
           onChange={(e) => setScenario(e.target.value)}
           placeholder={t.scenarioPlaceholder}
-          className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors shadow-inner"
+          className="w-full px-4 py-3 bg-neutral-950 border border-neutral-800 rounded-none text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors font-sans"
         />
       </div>
 
-      {/* 2-Person Roles Setup */}
+      {/* 2-Person Chat Roles Setup */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-sky-400">
-            <Users className="w-4 h-4" />
-            <span>{t.userRoleLabel}</span>
+        {/* User Role */}
+        <div className="p-4 rounded-none bg-neutral-950 border border-neutral-800 space-y-2 border-l-4 border-l-sky-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase text-sky-400">
+              <User className="w-4 h-4" />
+              <span>{isVi ? 'Vai của bạn (Bên gửi / Phải):' : 'Your Role (Sender / Right):'}</span>
+            </div>
+            <span className="text-[10px] font-mono text-neutral-500">[YOU]</span>
           </div>
           <input
             id="roleplay-user-role-input"
@@ -102,14 +258,18 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
             value={userRole}
             onChange={(e) => setUserRole(e.target.value)}
             placeholder={t.userRolePlaceholder}
-            className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors"
+            className="w-full px-3.5 py-2.5 bg-neutral-900 border border-neutral-800 rounded-none text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 transition-colors font-sans"
           />
         </div>
 
-        <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-indigo-400">
-            <Users className="w-4 h-4" />
-            <span>{t.aiRoleLabel}</span>
+        {/* AI Partner Role */}
+        <div className="p-4 rounded-none bg-neutral-950 border border-neutral-800 space-y-2 border-l-4 border-l-purple-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase text-purple-400">
+              <Bot className="w-4 h-4" />
+              <span>{isVi ? 'Vai của đối tác (Bên nhận / Trái):' : 'Partner Role (Receiver / Left):'}</span>
+            </div>
+            <span className="text-[10px] font-mono text-neutral-500">[PARTNER]</span>
           </div>
           <input
             id="roleplay-ai-role-input"
@@ -118,24 +278,24 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
             value={aiRole}
             onChange={(e) => setAiRole(e.target.value)}
             placeholder={t.aiRolePlaceholder}
-            className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            className="w-full px-3.5 py-2.5 bg-neutral-900 border border-neutral-800 rounded-none text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 transition-colors font-sans"
           />
         </div>
       </div>
 
-      {/* Dialogue Length & Difficulty Controls */}
+      {/* Dialogue Length & CEFR Difficulty Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center gap-1.5">
+          <label className="block text-xs font-mono font-bold uppercase text-neutral-300 mb-1.5 flex items-center gap-1.5">
             <Sliders className="w-3.5 h-3.5 text-sky-400" />
             <span>{t.dialogueLengthLabel}</span>
           </label>
           <div className="grid grid-cols-3 gap-2">
             {(
               [
-                { id: 'short', label: t.lengthShort },
-                { id: 'medium', label: t.lengthMedium },
-                { id: 'long', label: t.lengthLong },
+                { id: 'short', label: isVi ? 'Ngắn (4-6 tin)' : 'Short' },
+                { id: 'medium', label: isVi ? 'Vừa (6-8 tin)' : 'Medium' },
+                { id: 'long', label: isVi ? 'Dài (10-14 tin)' : 'Long' },
               ] as const
             ).map((item) => (
               <button
@@ -143,10 +303,10 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={() => setLength(item.id)}
-                className={`py-2 px-2 rounded-xl text-xs font-medium border transition-all text-center ${
+                className={`py-2 px-2 rounded-none text-xs font-mono uppercase font-bold border transition-all text-center ${
                   length === item.id
-                    ? 'bg-sky-950 border-sky-500 text-sky-300 font-semibold shadow-sm'
-                    : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                    ? 'bg-sky-950 border-sky-500 text-sky-300 shadow-sm'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-200'
                 } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {item.label}
@@ -156,8 +316,8 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-indigo-400" />
+          <label className="block text-xs font-mono font-bold uppercase text-neutral-300 mb-1.5 flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-purple-400" />
             <span>{t.dialogueDifficultyLabel}</span>
           </label>
           <div className="grid grid-cols-5 gap-1.5">
@@ -167,10 +327,10 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
                 type="button"
                 disabled={disabled}
                 onClick={() => setDifficulty(level)}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                className={`py-2 rounded-none text-xs font-mono font-bold border transition-all text-center ${
                   difficulty === level
-                    ? 'bg-indigo-950 border-indigo-500 text-indigo-300 shadow-sm'
-                    : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                    ? 'bg-purple-950 border-purple-500 text-purple-300 shadow-sm'
+                    : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-200'
                 } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {level}
@@ -178,38 +338,6 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Sample Scenarios Quick Select */}
-      <div>
-        <label className="block text-xs font-medium text-neutral-400 mb-2">
-          {t.sampleScenariosLabel}
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {sampleScenarios.map((sample) => (
-            <button
-              key={sample.title}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSelectSample(sample.scenario, sample.userRole, sample.aiRole)}
-              className="text-xs px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3 h-3 text-sky-400" />
-              <span>{sample.title}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Interactive Speech Evaluator Embedded Module */}
-      <div className="pt-2">
-        <UserSpeechEvaluator
-          userRole={userRole || (lang === 'vi' ? 'Người nói' : 'Speaker')}
-          aiRole={aiRole || (lang === 'vi' ? 'Đối tác' : 'Partner')}
-          scenario={scenario || (lang === 'vi' ? 'Tình huống thường ngày' : 'Daily situation')}
-          targetDifficulty={difficulty}
-          lang={lang}
-        />
       </div>
     </div>
   );

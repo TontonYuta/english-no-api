@@ -68,16 +68,16 @@ export const TaskSelector: React.FC<TaskSelectorProps> = ({
             type="button"
             disabled={disabled}
             onClick={() => onSelectTask(task.id)}
-            className={`text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
+            className={`text-left p-4 rounded-none border transition-all duration-200 flex flex-col justify-between ${
               isActive
-                ? 'bg-neutral-900 border-sky-500/70 shadow-[0_4px_20px_rgba(14,165,233,0.12)] ring-1 ring-sky-500/40'
-                : 'bg-neutral-900/50 hover:bg-neutral-900/80 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                ? 'border-l-4 border-l-sky-500 bg-neutral-900 border-neutral-700 shadow-sm'
+                : 'border-l-2 border-l-neutral-800 bg-neutral-950 hover:bg-neutral-900/80 border-neutral-850 text-neutral-400 hover:text-neutral-200'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div
-                  className={`p-2 rounded-lg ${
+                  className={`p-2 rounded-none ${
                     isActive
                       ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
                       : 'bg-neutral-800/80 text-neutral-400'
@@ -86,13 +86,13 @@ export const TaskSelector: React.FC<TaskSelectorProps> = ({
                   <Icon className="w-5 h-5" />
                 </div>
                 <span
-                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-none border uppercase ${
                     isActive
                       ? 'bg-sky-950 text-sky-300 border-sky-800'
-                      : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                      : 'bg-neutral-900 text-neutral-400 border-neutral-800'
                   }`}
                 >
-                  {task.badge}
+                  [{task.badge}]
                 </span>
               </div>
               <h3
