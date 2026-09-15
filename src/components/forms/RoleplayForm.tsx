@@ -30,6 +30,7 @@ interface RoleplayFormProps {
   difficulty: DialogueDifficulty;
   setDifficulty: (val: DialogueDifficulty) => void;
   onSelectSample: (scenario: string, userRole: string, aiRole: string) => void;
+  onStartInstantChat?: (scenario: string, userRole: string, aiRole: string, difficulty: DialogueDifficulty) => void;
   disabled?: boolean;
   lang: Language;
 }
@@ -46,6 +47,7 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
   difficulty,
   setDifficulty,
   onSelectSample,
+  onStartInstantChat,
   disabled,
   lang,
 }) => {
@@ -173,6 +175,42 @@ export const RoleplayForm: React.FC<RoleplayFormProps> = ({
           </div>
         </div>
       )}
+
+      {/* Instant Live Chat Hero Banner */}
+      <div className="p-4 rounded-none bg-gradient-to-r from-purple-950/80 via-neutral-900 to-indigo-950/80 border border-purple-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-none bg-purple-900/60 border border-purple-600/70 flex items-center justify-center text-purple-200 shrink-0 shadow-inner">
+            <MessageSquare className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-white font-sans tracking-tight">
+                {isVi ? 'Hội Thoại Live 1-on-1 với Đối Tác AI' : 'Instant 1-on-1 Live Conversation'}
+              </h3>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold animate-pulse">
+                ● ONLINE
+              </span>
+            </div>
+            <p className="text-xs text-neutral-300 font-sans mt-0.5 leading-relaxed">
+              {isVi
+                ? 'Luyện nói phản xạ trực tiếp qua Micro & Giọng bản xứ Neural TTS, tự động bắt lỗi ngữ pháp thời gian thực.'
+                : 'Practice fluent spontaneous speaking with voice recognition and instant Neural TTS partner feedback.'}
+            </p>
+          </div>
+        </div>
+
+        {onStartInstantChat && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onStartInstantChat(scenario, userRole, aiRole, difficulty)}
+            className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-mono font-bold uppercase rounded-none border border-purple-400 shadow-md transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isVi ? 'Bắt Đầu Chat Ngay (0s)' : 'Start Chat Instantly'}</span>
+          </button>
+        )}
+      </div>
 
       {/* Select Quick Contact Persona */}
       <div>

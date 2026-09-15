@@ -177,85 +177,256 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
       const scenario = (inputData.scenario as string) || 'Airport Check-in with Excess Baggage';
       const userRole = (inputData.userRole as string) || 'Passenger';
       const aiRole = (inputData.aiRole as string) || 'Check-in Agent';
+      const difficulty = (inputData.difficulty as any) || 'B2';
+      const scenLower = scenario.toLowerCase();
 
-      const roleplayData: RoleplayResult = {
-        scenario,
-        userRole,
-        aiRole,
-        dialogue: [
-          {
-            speaker: aiRole,
-            text: `Good morning! Welcome to SkyWings International. May I have your passport and booking reference, please?`,
-            translationVi: `Chào buổi sáng quý khách! Chào mừng đến với SkyWings International. Tôi có thể xin hộ chiếu và mã đặt chỗ của quý khách được không ạ?`,
-            audioTip: `Warm, hospitable cadence with polite rising intonation on "please?".`,
-            usefulExpression: `May I have your... please?`,
-          },
-          {
-            speaker: userRole,
-            text: `Good morning. Here is my passport and e-ticket. I'm flying to London Heathrow on flight SW402.`,
-            translationVi: `Chào anh/chị. Đây là hộ chiếu và vé điện tử của tôi. Tôi bay đi London Heathrow trên chuyến SW402.`,
-            audioTip: `Clear enunciation of flight numbers: "SW four-zero-two".`,
-            usefulExpression: `I'm flying to [Destination] on flight...`,
-          },
-          {
-            speaker: aiRole,
-            text: `Thank you, Mr. Clark. I see your reservation. Could you please place your checked luggage onto the scale?`,
-            translationVi: `Cảm ơn quý khách. Tôi đã thấy thông tin đặt chỗ. Quý khách vui lòng đặt hành lý ký gửi lên cân giúp tôi ạ?`,
-            audioTip: `Stress on "scale" to guide customer action.`,
-            usefulExpression: `Could you please place your [item] onto...`,
-          },
-          {
-            speaker: userRole,
-            text: `Sure thing, here it goes... Ah, it seems I'm at 25.4 kilograms. My allowance is 23 kg. Is there any leeway, or will I be charged an overweight fee?`,
-            translationVi: `Được chứ, đặt lên đây rồi... Ồ, có vẻ hành lý của tôi là 25,4 kg. Hạn mức của tôi là 23 kg. Có thể linh động được không, hay tôi sẽ bị tính phí quá cước?`,
-            audioTip: `Polite, inquiring tone on "Is there any leeway...?"`,
-            usefulExpression: `Is there any leeway? (Có thể linh hoạt/châm chước được không?)`,
-          },
-          {
-            speaker: aiRole,
-            text: `I understand your concern. The airline policy permits up to 1 kg margin, but 2.4 kg exceeds the threshold. However, if you can transfer some heavier items into your carry-on bag, you will avoid the $75 penalty fee entirely.`,
-            translationVi: `Tôi rất hiểu sự băn khoăn của quý khách. Quy định cho phép sai số tối đa 1 kg, nhưng 2,4 kg thì vượt quá mức. Tuy nhiên nếu quý khách có thể chuyển bớt đồ nặng sang hành lý xách tay, quý khách sẽ tránh được khoản phí phạt 75 USD.`,
-            audioTip: `Empathetic tone transitioning into helpful solution offering.`,
-            usefulExpression: `Avoid the penalty fee entirely`,
-          },
-          {
-            speaker: userRole,
-            text: `That is brilliant advice! I have a winter coat and two hardback books right on top. Let me step aside, redistribute the weight, and come straight back to your counter.`,
-            translationVi: `Lời khuyên tuyệt vời quá! Tôi có chiếc áo khoác mùa đông và hai cuốn sách bìa cứng ngay trên cùng. Để tôi đứng sang một bên, chia lại trọng lượng rồi quay lại quầy của bạn ngay nhé.`,
-            audioTip: `Enthusiastic and appreciative intonation.`,
-            usefulExpression: `Step aside and redistribute the weight`,
-          },
-          {
-            speaker: aiRole,
-            text: `Take your time! Once you've rearranged it, just approach the side lane and I will tag your bag and issue your boarding pass immediately. Have a safe journey!`,
-            translationVi: `Cứ thong thả quý khách nhé! Khi sắp xếp xong, quý khách chỉ cần lại làn bên cạnh, tôi sẽ gắn thẻ hành lý và xuất thẻ lên máy bay ngay cho quý khách. Chúc quý khách chuyến đi thượng lộ bình an!`,
-            audioTip: `Warm concluding sign-off with friendly smile in voice.`,
-            usefulExpression: `Tag your bag and issue your boarding pass`,
-          },
-        ],
-        keyVocabulary: [
-          {
-            term: 'Allowance / Leeway',
-            meaning: 'Hạn mức cho phép / Khoảng dung sai, sự linh hoạt',
-            usage: 'Is there any leeway on the weight allowance?',
-          },
-          {
-            term: 'Redistribute the weight',
-            meaning: 'Sắp xếp phân bổ lại trọng lượng hành lý',
-            usage: 'Common practical tactic at check-in counters to avoid excess fees.',
-          },
-          {
-            term: 'Tag the bag',
-            meaning: 'Dán thẻ hành lý định danh (luggage tag)',
-            usage: 'The agent tags your bag with flight barcodes.',
-          },
-        ],
-        culturalTips: [
-          'In Western airports, asking "Is there any leeway?" politely is acceptable, but demanding or arguing about strict airline safety weight limits is considered rude and counterproductive.',
-          'Always thank counter agents for pragmatic advice; showing cooperation often leads to them waiving marginal excess fees.',
-        ],
-        followUpChallenge: `Practice roleplaying the moment you return with the 22.8 kg suitcase: say "Thanks for waiting, I managed to get it down to 22.8 kg!"`,
-      };
+      let roleplayData: RoleplayResult;
+
+      // 1. Cafe & Coffee Shop
+      if (scenLower.includes('cafe') || scenLower.includes('coffee') || scenLower.includes('barista') || scenLower.includes('bakery')) {
+        roleplayData = {
+          scenario,
+          userRole,
+          aiRole,
+          dialogue: [
+            {
+              speaker: aiRole,
+              text: `Good morning! Welcome to Artisan Brew. What can I craft for you today? Hot or iced?`,
+              translationVi: `Chào buổi sáng! Chào mừng bạn đến với Artisan Brew. Hôm nay tôi có thể pha chế món gì cho bạn? Dùng nóng hay đá ạ?`,
+              audioTip: `Upbeat, welcoming greeting with rising intonation on "Hot or iced?".`,
+              usefulExpression: `What can I craft for you today?`,
+            },
+            {
+              speaker: userRole,
+              text: `Hi! I'd love a large iced latte with oat milk, please. Could you also make it half-sweet?`,
+              translationVi: `Chào bạn! Cho tôi một ly latte đá size lớn với sữa yến mạch nhé. Bạn làm giúp tôi giảm nửa đường được không?`,
+              audioTip: `Clear enunciation of customization: "half-sweet with oat milk".`,
+              usefulExpression: `I'd love a [item] with [milk/flavor], please.`,
+            },
+            {
+              speaker: aiRole,
+              text: `You got it—large iced oat latte, half-sweet with agave. Would you like to pair that with a warm almond croissant?`,
+              translationVi: `Đã rõ—latte đá yến mạch size lớn, giảm nửa ngọt với siro thùa. Bạn có muốn dùng kèm bánh sừng bò hạnh nhân nóng giòn không?`,
+              audioTip: `Casual, inviting upsell cadence.`,
+              usefulExpression: `Would you like to pair that with...?`,
+            },
+            {
+              speaker: userRole,
+              text: `That sounds tempting! I'll take one. Also, could I have the Wi-Fi password for working on my laptop?`,
+              translationVi: `Nghe hấp dẫn quá! Cho tôi một chiếc nhé. À, bạn cho tôi xin mật khẩu Wi-Fi để làm việc trên máy tính được không?`,
+              audioTip: `Polite request with friendly cadence.`,
+              usefulExpression: `Could I have the Wi-Fi password for...?`,
+            },
+            {
+              speaker: aiRole,
+              text: `Certainly! The network is 'ArtisanBrew_Guest' and the password is 'FreshCoffee2026'. That's $7.50 total. Tap your card right here!`,
+              translationVi: `Dạ được chứ! Mạng là 'ArtisanBrew_Guest' và mật khẩu là 'FreshCoffee2026'. Tổng cộng là 7.50$. Bạn chạm thẻ ngay đây nhé!`,
+              audioTip: `Clear, swift payment instruction.`,
+              usefulExpression: `Tap your card right here.`,
+            },
+          ],
+          keyVocabulary: [
+            { term: 'Half-sweet', meaning: 'Giảm nửa lượng đường/ngọt', usage: 'I prefer my matcha latte half-sweet.' },
+            { term: 'Pair with', meaning: 'Dùng kèm, kết hợp món', usage: 'Would you like to pair your cappuccino with a muffin?' },
+            { term: 'Oat milk substitute', meaning: 'Sữa yến mạch thay thế', usage: 'Most modern coffee shops offer oat milk at a small surcharge.' },
+          ],
+          culturalTips: [
+            'In modern Western specialty cafes, customizing milk type (oat, almond, soy) and sweetness level is standard practice and welcomed by baristas.',
+            'Always specify "for here" or "to go" early so the barista selects the appropriate glassware or compostable cup.',
+          ],
+          followUpChallenge: `Practice asking the barista: "Excuse me, where are the power outlets located?"`,
+        };
+      }
+      // 2. Tech Job Interview
+      else if (scenLower.includes('interview') || scenLower.includes('engineer') || scenLower.includes('technical') || scenLower.includes('job')) {
+        roleplayData = {
+          scenario,
+          userRole,
+          aiRole,
+          dialogue: [
+            {
+              speaker: aiRole,
+              text: `Hello and welcome to our engineering interview! Could you start by briefly walking us through a challenging architectural system you designed?`,
+              translationVi: `Xin chào và chào mừng bạn đến với buổi phỏng vấn kỹ thuật! Bạn có thể bắt đầu bằng việc tóm tắt một hệ thống kiến trúc đầy thách thức mà bạn từng thiết kế không?`,
+              audioTip: `Professional, measured executive interview tone.`,
+              usefulExpression: `walking us through a challenging system`,
+            },
+            {
+              speaker: userRole,
+              text: `Certainly. In my last role, we decomposed a monolithic payment platform into asynchronous event-driven microservices using Redis and Kafka.`,
+              translationVi: `Chắc chắn rồi. Ở vị trí trước đây, chúng tôi đã tách nền tảng thanh toán đơn khối thành các microservice hướng sự kiện bất đồng bộ sử dụng Redis và Kafka.`,
+              audioTip: `Confident, steady technical pitch.`,
+              usefulExpression: `decomposed a monolith into event-driven microservices`,
+            },
+            {
+              speaker: aiRole,
+              text: `Impressive. When dealing with asynchronous events, how did you guarantee transaction atomicity and prevent data inconsistency during network partitions?`,
+              translationVi: `Rất ấn tượng. Khi xử lý các sự kiện bất đồng bộ, bạn đã đảm bảo tính nguyên tử của giao dịch và chống bất nhất dữ liệu khi mạng bị phân tách như thế nào?`,
+              audioTip: `Inquisitive follow-up with technical depth.`,
+              usefulExpression: `guarantee transaction atomicity during network partitions`,
+            },
+            {
+              speaker: userRole,
+              text: `We adopted the Outbox pattern combined with idempotent consumer handlers to ensure exactly-once processing semantics without distributed deadlocks.`,
+              translationVi: `Chúng tôi đã áp dụng mô hình Transactional Outbox kết hợp với các bộ xử lý tiêu thụ có tính lũy thừa để đảm bảo ngữ nghĩa xử lý chính xác một lần mà không gây bế tắc phân tán.`,
+              audioTip: `Clear architectural explanation with technical terminology.`,
+              usefulExpression: `idempotent consumer handlers to ensure exactly-once processing`,
+            },
+            {
+              speaker: aiRole,
+              text: `That is a very sound engineering trade-off. Do you have any questions for me about our infrastructure stack or team culture?`,
+              translationVi: `Đó là một sự đánh đổi kỹ thuật rất chuẩn xác. Bạn có câu hỏi nào cho tôi về hạ tầng công nghệ hoặc văn hóa đội ngũ của chúng tôi không?`,
+              audioTip: `Open and welcoming closing question.`,
+              usefulExpression: `sound engineering trade-off`,
+            },
+          ],
+          keyVocabulary: [
+            { term: 'Monolithic vs Microservices', meaning: 'Kiến trúc nguyên khối đối chiếu kiến trúc dịch vụ nhỏ', usage: 'Decomposing the monolith reduced deployment friction.' },
+            { term: 'Idempotent handler', meaning: 'Bộ xử lý có tính lũy thừa (chạy nhiều lần kết quả vẫn nhất quán)', usage: 'Idempotent webhooks prevent double-charging users.' },
+            { term: 'Sound trade-off', meaning: 'Sự đánh đổi hợp lý, chuẩn xác', usage: 'Accepting eventual consistency was a sound engineering trade-off.' },
+          ],
+          culturalTips: [
+            'In Western tech interviews, using the STAR method (Situation, Task, Action, Result) helps present complex technical solutions cleanly.',
+            'Always prepare 2-3 thoughtful questions for the interviewer at the end to demonstrate genuine interest in the company roadmap.',
+          ],
+          followUpChallenge: `Practice asking the director: "What is the single biggest engineering bottleneck your team is tackling this quarter?"`,
+        };
+      }
+      // 3. Hotel Front Desk
+      else if (scenLower.includes('hotel') || scenLower.includes('room') || scenLower.includes('guest') || scenLower.includes('resort')) {
+        roleplayData = {
+          scenario,
+          userRole,
+          aiRole,
+          dialogue: [
+            {
+              speaker: aiRole,
+              text: `Good evening! Welcome to the Grand Horizon. How was your journey, and how may I assist you with check-in tonight?`,
+              translationVi: `Chào buổi tối! Chào mừng quý khách đến Grand Horizon. Chuyến đi của quý khách thế nào, và tôi có thể hỗ trợ quý khách làm thủ tục nhận phòng tối nay ra sao ạ?`,
+              audioTip: `Polite, warm hospitality cadence.`,
+              usefulExpression: `How may I assist you with check-in tonight?`,
+            },
+            {
+              speaker: userRole,
+              text: `Good evening. I have a reservation under Clark. However, I just went up to room 402 and the air conditioning is not turning on.`,
+              translationVi: `Chào anh/chị. Tôi có phòng đặt dưới tên Clark. Tuy nhiên tôi vừa lên phòng 402 và điều hòa không thể bật lên được.`,
+              audioTip: `Firm but courteous complaint tone.`,
+              usefulExpression: `the air conditioning is not turning on`,
+            },
+            {
+              speaker: aiRole,
+              text: `I am so terribly sorry for that frustration after your long trip! Let me immediately relocate you to a Deluxe Suite on the 7th floor with a peaceful garden view.`,
+              translationVi: `Tôi vô cùng xin lỗi vì sự phiền toái này sau chuyến đi dài của quý khách! Để tôi chuyển phòng ngay cho quý khách sang phòng Deluxe Suite ở tầng 7 với hướng nhìn ra vườn yên tĩnh.`,
+              audioTip: `Sincere apology and proactive immediate solution.`,
+              usefulExpression: `relocate you to a Deluxe Suite`,
+            },
+            {
+              speaker: userRole,
+              text: `Thank you, that is very generous of you. Could I also request late checkout tomorrow around 1:00 PM?`,
+              translationVi: `Cảm ơn bạn, bạn thật chu đáo. Tôi có thể xin trả phòng muộn vào khoảng 1:00 chiều mai được không?`,
+              audioTip: `Appreciative, polite request tone.`,
+              usefulExpression: `request late checkout tomorrow around 1:00 PM`,
+            },
+            {
+              speaker: aiRole,
+              text: `Done! I have activated your new keycards and updated your checkout to 1:00 PM with our compliments. Our porter will carry your luggage up right now.`,
+              translationVi: `Đã xong ạ! Tôi đã kích hoạt thẻ khóa mới và cập nhật giờ trả phòng thành 1:00 chiều tặng kèm quý khách. Nhân viên phụ trách sẽ mang hành lý lên giúp quý khách ngay bây giờ.`,
+              audioTip: `Warm customer assurance tone.`,
+              usefulExpression: `with our compliments (miễn phí đãi ngộ)`,
+            },
+          ],
+          keyVocabulary: [
+            { term: 'Relocate to a suite', meaning: 'Chuyển đổi phòng sang phòng hạng sang', usage: 'The hotel relocated the guest to a high-floor suite.' },
+            { term: 'Late checkout with compliments', meaning: 'Trả phòng muộn miễn phí đãi ngộ', usage: 'We granted a 2-hour late checkout with our compliments.' },
+            { term: 'Porter / Bellhop', meaning: 'Nhân viên chuyển hành lý tại khách sạn', usage: 'The porter took our luggage up to the room.' },
+          ],
+          culturalTips: [
+            'Polite, composed complaints at hotels usually yield much better upgrades and goodwill than aggressive confrontations.',
+          ],
+          followUpChallenge: `Say: "Could you please give me two extra room keycards and show me where breakfast is served?"`,
+        };
+      }
+      // 4. Default / Airport Check-in
+      else {
+        roleplayData = {
+          scenario,
+          userRole,
+          aiRole,
+          dialogue: [
+            {
+              speaker: aiRole,
+              text: `Good morning! Welcome to SkyWings International. May I have your passport and booking reference, please?`,
+              translationVi: `Chào buổi sáng quý khách! Chào mừng đến với SkyWings International. Tôi có thể xin hộ chiếu và mã đặt chỗ của quý khách được không ạ?`,
+              audioTip: `Warm, hospitable cadence with polite rising intonation on "please?".`,
+              usefulExpression: `May I have your... please?`,
+            },
+            {
+              speaker: userRole,
+              text: `Good morning. Here is my passport and e-ticket. I'm flying to London Heathrow on flight SW402.`,
+              translationVi: `Chào anh/chị. Đây là hộ chiếu và vé điện tử của tôi. Tôi bay đi London Heathrow trên chuyến SW402.`,
+              audioTip: `Clear enunciation of flight numbers: "SW four-zero-two".`,
+              usefulExpression: `I'm flying to [Destination] on flight...`,
+            },
+            {
+              speaker: aiRole,
+              text: `Thank you, Mr. Clark. I see your reservation. Could you please place your checked luggage onto the scale?`,
+              translationVi: `Cảm ơn quý khách. Tôi đã thấy thông tin đặt chỗ. Quý khách vui lòng đặt hành lý ký gửi lên cân giúp tôi ạ?`,
+              audioTip: `Stress on "scale" to guide customer action.`,
+              usefulExpression: `Could you please place your [item] onto...`,
+            },
+            {
+              speaker: userRole,
+              text: `Sure thing, here it goes... Ah, it seems I'm at 25.4 kilograms. My allowance is 23 kg. Is there any leeway, or will I be charged an overweight fee?`,
+              translationVi: `Được chứ, đặt lên đây rồi... Ồ, có vẻ hành lý của tôi là 25,4 kg. Hạn mức của tôi là 23 kg. Có thể linh động được không, hay tôi sẽ bị tính phí quá cước?`,
+              audioTip: `Polite, inquiring tone on "Is there any leeway...?"`,
+              usefulExpression: `Is there any leeway? (Có thể linh hoạt/châm chước được không?)`,
+            },
+            {
+              speaker: aiRole,
+              text: `I understand your concern. The airline policy permits up to 1 kg margin, but 2.4 kg exceeds the threshold. However, if you can transfer some heavier items into your carry-on bag, you will avoid the $75 penalty fee entirely.`,
+              translationVi: `Tôi rất hiểu sự băn khoăn của quý khách. Quy định cho phép sai số tối đa 1 kg, nhưng 2,4 kg thì vượt quá mức. Tuy nhiên nếu quý khách có thể chuyển bớt đồ nặng sang hành lý xách tay, quý khách sẽ tránh được khoản phí phạt 75 USD.`,
+              audioTip: `Empathetic tone transitioning into helpful solution offering.`,
+              usefulExpression: `Avoid the penalty fee entirely`,
+            },
+            {
+              speaker: userRole,
+              text: `That is brilliant advice! I have a winter coat and two hardback books right on top. Let me step aside, redistribute the weight, and come straight back to your counter.`,
+              translationVi: `Lời khuyên tuyệt vời quá! Tôi có chiếc áo khoác mùa đông và hai cuốn sách bìa cứng ngay trên cùng. Để tôi đứng sang một bên, chia lại trọng lượng rồi quay lại quầy của bạn ngay nhé.`,
+              audioTip: `Enthusiastic and appreciative intonation.`,
+              usefulExpression: `Step aside and redistribute the weight`,
+            },
+            {
+              speaker: aiRole,
+              text: `Take your time! Once you've rearranged it, just approach the side lane and I will tag your bag and issue your boarding pass immediately. Have a safe journey!`,
+              translationVi: `Cứ thong thả quý khách nhé! Khi sắp xếp xong, quý khách chỉ cần lại làn bên cạnh, tôi sẽ gắn thẻ hành lý và xuất thẻ lên máy bay ngay cho quý khách. Chúc quý khách chuyến đi thượng lộ bình an!`,
+              audioTip: `Warm concluding sign-off with friendly smile in voice.`,
+              usefulExpression: `Tag your bag and issue your boarding pass`,
+            },
+          ],
+          keyVocabulary: [
+            {
+              term: 'Allowance / Leeway',
+              meaning: 'Hạn mức cho phép / Khoảng dung sai, sự linh hoạt',
+              usage: 'Is there any leeway on the weight allowance?',
+            },
+            {
+              term: 'Redistribute the weight',
+              meaning: 'Sắp xếp phân bổ lại trọng lượng hành lý',
+              usage: 'Common practical tactic at check-in counters to avoid excess fees.',
+            },
+            {
+              term: 'Tag the bag',
+              meaning: 'Dán thẻ hành lý định danh (luggage tag)',
+              usage: 'The agent tags your bag with flight barcodes.',
+            },
+          ],
+          culturalTips: [
+            'In Western airports, asking "Is there any leeway?" politely is acceptable, but demanding or arguing about strict airline safety weight limits is considered rude and counterproductive.',
+            'Always thank counter agents for pragmatic advice; showing cooperation often leads to them waiving marginal excess fees.',
+          ],
+          followUpChallenge: `Practice roleplaying the moment you return with the 22.8 kg suitcase: say "Thanks for waiting, I managed to get it down to 22.8 kg!"`,
+        };
+      }
 
       return { type: 'roleplay', data: roleplayData };
     }

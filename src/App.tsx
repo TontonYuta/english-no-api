@@ -11,6 +11,7 @@ import {
   Language,
   AppSettings,
   MainTabType,
+  RoleplayResult,
 } from './types';
 import { Navbar } from './components/Navbar';
 import { DailyHabitView } from './components/DailyHabitView';
@@ -39,6 +40,7 @@ import {
   addLearnedReading,
   addLearnedListening
 } from './utils/learningMemory';
+import { getOpeningChatMessage } from './utils/chatUtils';
 import { translations } from './translations';
 import {
   Play,
@@ -340,6 +342,25 @@ export default function App() {
     }
   };
 
+  const handleStartInstantChat = (scen: string, uRole: string, aRole: string, diff: DialogueDifficulty) => {
+    const opening = getOpeningChatMessage({
+      scenario: scen,
+      userRole: uRole,
+      aiRole: aRole,
+    });
+    const instantData: RoleplayResult = {
+      scenario: scen,
+      userRole: uRole,
+      aiRole: aRole,
+      difficulty: diff,
+      dialogue: [opening],
+      keyVocabulary: [],
+      culturalTips: [],
+    };
+    setResult({ type: 'roleplay', data: instantData });
+    setIsScenarioDrawerOpen(false);
+  };
+
   const handleStartAutomation = () => {
     // Validate inputs
     if (activeTask === 'writing' && !writingEssay.trim()) {
@@ -587,6 +608,7 @@ export default function App() {
                         setRoleplayUserRole(u);
                         setRoleplayAiRole(a);
                       }}
+                      onStartInstantChat={handleStartInstantChat}
                       disabled={isAutomating}
                       lang={lang}
                     />
@@ -666,6 +688,7 @@ export default function App() {
                         setRoleplayUserRole(u);
                         setRoleplayAiRole(a);
                       }}
+                      onStartInstantChat={handleStartInstantChat}
                       disabled={isAutomating}
                       lang={lang}
                     />

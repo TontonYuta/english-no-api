@@ -64,6 +64,7 @@ import {
   getChatQuickReplies,
   detectGrammarFeedback,
   getOpeningChatMessage,
+  POPULAR_CHAT_SCENARIOS,
 } from '../src/utils/chatUtils';
 import { chunkTextForTTS } from '../server/ttsService';
 
@@ -828,6 +829,31 @@ test('chatUtils: detectGrammarFeedback identifies ESL slips and provides friendl
   // 5. Clean sentence without slips returns undefined
   const feedbackClean = detectGrammarFeedback('I agree that we should prioritize latency optimization.');
   assert.equal(feedbackClean, undefined);
+
+  // 6. Subject-Verb agreement: "he don't"
+  const feedbackSubj = detectGrammarFeedback("He don't know the answer to this question.");
+  assert.ok(feedbackSubj && feedbackSubj.includes("doesn't"));
+
+  // 7. Double past: "didn't went"
+  const feedbackDoublePast = detectGrammarFeedback("I didn't went to the office yesterday.");
+  assert.ok(feedbackDoublePast && feedbackDoublePast.includes("didn't go"));
+
+  // 8. "He told that"
+  const feedbackTold = detectGrammarFeedback("The manager told that the meeting was postponed.");
+  assert.ok(feedbackTold && (feedbackTold.includes("told me") || feedbackTold.includes("said that")));
+});
+
+test('chatUtils: POPULAR_CHAT_SCENARIOS has 9+ diverse and fully defined conversation scenarios', () => {
+  assert.ok(POPULAR_CHAT_SCENARIOS.length >= 9, `Expected at least 9 scenarios, got ${POPULAR_CHAT_SCENARIOS.length}`);
+  for (const scen of POPULAR_CHAT_SCENARIOS) {
+    assert.ok(scen.name.trim().length > 0, `Scenario missing name: ${JSON.stringify(scen)}`);
+    assert.ok(scen.nameVi.trim().length > 0, `Scenario missing nameVi: ${scen.name}`);
+    assert.ok(scen.scenario.trim().length > 0, `Scenario missing scenario text: ${scen.name}`);
+    assert.ok(scen.icon.trim().length > 0, `Scenario missing icon: ${scen.name}`);
+    assert.ok(scen.userRole.trim().length > 0, `Scenario missing userRole: ${scen.name}`);
+    assert.ok(scen.aiRole.trim().length > 0, `Scenario missing aiRole: ${scen.name}`);
+    assert.ok(scen.sampleOpening.trim().length > 0, `Scenario missing sampleOpening: ${scen.name}`);
+  }
 });
 
 test('chatUtils: getOpeningChatMessage starts live roleplay conversation in character', () => {
@@ -838,11 +864,21 @@ test('chatUtils: getOpeningChatMessage starts live roleplay conversation in char
     aiRole: 'Gate Agent',
   });
   assert.equal(airportOpening.isUser, false);
-  assert.ok(airportOpening.text.toLowerCase().includes('passport') || airportOpening.text.toLowerCase().includes('skywings'));
+  assert.ok(airportOpening.text.toLowerCase().includes('passport') || airportOpening.text.toLowerCase().includes('skywings') || airportOpening.text.toLowerCase().includes('ticket'));
   assert.ok(airportOpening.translationVi);
   assert.ok(airportOpening.usefulExpression);
 
-  // 2. Interview scenario opening
+  // 2. Non-airport Cafe scenario opening does NOT leak airport lines
+  const cafeOpening = getOpeningChatMessage({
+    scenario: 'Cafe Order & Casual Chat',
+    userRole: 'Customer',
+    aiRole: 'Barista',
+  });
+  assert.equal(cafeOpening.isUser, false);
+  assert.ok(!cafeOpening.text.toLowerCase().includes('skywings'), 'Cafe scenario should not leak SkyWings airport line');
+  assert.ok(cafeOpening.text.toLowerCase().includes('coffee') || cafeOpening.text.toLowerCase().includes('order') || cafeOpening.text.toLowerCase().includes('welcome'));
+
+  // 3. Interview scenario opening
   const interviewOpening = getOpeningChatMessage({
     scenario: 'Software engineering interview',
     userRole: 'Candidate',
@@ -851,7 +887,7 @@ test('chatUtils: getOpeningChatMessage starts live roleplay conversation in char
   assert.equal(interviewOpening.isUser, false);
   assert.ok(interviewOpening.text.toLowerCase().includes('interview') || interviewOpening.text.toLowerCase().includes('background'));
 
-  // 3. Dialogue with pre-scripted turns reuses turn 1 if partner speaks first
+  // 4. Dialogue with pre-scripted turns reuses turn 1 if partner speaks first
   const customOpening = getOpeningChatMessage({
     scenario: 'Custom Cafe',
     userRole: 'Customer',

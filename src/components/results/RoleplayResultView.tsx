@@ -27,6 +27,8 @@ import {
   getChatQuickReplies,
   getOpeningChatMessage,
   detectGrammarFeedback,
+  POPULAR_CHAT_SCENARIOS,
+  PredefinedScenario,
 } from '../../utils/chatUtils';
 
 interface RoleplayResultViewProps {
@@ -39,6 +41,11 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
   lang = 'vi',
 }) => {
   const isVi = lang === 'vi';
+
+  const [currentScenario, setCurrentScenario] = useState<string>(result.scenario);
+  const [currentUserRole, setCurrentUserRole] = useState<string>(result.userRole || 'You');
+  const [currentAiRole, setCurrentAiRole] = useState<string>(result.aiRole || 'Partner');
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
 
   // Chat conversation state - starts with authentic live opening turn from partner
   const [messages, setMessages] = useState<RoleplayDialogueTurn[]>(() => {
@@ -135,17 +142,34 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
   const speakText = (text: string) => {
     setSpeakingText(text);
     playAudioPronunciation(text, {
-      rate: 0.95,
+      rate: voiceSpeed,
       onStart: () => setSpeakingText(text),
       onEnd: () => setSpeakingText(null),
       onError: () => setSpeakingText(null),
     });
   };
 
+  const handleSelectScenario = (scen: PredefinedScenario) => {
+    setCurrentScenario(scen.scenario);
+    setCurrentUserRole(scen.userRole);
+    setCurrentAiRole(scen.aiRole);
+    const freshOpening = getOpeningChatMessage({
+      scenario: scen.scenario,
+      userRole: scen.userRole,
+      aiRole: scen.aiRole,
+    });
+    setMessages([freshOpening]);
+    setInputMessage('');
+    setIsPartnerTyping(false);
+    if (autoVoice && freshOpening.text) {
+      speakText(freshOpening.text);
+    }
+  };
+
   const handleCopyScript = () => {
     const text =
-      `Scenario: ${result.scenario}\n` +
-      `User (${result.userRole}) & Partner (${result.aiRole})\n\n` +
+      `Scenario: ${currentScenario}\n` +
+      `User (${currentUserRole}) & Partner (${currentAiRole})\n\n` +
       messages
         .map((d) => `[${d.speaker}]: ${d.text}\n(${d.translationVi || ''})\n`)
         .join('\n');
@@ -156,14 +180,16 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
 
   const handleResetChat = () => {
     const freshOpening = getOpeningChatMessage({
-      scenario: result.scenario,
-      userRole: result.userRole,
-      aiRole: result.aiRole,
-      dialogue: result.dialogue,
+      scenario: currentScenario,
+      userRole: currentUserRole,
+      aiRole: currentAiRole,
     });
     setMessages([freshOpening]);
     setIsPartnerTyping(false);
     setInputMessage('');
+    if (autoVoice && freshOpening.text) {
+      speakText(freshOpening.text);
+    }
   };
 
   // Live direct chat sender: sends user sentence, triggers typing status, awaits bot reply
@@ -180,7 +206,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
     const localGrammarFeedback = detectGrammarFeedback(textToSend);
 
     const userTurn: RoleplayDialogueTurn = {
-      speaker: result.userRole || 'You',
+      speaker: currentUserRole || 'You',
       text: textToSend,
       translationVi: '',
       timestamp: formattedTime,
@@ -200,9 +226,9 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scenario: result.scenario,
-          userRole: result.userRole,
-          aiRole: result.aiRole,
+          scenario: currentScenario,
+          userRole: currentUserRole,
+          aiRole: currentAiRole,
           history: updatedHistory,
           lastUserMessage: textToSend,
           difficulty: result.difficulty || 'B2',
@@ -211,7 +237,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
 
       if (res.ok) {
         const reply: RoleplayDialogueTurn = await res.json();
-        // Natural typing pause (1.2s)
+        // Natural typing pause (1.0s)
         setTimeout(() => {
           setIsPartnerTyping(false);
           setMessages((prev) => [...prev, reply]);
@@ -221,7 +247,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
           if (autoVoice && reply.text) {
             speakText(reply.text);
           }
-        }, 1200);
+        }, 1000);
         return;
       }
     } catch {
@@ -231,9 +257,9 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
     // Local realistic typing fallback
     setTimeout(() => {
       const fallbackReply = generateContextualReply({
-        scenario: result.scenario,
-        userRole: result.userRole,
-        aiRole: result.aiRole,
+        scenario: currentScenario,
+        userRole: currentUserRole,
+        aiRole: currentAiRole,
         history: updatedHistory,
         lastUserMessage: textToSend,
         difficulty: result.difficulty || 'B2',
@@ -246,15 +272,15 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
       if (autoVoice && fallbackReply.text) {
         speakText(fallbackReply.text);
       }
-    }, 1300);
+    }, 1100);
   };
 
-  const quickReplies = getChatQuickReplies(result.scenario, result.aiRole);
+  const quickReplies = getChatQuickReplies(currentScenario, currentAiRole);
 
   const checkIsUser = (turn: RoleplayDialogueTurn) => {
     if (turn.isUser !== undefined) return turn.isUser;
     const speakerLower = (turn.speaker || '').toLowerCase();
-    const userRoleLower = (result.userRole || '').toLowerCase();
+    const userRoleLower = (currentUserRole || '').toLowerCase();
     return (
       speakerLower.includes(userRoleLower) ||
       speakerLower.includes('you') ||
@@ -340,7 +366,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
               {/* Partner Avatar with Live Online Indicator */}
               <div className="relative shrink-0">
                 <div className="w-10 h-10 rounded-none bg-gradient-to-br from-purple-800 to-indigo-950 border border-purple-600/60 flex items-center justify-center text-purple-200 font-mono font-black text-sm shadow-inner">
-                  {result.aiRole.charAt(0).toUpperCase()}
+                  {currentAiRole.charAt(0).toUpperCase()}
                 </div>
                 <span
                   className="w-2.5 h-2.5 rounded-none bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-neutral-950"
@@ -351,7 +377,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-sm sm:text-base font-bold text-white tracking-tight font-sans">
-                    {result.aiRole}
+                    {currentAiRole}
                   </h3>
                   <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-none bg-purple-950 text-purple-300 border border-purple-800 font-semibold">
                     [{isVi ? 'ĐỐI TÁC TRỰC TIẾP' : 'LIVE PARTNER'}]
@@ -378,7 +404,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
                   )}
                   <span className="text-neutral-600">•</span>
                   <span className="text-neutral-400 truncate max-w-[200px] sm:max-w-[320px]">
-                    {result.scenario}
+                    {currentScenario}
                   </span>
                 </div>
               </div>
@@ -386,6 +412,16 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
 
             {/* Quick Actions Toolbar */}
             <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
+              {/* Voice Speed Toggle */}
+              <button
+                type="button"
+                onClick={() => setVoiceSpeed((prev) => (prev === 0.8 ? 1.0 : prev === 1.0 ? 1.2 : 0.8))}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-none text-xs font-mono font-bold border transition-colors cursor-pointer uppercase bg-neutral-950 border-neutral-800 text-neutral-300 hover:text-white"
+                title={isVi ? 'Tốc độ giọng đọc đối tác' : 'Partner speech speed'}
+              >
+                <span>⚡ {voiceSpeed}x</span>
+              </button>
+
               {/* Auto Voice Toggle */}
               <button
                 type="button"
@@ -440,8 +476,53 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
             </div>
           </div>
 
+          {/* Horizontal Persona / Scenario Quick Switcher */}
+          <div className="px-3 sm:px-4 py-2 bg-neutral-900/90 border-b border-neutral-800 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+            <span className="text-[10px] font-mono font-bold uppercase text-neutral-400 shrink-0 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-purple-400" />
+              <span>{isVi ? 'Đổi đối tác:' : 'Persona:'}</span>
+            </span>
+            {POPULAR_CHAT_SCENARIOS.map((scen) => {
+              const isSelected = currentScenario === scen.scenario;
+              return (
+                <button
+                  key={scen.id}
+                  type="button"
+                  onClick={() => handleSelectScenario(scen)}
+                  className={`px-2.5 py-1 text-xs font-mono rounded-none border transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 shrink-0 ${
+                    isSelected
+                      ? 'bg-purple-950 border-purple-500 text-purple-200 font-bold shadow-xs'
+                      : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
+                  }`}
+                >
+                  <span>{scen.icon}</span>
+                  <span>{isVi ? scen.nameVi : scen.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Messenger Chat Area (Scrollable Message Stream) */}
           <div className="p-4 sm:p-6 space-y-4 max-h-[580px] min-h-[380px] overflow-y-auto bg-neutral-950/70 border-b border-neutral-800">
+            {/* Live Listening Waveform Banner */}
+            {isListening && (
+              <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-mono flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                  <span className="font-bold">
+                    {isVi ? '🎙️ Đang nghe giọng nói... Hãy nói to rõ tiếng Anh vào microphone' : '🎙️ Listening... Speak English clearly into your microphone'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  className="px-2 py-0.5 bg-rose-900 border border-rose-700 text-[10px] font-bold uppercase hover:bg-rose-800 cursor-pointer"
+                >
+                  {isVi ? 'Dừng' : 'Stop'}
+                </button>
+              </div>
+            )}
+
             {/* Day Separator Pill */}
             <div className="flex items-center justify-center my-2">
               <span className="px-3 py-1 rounded-none bg-neutral-900 border border-neutral-800 text-[10px] font-mono text-neutral-400 uppercase tracking-widest">
@@ -456,11 +537,11 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
                 <span className="font-bold text-white uppercase block mb-0.5">
                   {isVi ? 'TÌNH HUỐNG GIAO TIẾP:' : 'SCENARIO CONTEXT:'}
                 </span>
-                <p className="font-sans text-neutral-300 leading-relaxed">{result.scenario}</p>
+                <p className="font-sans text-neutral-300 leading-relaxed">{currentScenario}</p>
                 <div className="flex items-center gap-2 mt-1 text-[11px] text-neutral-400">
-                  <span>{isVi ? 'Bạn là:' : 'You are:'} <strong className="text-sky-300">{result.userRole}</strong></span>
+                  <span>{isVi ? 'Bạn là:' : 'You are:'} <strong className="text-sky-300">{currentUserRole}</strong></span>
                   <span>•</span>
-                  <span>{isVi ? 'Đối tác là:' : 'Partner is:'} <strong className="text-purple-300">{result.aiRole}</strong></span>
+                  <span>{isVi ? 'Đối tác là:' : 'Partner is:'} <strong className="text-purple-300">{currentAiRole}</strong></span>
                 </div>
               </div>
             </div>
@@ -492,7 +573,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
                     {/* Sender Header */}
                     <div className="flex items-center justify-between gap-3 text-[10px] font-mono pb-1 border-b border-black/10 dark:border-white/10">
                       <span className={`font-bold uppercase ${isUser ? 'text-sky-200' : 'text-purple-400'}`}>
-                        {isUser ? `${isVi ? 'Bạn' : 'You'} (${result.userRole})` : turn.speaker}
+                        {isUser ? `${isVi ? 'Bạn' : 'You'} (${currentUserRole})` : turn.speaker}
                       </span>
 
                       <button
@@ -602,7 +683,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
 
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-purple-400 uppercase">
-                    <span>{result.aiRole}</span>
+                    <span>{currentAiRole}</span>
                     <span className="text-sky-400 animate-pulse">● {isVi ? 'Đang nhập...' : 'Typing...'}</span>
                   </div>
 
@@ -614,7 +695,7 @@ export const RoleplayResultView: React.FC<RoleplayResultViewProps> = ({
                       <span className="w-2 h-2 rounded-full bg-sky-400 animate-bounce" />
                     </div>
                     <span className="text-xs font-mono text-neutral-400 italic">
-                      {result.aiRole} {isVi ? 'đang soạn câu trả lời...' : 'is typing a response...'}
+                      {currentAiRole} {isVi ? 'đang soạn câu trả lời...' : 'is typing a response...'}
                     </span>
                   </div>
                 </div>
