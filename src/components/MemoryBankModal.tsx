@@ -488,6 +488,74 @@ export const MemoryBankModal: React.FC<MemoryBankModalProps> = ({
                         <p className="text-xs sm:text-sm text-neutral-200 font-medium pt-1 font-sans">
                           {word.vietnameseMeaning}
                         </p>
+
+                        {/* Word Family Matrix with Meanings */}
+                        {word.wordFamilyDetails && (
+                          <div className="pt-2 border-t border-neutral-800 space-y-1">
+                            <span className="text-[10px] font-mono uppercase text-sky-400 font-bold block">
+                              [ HỌ TỪ &amp; NGHĨA ]:
+                            </span>
+                            <div className="grid grid-cols-2 gap-1 text-[11px] font-mono">
+                              {word.wordFamilyDetails.noun && (
+                                <div className="bg-neutral-950 p-1.5 border border-neutral-800 text-neutral-300">
+                                  <span className="text-sky-300 font-bold">n:</span> {word.wordFamilyDetails.noun}
+                                  {word.wordFamilyDetails.nounMeaning && (
+                                    <span className="text-neutral-400 block text-[10px]">({word.wordFamilyDetails.nounMeaning})</span>
+                                  )}
+                                </div>
+                              )}
+                              {word.wordFamilyDetails.verb && (
+                                <div className="bg-neutral-950 p-1.5 border border-neutral-800 text-neutral-300">
+                                  <span className="text-emerald-300 font-bold">v:</span> {word.wordFamilyDetails.verb}
+                                  {word.wordFamilyDetails.verbMeaning && (
+                                    <span className="text-neutral-400 block text-[10px]">({word.wordFamilyDetails.verbMeaning})</span>
+                                  )}
+                                </div>
+                              )}
+                              {word.wordFamilyDetails.adjective && (
+                                <div className="bg-neutral-950 p-1.5 border border-neutral-800 text-neutral-300">
+                                  <span className="text-amber-300 font-bold">adj:</span> {word.wordFamilyDetails.adjective}
+                                  {word.wordFamilyDetails.adjectiveMeaning && (
+                                    <span className="text-neutral-400 block text-[10px]">({word.wordFamilyDetails.adjectiveMeaning})</span>
+                                  )}
+                                </div>
+                              )}
+                              {word.wordFamilyDetails.adverb && (
+                                <div className="bg-neutral-950 p-1.5 border border-neutral-800 text-neutral-300">
+                                  <span className="text-purple-300 font-bold">adv:</span> {word.wordFamilyDetails.adverb}
+                                  {word.wordFamilyDetails.adverbMeaning && (
+                                    <span className="text-neutral-400 block text-[10px]">({word.wordFamilyDetails.adverbMeaning})</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Synonyms with Meanings */}
+                        {word.synonyms && word.synonyms.length > 0 && (
+                          <div className="pt-1.5 space-y-1">
+                            <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block">
+                              [ ĐỒNG NGHĨA ]:
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {word.synonyms.map((s, sIdx) => {
+                                const isObj = typeof s === 'object' && s !== null;
+                                const synWord = isObj ? s.word : s;
+                                const synMeaning = isObj ? s.meaning : '';
+                                return (
+                                  <span
+                                    key={sIdx}
+                                    className="text-[10px] font-mono px-1.5 py-0.5 bg-emerald-950/40 border border-emerald-800/60 text-emerald-200"
+                                  >
+                                    <strong>{synWord}</strong>
+                                    {synMeaning ? `: ${synMeaning}` : ''}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-[10px] text-neutral-500 border-t border-neutral-800 pt-2 font-mono">
@@ -809,6 +877,7 @@ export const MemoryBankModal: React.FC<MemoryBankModalProps> = ({
           partOfSpeech: w.partOfSpeech,
           vietnameseMeaning: w.vietnameseMeaning,
           wordFamilyDetails: w.wordFamilyDetails,
+          synonyms: w.synonyms,
           exampleSentence: w.exampleSentence,
           exampleTranslation: w.exampleTranslation,
           mastered: w.mastered,

@@ -1,14 +1,134 @@
-import { LearnedWord, LearnedGrammar, LearnedReading, LearnedListening } from '../types';
+import {
+  LearnedWord,
+  LearnedGrammar,
+  LearnedReading,
+  LearnedListening,
+  WordFamilyDetails,
+  SynonymItem,
+} from '../types';
 
 const WORDS_STORAGE_KEY = 'playeng_learned_words';
 const GRAMMAR_STORAGE_KEY = 'playeng_learned_grammar';
 const READINGS_STORAGE_KEY = 'playeng_learned_readings';
 const LISTENINGS_STORAGE_KEY = 'playeng_learned_listenings';
 
+export const KNOWN_WORDFAMILY_MEANINGS: Record<string, WordFamilyDetails> = {
+  schedule: {
+    noun: 'schedule',
+    nounMeaning: 'Lịch trình, thời khóa biểu',
+    verb: 'schedule',
+    verbMeaning: 'Lên lịch, sắp xếp thời gian',
+    adjective: 'scheduled',
+    adjectiveMeaning: 'Đã được lên lịch trước',
+  },
+  colleague: {
+    noun: 'colleague',
+    nounMeaning: 'Đồng nghiệp cùng cơ quan',
+    adjective: 'collegial',
+    adjectiveMeaning: 'Mang tính đồng nghiệp, hợp tác',
+    adverb: 'collegially',
+    adverbMeaning: 'Một cách hợp tác, đồng lòng',
+  },
+  confirm: {
+    noun: 'confirmation',
+    nounMeaning: 'Sự xác nhận, chứng thực',
+    verb: 'confirm',
+    verbMeaning: 'Xác nhận, khẳng định',
+    adjective: 'confirmed',
+    adjectiveMeaning: 'Đã được xác nhận',
+  },
+  accommodate: {
+    noun: 'accommodation',
+    nounMeaning: 'Chỗ ở; sự thu xếp đáp ứng',
+    verb: 'accommodate',
+    verbMeaning: 'Đáp ứng, thu xếp thỏa đáng',
+    adjective: 'accommodating',
+    adjectiveMeaning: 'Sẵn lòng giúp đỡ, chu đáo',
+    adverb: 'accommodatingly',
+    adverbMeaning: 'Một cách chu đáo, niềm nở',
+  },
+  'contingent upon': {
+    noun: 'contingency',
+    nounMeaning: 'Sự việc bất ngờ, phương án dự phòng',
+    adjective: 'contingent',
+    adjectiveMeaning: 'Tùy thuộc vào điều kiện tiên quyết',
+    adverb: 'contingently',
+    adverbMeaning: 'Một cách ngẫu nhiên, tùy thuộc',
+  },
+  stipulation: {
+    noun: 'stipulation',
+    nounMeaning: 'Điều khoản quy định bắt buộc',
+    verb: 'stipulate',
+    verbMeaning: 'Quy định, đặt điều kiện',
+    adjective: 'stipulated',
+    adjectiveMeaning: 'Đã được quy định rõ trong văn bản',
+  },
+};
+
+export const KNOWN_SYNONYMS: Record<string, (string | SynonymItem)[]> = {
+  schedule: [
+    { word: 'Timetable', meaning: 'Thời gian biểu', nuance: 'Dùng cho tàu xe hoặc lịch học' },
+    { word: 'Agenda', meaning: 'Chương trình nghị sự', nuance: 'Lịch trình cuộc họp' },
+  ],
+  colleague: [
+    { word: 'Coworker', meaning: 'Đồng nghiệp', nuance: 'Phổ biến trong tiếng Anh Mỹ' },
+    { word: 'Peer', meaning: 'Người cùng cấp bậc', nuance: 'Đồng đẳng về vị trí/trình độ' },
+  ],
+  confirm: [
+    { word: 'Verify', meaning: 'Xác minh độ chính xác', nuance: 'Kiểm tra tính đúng đắn dữ liệu' },
+    { word: 'Validate', meaning: 'Công nhận tính hợp lệ', nuance: 'Kiểm tra về mặt quy định, hiệu lực' },
+  ],
+  accommodate: [
+    { word: 'Cater to', meaning: 'Phục vụ, đáp ứng nhu cầu', nuance: 'Thỏa mãn thị hiếu hoặc yêu cầu đặc biệt' },
+    { word: 'Fulfill', meaning: 'Hoàn thành, đáp ứng', nuance: 'Dùng cho tiêu chuẩn, nghĩa vụ hoặc mong đợi' },
+  ],
+  'contingent upon': [
+    { word: 'Dependent on', meaning: 'Phụ thuộc vào', nuance: 'Dùng phổ biến trong cả văn nói và viết' },
+    { word: 'Conditional upon', meaning: 'Tùy thuộc vào điều kiện', nuance: 'Mang tính pháp lý, hợp đồng' },
+  ],
+  stipulation: [
+    { word: 'Clause', meaning: 'Điều khoản hợp đồng', nuance: 'Mục cụ thể trong văn bản pháp lý' },
+    { word: 'Provision', meaning: 'Điều khoản quy định', nuance: 'Quy định pháp lý hoặc điều kiện giao kèo' },
+  ],
+};
+
 export function getLearnedWords(): LearnedWord[] {
   try {
     const raw = localStorage.getItem(WORDS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const words: LearnedWord[] = raw ? JSON.parse(raw) : [];
+
+    // Auto-enrich existing words if missing word family meanings or synonyms
+    let hasEnriched = false;
+    for (const w of words) {
+      const termLower = (w.term || '').trim().toLowerCase();
+      const knownFamily = KNOWN_WORDFAMILY_MEANINGS[termLower];
+      if (knownFamily) {
+        if (!w.wordFamilyDetails) {
+          w.wordFamilyDetails = knownFamily;
+          hasEnriched = true;
+        } else if (!w.wordFamilyDetails.nounMeaning && knownFamily.nounMeaning) {
+          w.wordFamilyDetails.nounMeaning = knownFamily.nounMeaning;
+          if (knownFamily.verbMeaning) w.wordFamilyDetails.verbMeaning = knownFamily.verbMeaning;
+          if (knownFamily.adjectiveMeaning) w.wordFamilyDetails.adjectiveMeaning = knownFamily.adjectiveMeaning;
+          if (knownFamily.adverbMeaning) w.wordFamilyDetails.adverbMeaning = knownFamily.adverbMeaning;
+          hasEnriched = true;
+        }
+      }
+
+      const knownSyns = KNOWN_SYNONYMS[termLower];
+      if (knownSyns && (!w.synonyms || w.synonyms.length === 0)) {
+        w.synonyms = knownSyns;
+        hasEnriched = true;
+      }
+    }
+
+    if (hasEnriched) {
+      try {
+        localStorage.setItem(WORDS_STORAGE_KEY, JSON.stringify(words));
+      } catch {}
+    }
+
+    return words;
   } catch (e) {
     console.error('Error reading learned words:', e);
     return [];
@@ -36,6 +156,7 @@ export function addLearnedWords(
     exampleSentence?: string;
     exampleTranslation?: string;
     level?: 'A1' | 'A2' | 'B1' | 'B2';
+    synonyms?: LearnedWord['synonyms'];
   }[]
 ): void {
   const existing = getLearnedWords();
@@ -53,6 +174,7 @@ export function addLearnedWords(
         vietnameseMeaning: nw.vietnameseMeaning,
         wordFamily: nw.wordFamily,
         wordFamilyDetails: nw.wordFamilyDetails,
+        synonyms: nw.synonyms,
         wordFormExercise: nw.wordFormExercise,
         exampleSentence: nw.exampleSentence,
         exampleTranslation: nw.exampleTranslation,
@@ -67,7 +189,19 @@ export function addLearnedWords(
       const idx = existingMap.get(key)!;
       const target = existing[idx];
       if (!target.wordFamily && nw.wordFamily) target.wordFamily = nw.wordFamily;
-      if (!target.wordFamilyDetails && nw.wordFamilyDetails) target.wordFamilyDetails = nw.wordFamilyDetails;
+      if (nw.wordFamilyDetails) {
+        target.wordFamilyDetails = {
+          ...target.wordFamilyDetails,
+          ...nw.wordFamilyDetails,
+          nounMeaning: nw.wordFamilyDetails.nounMeaning || target.wordFamilyDetails?.nounMeaning,
+          verbMeaning: nw.wordFamilyDetails.verbMeaning || target.wordFamilyDetails?.verbMeaning,
+          adjectiveMeaning: nw.wordFamilyDetails.adjectiveMeaning || target.wordFamilyDetails?.adjectiveMeaning,
+          adverbMeaning: nw.wordFamilyDetails.adverbMeaning || target.wordFamilyDetails?.adverbMeaning,
+        };
+      }
+      if (nw.synonyms && nw.synonyms.length > 0) {
+        target.synonyms = nw.synonyms;
+      }
       if (!target.wordFormExercise && nw.wordFormExercise) target.wordFormExercise = nw.wordFormExercise;
       if (!target.exampleSentence && nw.exampleSentence) target.exampleSentence = nw.exampleSentence;
       if (!target.exampleTranslation && nw.exampleTranslation) target.exampleTranslation = nw.exampleTranslation;

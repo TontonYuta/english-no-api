@@ -47,6 +47,7 @@ import {
   generateGrammarTestQuestions,
   generateReadingTestQuestions,
   generateListeningTestQuestions,
+  generateCombinedQuizQuestions,
   SAMPLE_VOCAB_FOR_TEST,
 } from '../src/utils/quizUtils';
 
@@ -1052,6 +1053,146 @@ test('tunnelService: getLocalIpAddresses returns valid IPv4 addresses and detect
   const status = getTunnelStatus();
   assert.ok('active' in status, 'Status must contain active flag');
 });
+
+test('wordFamily & synonyms: Storing and retrieving word family meanings and structured synonyms', () => {
+  localStorage.clear();
+
+  addLearnedWords([
+    {
+      term: 'Collaborate',
+      ipa: '/kəˈlæb.ə.reɪt/',
+      partOfSpeech: 'verb',
+      vietnameseMeaning: 'Hợp tác, cộng tác',
+      wordFamilyDetails: {
+        noun: 'collaboration',
+        nounMeaning: 'Sự cộng tác, hợp tác làm việc',
+        verb: 'collaborate',
+        verbMeaning: 'Hợp tác cùng nhau',
+        adjective: 'collaborative',
+        adjectiveMeaning: 'Có tính hợp tác, chung tay',
+        adverb: 'collaboratively',
+        adverbMeaning: 'Một cách hợp tác, đồng lòng',
+      },
+      synonyms: [
+        { word: 'cooperate', meaning: 'Hợp tác cùng có lợi', nuance: 'Làm việc cùng nhau hướng tới mục tiêu' },
+        { word: 'partner with', meaning: 'Bắt tay đối tác', nuance: 'Hợp tác mang tính chiến lược dài hạn' },
+      ],
+    },
+  ]);
+
+  const words = getLearnedWords();
+  assert.equal(words.length, 1);
+  const word = words[0];
+  assert.equal(word.wordFamilyDetails?.nounMeaning, 'Sự cộng tác, hợp tác làm việc');
+  assert.equal(word.wordFamilyDetails?.verbMeaning, 'Hợp tác cùng nhau');
+  assert.equal(word.wordFamilyDetails?.adjectiveMeaning, 'Có tính hợp tác, chung tay');
+  assert.equal(word.wordFamilyDetails?.adverbMeaning, 'Một cách hợp tác, đồng lòng');
+
+  assert.ok(Array.isArray(word.synonyms));
+  assert.equal(word.synonyms?.length, 2);
+  const syn0 = word.synonyms![0] as { word: string; meaning: string; nuance?: string };
+  assert.equal(syn0.word, 'cooperate');
+  assert.equal(syn0.meaning, 'Hợp tác cùng có lợi');
+});
+
+test('speechUtils: evaluatePronunciationLocally returns isCorrect boolean flag and retry status when wrong', () => {
+  // Case 1: High match -> isCorrect = true
+  const correctEval = evaluatePronunciationLocally(
+    'Good morning everyone welcome to our office',
+    'good morning everyone welcome to our office'
+  );
+  assert.equal(correctEval.isCorrect, true);
+  assert.ok(correctEval.score >= 70);
+  assert.match(correctEval.verdictTextVi, /ĐÚNG/i);
+
+  // Case 2: Near match (small filler difference) -> isCorrect = true
+  const minorEval = evaluatePronunciationLocally(
+    'Please confirm your schedule today',
+    'please confirm your schedule'
+  );
+  assert.equal(minorEval.isCorrect, true);
+  assert.ok(minorEval.score >= 70);
+
+  // Case 3: Mismatched or severely flawed speech -> isCorrect = false
+  const wrongEval = evaluatePronunciationLocally(
+    'The partnership contract clearly stipulates quarterly audits',
+    'I like eating pizza with cheese'
+  );
+  assert.equal(wrongEval.isCorrect, false);
+  assert.ok(wrongEval.score < 70);
+  assert.match(wrongEval.verdictTextVi, /CHƯA ĐÚNG|ĐỌC LẠI/i);
+});
+
+test('quizUtils: generateCombinedQuizQuestions generates customizable question count with vocab and grammar', () => {
+  // Test with 5 questions, mixed scope
+  const quiz5 = generateCombinedQuizQuestions({
+    totalQuestions: 5,
+    scope: 'mixed',
+  });
+  assert.equal(quiz5.length, 5);
+  const hasVocab = quiz5.some((q) => q.category === 'vocab');
+  const hasGrammar = quiz5.some((q) => q.category === 'grammar');
+  assert.ok(hasVocab, 'Mixed quiz must include vocabulary questions');
+  assert.ok(hasGrammar, 'Mixed quiz must include grammar questions');
+
+  quiz5.forEach((q) => {
+    assert.ok(q.question && q.question.length > 5);
+    assert.ok(Array.isArray(q.options) && q.options.length === 4);
+    assert.ok(q.correctAnswerIndex >= 0 && q.correctAnswerIndex < 4);
+    assert.ok(q.explanation);
+  });
+
+  // Test with 10 questions, vocab only
+  const quiz10Vocab = generateCombinedQuizQuestions({
+    totalQuestions: 10,
+    scope: 'vocab',
+  });
+  assert.equal(quiz10Vocab.length, 10);
+  assert.ok(quiz10Vocab.every((q) => q.category === 'vocab'), 'Vocab scope must be 100% vocab');
+
+  // Test with 15 questions, grammar only
+  const quiz15Grammar = generateCombinedQuizQuestions({
+    totalQuestions: 15,
+    scope: 'grammar',
+  });
+  assert.equal(quiz15Grammar.length, 15);
+  assert.ok(quiz15Grammar.every((q) => q.category === 'grammar'), 'Grammar scope must be 100% grammar');
+
+  // Test with 20 questions, mixed
+  const quiz20 = generateCombinedQuizQuestions({
+    totalQuestions: 20,
+    scope: 'mixed',
+  });
+  assert.equal(quiz20.length, 20);
+});
+
+test('server: fallbackGenerator and promptBuilders support questionCount and quizType for quiz task', () => {
+  // Prompt builder verification
+  const prompt = buildChatbotPrompt('quiz', {
+    topic: 'Conditionals and Word Forms',
+    difficulty: 'Advanced (C1)',
+    questionCount: 10,
+    quizType: 'mixed',
+  });
+  assert.match(prompt.userPrompt, /10-question multiple choice/i);
+  assert.match(prompt.userPrompt, /Key Vocabulary[\s\S]*Core Grammar/i);
+
+  // Fallback generator verification
+  const fallback = generateRealisticFallback('quiz', {
+    topic: 'Test Topic',
+    difficulty: 'B2',
+    questionCount: 8,
+    quizType: 'mixed',
+  });
+  assert.equal(fallback.type, 'quiz');
+  const data = fallback.data as any;
+  assert.equal(data.questions.length, 8);
+  const fallbackHasVocab = data.questions.some((q: any) => q.category === 'vocab');
+  const fallbackHasGrammar = data.questions.some((q: any) => q.category === 'grammar');
+  assert.ok(fallbackHasVocab, 'Fallback must have vocab questions');
+  assert.ok(fallbackHasGrammar, 'Fallback must have grammar questions');
+});
+
 
 
 

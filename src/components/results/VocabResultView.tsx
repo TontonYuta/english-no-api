@@ -8,7 +8,10 @@ import {
   Layers,
   Copy,
   Check,
+  Mic,
+  Bookmark,
 } from 'lucide-react';
+import { PronunciationCoachModal, PronunciationCoachTarget } from '../speech/PronunciationCoachModal';
 
 interface VocabResultViewProps {
   result: VocabResult;
@@ -17,6 +20,7 @@ interface VocabResultViewProps {
 export const VocabResultView: React.FC<VocabResultViewProps> = ({ result }) => {
   const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isCoachOpen, setIsCoachOpen] = useState(false);
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window) {
@@ -72,14 +76,26 @@ export const VocabResultView: React.FC<VocabResultViewProps> = ({ result }) => {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="self-start sm:self-center flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-mono font-bold uppercase bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 transition-colors cursor-pointer"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? '[ COPIED ]' : '[ COPY STUDY CARD ]'}</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
+            <button
+              type="button"
+              onClick={() => setIsCoachOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-mono font-bold uppercase bg-sky-950 hover:bg-sky-900 border border-sky-700 text-sky-300 transition-colors cursor-pointer shadow-sm"
+              title="Luyện đọc phát âm với xác nhận đúng hay sai"
+            >
+              <Mic className="w-3.5 h-3.5 text-sky-400" />
+              <span>[ 🎙️ LUYỆN PHÁT ÂM ĐÚNG/SAI ]</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-mono font-bold uppercase bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 transition-colors cursor-pointer"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copied ? '[ COPIED ]' : '[ COPY CARD ]'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Vietnamese Translation & Nuances */}
@@ -187,6 +203,105 @@ export const VocabResultView: React.FC<VocabResultViewProps> = ({ result }) => {
           </div>
         </div>
       </div>
+
+      {/* Word Family with Meanings */}
+      {result.wordFamilyDetails && (
+        <div className="p-5 rounded-none bg-neutral-950 border border-neutral-800 space-y-3 border-l-4 border-l-purple-500">
+          <div className="flex items-center gap-2 text-purple-400">
+            <Layers className="w-4 h-4" />
+            <h4 className="text-xs font-mono font-bold uppercase tracking-wider">
+              Nghĩa các dạng Họ Từ (Word Family Meanings)
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+            {result.wordFamilyDetails.noun && (
+              <div className="p-3 bg-neutral-900 border border-neutral-800 space-y-1">
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase block">Danh từ (Noun)</span>
+                <span className="text-sm font-bold text-white font-mono block">{result.wordFamilyDetails.noun}</span>
+                {result.wordFamilyDetails.nounMeaning && (
+                  <span className="text-xs text-purple-300 block font-sans">↳ {result.wordFamilyDetails.nounMeaning}</span>
+                )}
+              </div>
+            )}
+            {result.wordFamilyDetails.verb && (
+              <div className="p-3 bg-neutral-900 border border-neutral-800 space-y-1">
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase block">Động từ (Verb)</span>
+                <span className="text-sm font-bold text-white font-mono block">{result.wordFamilyDetails.verb}</span>
+                {result.wordFamilyDetails.verbMeaning && (
+                  <span className="text-xs text-purple-300 block font-sans">↳ {result.wordFamilyDetails.verbMeaning}</span>
+                )}
+              </div>
+            )}
+            {result.wordFamilyDetails.adjective && (
+              <div className="p-3 bg-neutral-900 border border-neutral-800 space-y-1">
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase block">Tính từ (Adjective)</span>
+                <span className="text-sm font-bold text-white font-mono block">{result.wordFamilyDetails.adjective}</span>
+                {result.wordFamilyDetails.adjectiveMeaning && (
+                  <span className="text-xs text-purple-300 block font-sans">↳ {result.wordFamilyDetails.adjectiveMeaning}</span>
+                )}
+              </div>
+            )}
+            {result.wordFamilyDetails.adverb && (
+              <div className="p-3 bg-neutral-900 border border-neutral-800 space-y-1">
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase block">Trạng từ (Adverb)</span>
+                <span className="text-sm font-bold text-white font-mono block">{result.wordFamilyDetails.adverb}</span>
+                {result.wordFamilyDetails.adverbMeaning && (
+                  <span className="text-xs text-purple-300 block font-sans">↳ {result.wordFamilyDetails.adverbMeaning}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Synonyms with Meanings & Nuances */}
+      {result.synonyms && result.synonyms.length > 0 && (
+        <div className="p-5 rounded-none bg-neutral-950 border border-neutral-800 space-y-3 border-l-4 border-l-emerald-500">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <Sparkles className="w-4 h-4" />
+            <h4 className="text-xs font-mono font-bold uppercase tracking-wider">
+              Từ Đồng Nghĩa &amp; Sắc Thái Ngữ Cảnh (Synonyms &amp; Nuances)
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {result.synonyms.map((syn, idx) => {
+              const synWord = typeof syn === 'string' ? syn : syn.word;
+              const synMeaning = typeof syn === 'string' ? undefined : syn.meaning;
+              const synNuance = typeof syn === 'string' ? undefined : syn.nuance;
+              return (
+                <div key={idx} className="p-3 bg-neutral-900 border border-neutral-800 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-emerald-300 font-mono">{synWord}</span>
+                    <button
+                      type="button"
+                      onClick={() => speakText(synWord)}
+                      className="text-neutral-400 hover:text-emerald-300 p-1 cursor-pointer"
+                      title="Nghe phát âm"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {synMeaning && <p className="text-xs text-neutral-200 font-sans font-medium">↳ {synMeaning}</p>}
+                  {synNuance && <p className="text-[11px] text-neutral-400 font-sans italic">{synNuance}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Pronunciation Coach Modal with strict check: Đúng / Sai */}
+      <PronunciationCoachModal
+        isOpen={isCoachOpen}
+        onClose={() => setIsCoachOpen(false)}
+        target={{
+          term: result.term,
+          ipa: result.ipa,
+          vietnameseMeaning: result.vietnameseMeaning,
+          exampleSentence: result.examples?.[0]?.en,
+          exampleTranslation: result.examples?.[0]?.vi,
+        }}
+      />
     </div>
   );
 };

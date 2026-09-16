@@ -818,6 +818,17 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
                   <span>⬅ Quay lại Sổ Nhớ</span>
                 </button>
               )}
+              {onSwitchTab && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchTab('quiz')}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-mono font-bold uppercase border border-amber-500 cursor-pointer flex items-center gap-1.5 transition-all duration-150 shadow-sm"
+                  title="Tạo đề thi trắc nghiệm tổng hợp từ vựng và ngữ pháp"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                  <span>{lang === 'vi' ? '📝 Đề Thi Trắc Nghiệm (Quiz)' : '📝 Quiz & Tests'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsMemoryModalOpen(true)}
@@ -1253,6 +1264,7 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
               partOfSpeech: w.partOfSpeech,
               vietnameseMeaning: w.vietnameseMeaning,
               wordFamilyDetails: w.wordFamilyDetails,
+              synonyms: w.synonyms,
               exampleSentence: w.exampleSentence,
               exampleTranslation: w.exampleTranslation,
               mastered: w.mastered,

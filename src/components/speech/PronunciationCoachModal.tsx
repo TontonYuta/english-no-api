@@ -398,44 +398,43 @@ export const PronunciationCoachModal: React.FC<PronunciationCoachModalProps> = (
           {/* Assessment & Feedback Section */}
           {evaluation && (
             <div className="p-5 rounded-none bg-neutral-900 border-2 border-neutral-700 space-y-4 animate-in fade-in duration-150">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-800">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={`p-2 rounded-none border ${
-                      evaluation.score >= 80
-                        ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                        : evaluation.score >= 60
-                        ? 'bg-amber-950 text-amber-400 border-amber-800'
-                        : 'bg-rose-950 text-rose-400 border-rose-800'
-                    }`}
-                  >
-                    <Award className="w-5 h-5" />
+              {/* Prominent Verification Banner: ĐÚNG / SAI */}
+              {evaluation.isCorrect ? (
+                <div className="p-3.5 bg-emerald-950/80 border-2 border-emerald-500 text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md">
+                  <div className="flex items-center gap-2.5 font-mono font-black text-sm text-emerald-300">
+                    <span className="text-xl">✅</span>
+                    <span>XÁC NHẬN: PHÁT ÂM ĐÚNG CHUẨN!</span>
                   </div>
-                  <div>
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider block">
-                      KẾT QUẢ ĐÁNH GIÁ:
-                    </span>
-                    <h4 className="text-base font-black text-white">
-                      {evaluation.verdictTextVi}
-                    </h4>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-xs font-mono text-neutral-400 block">ĐỘ CHÍNH XÁC:</span>
-                  <span
-                    className={`text-2xl font-black font-mono ${
-                      evaluation.score >= 80
-                        ? 'text-emerald-400'
-                        : evaluation.score >= 60
-                        ? 'text-amber-400'
-                        : 'text-rose-400'
-                    }`}
-                  >
-                    {evaluation.score}%
+                  <span className="text-xs bg-emerald-900/90 text-emerald-300 px-2.5 py-1 border border-emerald-600 font-mono font-bold w-fit">
+                    ĐÃ ĐẠT CHUẨN ({evaluation.score}%)
                   </span>
                 </div>
-              </div>
+              ) : (
+                <div className="p-4 bg-rose-950/90 border-2 border-rose-500 text-rose-200 space-y-2.5 shadow-xl animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 font-mono font-black text-sm text-rose-300">
+                      <span className="text-xl animate-bounce">❌</span>
+                      <span>XÁC NHẬN: PHÁT ÂM CHƯA ĐÚNG!</span>
+                    </div>
+                    <span className="text-xs bg-rose-900/90 text-rose-300 px-2.5 py-1 border border-rose-600 font-mono font-bold w-fit">
+                      CHƯA ĐẠT ({evaluation.score}% &lt; 70%)
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-200 font-sans leading-relaxed">
+                    ⚠️ Phát âm của bạn chưa đạt yêu cầu tối thiểu hoặc thiếu âm đuôi. <strong>Bạn cần đọc lại cho đúng</strong> trước khi hoàn thành!
+                  </p>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={startRecording}
+                      className="w-full py-2.5 rounded-none bg-rose-600 hover:bg-rose-500 text-white font-mono font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all border border-rose-400 animate-pulse"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>[ 🎙️ BẤM VÀ ĐỌC LẠI CHO ĐÚNG ]</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Word by Word Breakdown */}
               <div className="space-y-1.5">

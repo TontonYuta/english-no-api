@@ -429,17 +429,20 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                     </div>
 
                     {word.wordFamilyDetails ? (
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-2">
                         {word.wordFamilyDetails.noun && (
-                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                          <div className="p-2 rounded-md bg-zinc-850/70 border border-zinc-800 flex items-start justify-between gap-1.5">
                             <div className="overflow-hidden">
                               <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Danh từ</span>
-                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.noun}</span>
+                              <span className="text-xs font-bold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.noun}</span>
+                              {word.wordFamilyDetails.nounMeaning && (
+                                <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {word.wordFamilyDetails.nounMeaning}</span>
+                              )}
                             </div>
                             <button
                               type="button"
                               onClick={() => speakText(word.wordFamilyDetails!.noun!)}
-                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0 mt-0.5"
                               title="Nghe phát âm"
                             >
                               <Volume2 className="w-3 h-3" />
@@ -447,15 +450,18 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                           </div>
                         )}
                         {word.wordFamilyDetails.verb && (
-                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                          <div className="p-2 rounded-md bg-zinc-850/70 border border-zinc-800 flex items-start justify-between gap-1.5">
                             <div className="overflow-hidden">
                               <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Động từ</span>
-                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.verb}</span>
+                              <span className="text-xs font-bold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.verb}</span>
+                              {word.wordFamilyDetails.verbMeaning && (
+                                <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {word.wordFamilyDetails.verbMeaning}</span>
+                              )}
                             </div>
                             <button
                               type="button"
                               onClick={() => speakText(word.wordFamilyDetails!.verb!)}
-                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0 mt-0.5"
                               title="Nghe phát âm"
                             >
                               <Volume2 className="w-3 h-3" />
@@ -463,15 +469,18 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                           </div>
                         )}
                         {word.wordFamilyDetails.adjective && (
-                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                          <div className="p-2 rounded-md bg-zinc-850/70 border border-zinc-800 flex items-start justify-between gap-1.5">
                             <div className="overflow-hidden">
                               <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Tính từ</span>
-                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.adjective}</span>
+                              <span className="text-xs font-bold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.adjective}</span>
+                              {word.wordFamilyDetails.adjectiveMeaning && (
+                                <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {word.wordFamilyDetails.adjectiveMeaning}</span>
+                              )}
                             </div>
                             <button
                               type="button"
                               onClick={() => speakText(word.wordFamilyDetails!.adjective!)}
-                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0 mt-0.5"
                               title="Nghe phát âm"
                             >
                               <Volume2 className="w-3 h-3" />
@@ -479,15 +488,18 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                           </div>
                         )}
                         {word.wordFamilyDetails.adverb && (
-                          <div className="p-1.5 rounded-md bg-zinc-850/60 border border-zinc-800 flex items-center justify-between">
+                          <div className="p-2 rounded-md bg-zinc-850/70 border border-zinc-800 flex items-start justify-between gap-1.5">
                             <div className="overflow-hidden">
                               <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase block">Trạng từ</span>
-                              <span className="text-xs font-semibold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.adverb}</span>
+                              <span className="text-xs font-bold text-zinc-200 font-sans truncate block">{word.wordFamilyDetails.adverb}</span>
+                              {word.wordFamilyDetails.adverbMeaning && (
+                                <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {word.wordFamilyDetails.adverbMeaning}</span>
+                              )}
                             </div>
                             <button
                               type="button"
                               onClick={() => speakText(word.wordFamilyDetails!.adverb!)}
-                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0"
+                              className="text-zinc-400 hover:text-sky-300 p-1 cursor-pointer shrink-0 mt-0.5"
                               title="Nghe phát âm"
                             >
                               <Volume2 className="w-3 h-3" />
@@ -500,6 +512,30 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                         {word.wordFamily}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Synonyms Matrix */}
+                {word.synonyms && word.synonyms.length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-zinc-850">
+                    <span className="text-[11px] font-medium text-emerald-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Từ đồng nghĩa (Synonyms):</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {word.synonyms.map((syn, sIdx) => {
+                        const sWord = typeof syn === 'string' ? syn : syn.word;
+                        const sMeaning = typeof syn === 'string' ? undefined : syn.meaning;
+                        const sNuance = typeof syn === 'string' ? undefined : syn.nuance;
+                        return (
+                          <div key={sIdx} className="px-2.5 py-1 rounded-md bg-zinc-850/80 border border-emerald-900/50 text-xs">
+                            <span className="font-bold text-emerald-300 font-mono">{sWord}</span>
+                            {sMeaning && <span className="text-zinc-300 text-[11px] ml-1.5">({sMeaning})</span>}
+                            {sNuance && <span className="text-zinc-500 text-[10px] block font-mono">↳ {sNuance}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

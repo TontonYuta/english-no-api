@@ -21,6 +21,7 @@ export type MainTabType =
   | 'read_listen'
   | 'chat'
   | 'writing'
+  | 'quiz'
   | 'memory';
 
 export type PipelineStepId =
@@ -97,6 +98,12 @@ export interface VocabExample {
   contextNote: string;
 }
 
+export interface SynonymItem {
+  word: string;
+  meaning?: string;
+  nuance?: string;
+}
+
 export interface VocabResult {
   term: string;
   ipa: string;
@@ -107,6 +114,9 @@ export interface VocabResult {
   examples: VocabExample[];
   commonTraps: string[];
   collocations: string[];
+  synonyms?: (string | SynonymItem)[];
+  wordFamily?: string;
+  wordFamilyDetails?: WordFamilyDetails;
 }
 
 export interface RoleplayDialogueTurn {
@@ -170,6 +180,9 @@ export interface AppSettings {
   simulateIfBlocked: boolean;
   userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
   dailyVocabCount?: number; // 3, 5, 8, 10
+  quizQuestionCount?: number; // 5, 10, 15, 20
+  quizIncludeVocab?: boolean;
+  quizIncludeGrammar?: boolean;
   topicPreference?: TopicPreference;
   customTopic?: string;
   grammarFocus?: GrammarFocus;
@@ -183,6 +196,8 @@ export interface QuizQuestion {
   correctAnswerIndex: number;
   explanation: string;
   grammarRule: string;
+  category?: 'vocab' | 'grammar';
+  sourceTerm?: string;
 }
 
 export interface QuizResult {
@@ -193,9 +208,13 @@ export interface QuizResult {
 
 export interface WordFamilyDetails {
   noun?: string;
+  nounMeaning?: string;
   verb?: string;
+  verbMeaning?: string;
   adjective?: string;
+  adjectiveMeaning?: string;
   adverb?: string;
+  adverbMeaning?: string;
 }
 
 export interface WordFormExercise {
@@ -214,6 +233,7 @@ export interface ToeicWord {
   vietnameseMeaning: string;
   wordFamily?: string;
   wordFamilyDetails?: WordFamilyDetails;
+  synonyms?: (string | SynonymItem)[];
   wordFormExercise?: WordFormExercise;
   toeicParaphrase?: string;
   exampleSentence: string;
@@ -250,6 +270,7 @@ export interface FlashcardItem {
   vietnameseMeaning: string;
   wordFamily?: string;
   wordFamilyDetails?: WordFamilyDetails;
+  synonyms?: (string | SynonymItem)[];
   exampleSentence?: string;
   exampleTranslation?: string;
   simpleBreakdown?: string;
@@ -268,6 +289,7 @@ export interface LearnedWord {
   vietnameseMeaning: string;
   wordFamily?: string;
   wordFamilyDetails?: WordFamilyDetails;
+  synonyms?: (string | SynonymItem)[];
   wordFormExercise?: WordFormExercise;
   exampleSentence?: string;
   exampleTranslation?: string;

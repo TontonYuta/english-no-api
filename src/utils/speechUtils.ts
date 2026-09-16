@@ -451,11 +451,13 @@ export interface WordFeedback {
 
 export interface PronunciationScoreResult {
   score: number; // 0 - 100
+  isCorrect: boolean; // Xác nhận đúng hay sai rõ ràng (true: đạt chuẩn >= 70%, false: chưa đạt cần đọc lại)
   verdict: 'perfect' | 'great' | 'good' | 'retry';
   verdictTextVi: string;
   feedbackMessageVi: string;
   words: WordFeedback[];
   phoneticTips: string[];
+  unmatchedWords?: string[];
 }
 
 function cleanWord(w: string): string {
@@ -516,8 +518,9 @@ export function evaluatePronunciationLocally(
   if (targetWords.length === 0) {
     return {
       score: 0,
+      isCorrect: false,
       verdict: 'retry',
-      verdictTextVi: 'Chưa nhận diện được âm thanh',
+      verdictTextVi: '❌ CHƯA NHẬN DIỆN ĐƯỢC ÂM THANH - CẦN ĐỌC LẠI',
       feedbackMessageVi: 'Vui lòng bấm mic và đọc lại to, rõ ràng hơn.',
       words: [],
       phoneticTips: ['Hãy giữ khoảng cách mic 15-20cm và phát âm tròn vành rõ chữ.'],
@@ -570,22 +573,29 @@ export function evaluatePronunciationLocally(
   const rawScore = Math.round((totalSimilarity / targetWords.length) * 100);
   const score = Math.max(0, Math.min(100, rawScore));
 
+  const isCorrect = score >= 70;
+  const unmatchedWords = wordFeedback
+    .filter((w) => w.status !== 'correct')
+    .map((w) => w.word);
+
   let verdict: 'perfect' | 'great' | 'good' | 'retry' = 'retry';
-  let verdictTextVi = 'Cần luyện thêm';
-  let feedbackMessageVi = 'Bạn chưa phát âm rõ một số âm tiết hoặc nuốt âm đuôi. Hãy xem mẹo đọc bên dưới và thử lại nhé!';
+  let verdictTextVi = '❌ PHÁT ÂM CHƯA ĐÚNG - CẦN ĐỌC LẠI CHO ĐÚNG';
+  let feedbackMessageVi = unmatchedWords.length > 0
+    ? `Bạn phát âm chưa chuẩn hoặc thiếu âm đuôi ở từ: [${unmatchedWords.join(', ')}]. Hãy bấm mic và đọc lại cho đúng!`
+    : 'Phát âm chưa đạt yêu cầu tối thiểu (>= 70%). Hãy nghe lại mẫu chậm và đọc lại to, rõ ràng!';
 
   if (score >= 90) {
     verdict = 'perfect';
-    verdictTextVi = 'Xuất Sắc! Chuẩn Bản Xứ';
+    verdictTextVi = '✅ PHÁT ÂM ĐÚNG CHUẨN - XUẤT SẮC';
     feedbackMessageVi = 'Ngữ điệu và trọng âm rất chuẩn xác! Các âm tiết được bật rõ ràng.';
   } else if (score >= 75) {
     verdict = 'great';
-    verdictTextVi = 'Rất Tốt & Rõ Ràng';
+    verdictTextVi = '✅ PHÁT ÂM ĐÚNG CHUẨN - RẤT TỐT';
     feedbackMessageVi = 'Người nghe hoàn toàn có thể hiểu được bạn. Chú ý trau chuốt thêm các âm đuôi (ending sounds).';
-  } else if (score >= 55) {
+  } else if (score >= 70) {
     verdict = 'good';
-    verdictTextVi = 'Khá Tốt (Cần Chỉnh Âm Đuôi)';
-    feedbackMessageVi = 'Đã nắm được phần lớn âm cơ bản, nhưng cần nhấn đúng trọng âm và bật dứt khoát âm cuối.';
+    verdictTextVi = '✅ PHÁT ÂM ĐẠT YÊU CẦU';
+    feedbackMessageVi = 'Đã đạt chuẩn nhận diện âm thanh cơ bản. Hãy tiếp tục phát huy!';
   }
 
   // Generate Vietnamese specific phonetic tips
@@ -611,10 +621,12 @@ export function evaluatePronunciationLocally(
 
   return {
     score,
+    isCorrect,
     verdict,
     verdictTextVi,
     feedbackMessageVi,
     words: wordFeedback,
     phoneticTips,
+    unmatchedWords,
   };
 }

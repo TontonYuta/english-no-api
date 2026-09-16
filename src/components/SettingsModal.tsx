@@ -416,6 +416,106 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Quiz Question Count & Scope Configuration */}
+          <div className="space-y-3 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2 font-mono">
+                <Target className="w-4 h-4 text-sky-400" />
+                <span>{t.settingQuizQuestionCountLabel}</span>
+              </label>
+              <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded-md border border-sky-800">
+                [ {localSettings.quizQuestionCount || 5} CÂU / ĐỀ THI ]
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-400">{t.settingQuizQuestionCountDesc}</p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { count: 5, label: '⚡ 5 Câu / Đề', sub: 'Khởi động (3-5 phút)' },
+                { count: 10, label: '🎯 10 Câu / Đề', sub: 'Chuẩn mực (6-8 phút)' },
+                { count: 15, label: '🔥 15 Câu / Đề', sub: 'Nâng cao (10-12 phút)' },
+                { count: 20, label: '🏆 20 Câu / Đề', sub: 'Tổng ôn chuyên sâu (15 phút)' },
+              ].map((opt) => {
+                const isSelected = (localSettings.quizQuestionCount || 5) === opt.count;
+                return (
+                  <button
+                    key={opt.count}
+                    type="button"
+                    onClick={() =>
+                      setLocalSettings({ ...localSettings, quizQuestionCount: opt.count })
+                    }
+                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-l-4 border-l-sky-500 bg-sky-950/40 border-zinc-700 text-white shadow-sm'
+                        : 'border-l-2 border-l-zinc-700 bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span className="text-xs font-bold block">{opt.label}</span>
+                    <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">{opt.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quiz Composition: Both Vocab & Grammar */}
+            <div className="pt-2">
+              <span className="text-xs font-mono font-bold text-zinc-300 uppercase block mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>{t.settingQuizMixModeLabel}:</span>
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  {
+                    id: 'mixed',
+                    label: '🌟 Kết Hợp Cả Hai',
+                    desc: 'Bao gồm cả Từ vựng & Ngữ pháp (Khuyên dùng)',
+                    incVocab: true,
+                    incGrammar: true,
+                  },
+                  {
+                    id: 'vocab',
+                    label: '📖 Chuyên Từ Vựng',
+                    desc: 'Tập trung từ loại, thành ngữ & collocations',
+                    incVocab: true,
+                    incGrammar: false,
+                  },
+                  {
+                    id: 'grammar',
+                    label: '📐 Chuyên Ngữ Pháp',
+                    desc: 'Tập trung công thức, thì & cấu trúc câu',
+                    incVocab: false,
+                    incGrammar: true,
+                  },
+                ].map((qm) => {
+                  const isCur =
+                    (localSettings.quizIncludeVocab ?? true) === qm.incVocab &&
+                    (localSettings.quizIncludeGrammar ?? true) === qm.incGrammar;
+                  return (
+                    <button
+                      key={qm.id}
+                      type="button"
+                      onClick={() =>
+                        setLocalSettings({
+                          ...localSettings,
+                          quizIncludeVocab: qm.incVocab,
+                          quizIncludeGrammar: qm.incGrammar,
+                        })
+                      }
+                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                        isCur
+                          ? 'border-l-4 border-l-amber-500 bg-amber-950/30 border-zinc-700 text-white shadow-sm'
+                          : 'border-l-2 border-l-zinc-700 bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <span className="text-xs font-bold block">{qm.label}</span>
+                      <span className="text-[10px] text-zinc-500 block mt-0.5">{qm.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {/* Topic Theme Preference */}
           <div className="space-y-2 pb-4 border-b border-zinc-800">
             <div className="flex items-center justify-between flex-wrap gap-1">

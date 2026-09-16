@@ -7,6 +7,10 @@ interface QuizFormProps {
   setTopic: (val: string) => void;
   difficulty: string;
   setDifficulty: (val: string) => void;
+  questionCount?: number;
+  setQuestionCount?: (val: number) => void;
+  quizType?: 'mixed' | 'vocab' | 'grammar';
+  setQuizType?: (val: 'mixed' | 'vocab' | 'grammar') => void;
   onSelectSample: (topic: string, difficulty: string) => void;
   disabled?: boolean;
   lang: Language;
@@ -17,6 +21,10 @@ export const QuizForm: React.FC<QuizFormProps> = ({
   setTopic,
   difficulty,
   setDifficulty,
+  questionCount = 5,
+  setQuestionCount,
+  quizType = 'mixed',
+  setQuizType,
   onSelectSample,
   disabled,
   lang,
@@ -80,6 +88,67 @@ export const QuizForm: React.FC<QuizFormProps> = ({
             <option value="Advanced (C1)">Advanced (C1) - Nâng cao</option>
             <option value="Mastery (C2)">Mastery (C2) - Bản ngữ</option>
           </select>
+        </div>
+      </div>
+
+      {/* Quiz Question Count & Scope Configuration */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-neutral-900/60 border border-neutral-800 rounded-none">
+        <div>
+          <label className="block text-xs font-mono font-bold uppercase text-neutral-300 mb-1.5 flex items-center justify-between">
+            <span>{isVi ? 'Số lượng câu hỏi:' : 'Question Count:'}</span>
+            <span className="text-sky-400 font-bold">{questionCount} {isVi ? 'câu' : 'questions'}</span>
+          </label>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[5, 10, 15, 20].map((count) => {
+              const isSelected = questionCount === count;
+              return (
+                <button
+                  key={count}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setQuestionCount?.(count)}
+                  className={`py-1.5 text-xs font-mono font-bold uppercase rounded-none border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-sky-600 text-white border-sky-400 shadow-sm'
+                      : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
+                  }`}
+                >
+                  {count}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-mono font-bold uppercase text-neutral-300 mb-1.5">
+            {isVi ? 'Nội dung đề thi:' : 'Quiz Content Scope:'}
+          </label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              { id: 'mixed', labelVi: 'Cả 2 (Từ + Ngữ)', labelEn: 'Mixed' },
+              { id: 'vocab', labelVi: 'Từ Vựng', labelEn: 'Vocab' },
+              { id: 'grammar', labelVi: 'Ngữ Pháp', labelEn: 'Grammar' },
+            ].map((opt) => {
+              const isSelected = quizType === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setQuizType?.(opt.id as 'mixed' | 'vocab' | 'grammar')}
+                  className={`py-1.5 px-2 text-xs font-mono font-bold uppercase rounded-none border transition-all cursor-pointer truncate ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm'
+                      : 'bg-neutral-950 hover:bg-neutral-800 text-neutral-300 border-neutral-800'
+                  }`}
+                  title={isVi ? opt.labelVi : opt.labelEn}
+                >
+                  {isVi ? opt.labelVi : opt.labelEn}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

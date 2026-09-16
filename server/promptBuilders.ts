@@ -105,6 +105,28 @@ JSON Structure:
     "Strong collocation 2",
     "Strong collocation 3",
     "Strong collocation 4"
+  ],
+  "wordFamilyDetails": {
+    "noun": "Noun form (if applicable)",
+    "nounMeaning": "Nghĩa tiếng Việt của danh từ",
+    "verb": "Verb form (if applicable)",
+    "verbMeaning": "Nghĩa tiếng Việt của động từ",
+    "adjective": "Adjective form (if applicable)",
+    "adjectiveMeaning": "Nghĩa tiếng Việt của tính từ",
+    "adverb": "Adverb form (if applicable)",
+    "adverbMeaning": "Nghĩa tiếng Việt của trạng từ"
+  },
+  "synonyms": [
+    {
+      "word": "Synonym 1",
+      "meaning": "Nghĩa tiếng Việt của từ đồng nghĩa",
+      "nuance": "Sắc thái hoặc ngữ cảnh sử dụng"
+    },
+    {
+      "word": "Synonym 2",
+      "meaning": "Nghĩa tiếng Việt",
+      "nuance": "Sắc thái hoặc ngữ cảnh sử dụng"
+    }
   ]
 }`;
 
@@ -170,22 +192,35 @@ JSON Structure:
     }
 
     case 'quiz': {
-      const topic = (inputData.topic as string) || 'Conditionals & Hypothetical Situations';
+      const questionCount = Math.min(30, Math.max(3, (inputData.questionCount as number) || (inputData.count as number) || 5));
+      const quizType = (inputData.quizType as string) || 'mixed';
+      const topic = (inputData.topic as string) || (quizType === 'mixed' ? 'Mixed High-Frequency Vocabulary & Core Grammar' : 'Conditionals & Hypothetical Situations');
       const difficulty = (inputData.difficulty as string) || 'Upper-Intermediate (B2)';
 
+      const scopeGuidance = quizType === 'mixed'
+        ? `Create EXACTLY ${questionCount} questions BALANCED between:
+1) Key Vocabulary (collocations, prepositions, phrasal verbs, idioms, nuances)
+2) Core Grammar rules (verb tenses, word forms, conditionals, relative clauses, prepositions)
+For each question, specify "category": "vocab" OR "grammar".`
+        : quizType === 'vocab'
+        ? `Create EXACTLY ${questionCount} vocabulary-focused questions testing collocations, nuances, and word forms. Specify "category": "vocab".`
+        : `Create EXACTLY ${questionCount} grammar-focused questions testing grammatical accuracy and sentence structures. Specify "category": "grammar".`;
+
       const userPrompt = `You are a Senior Item Writer for the Cambridge English and ETS exams.
-Create a smart 5-question multiple choice English quiz focused on:
+Create a smart ${questionCount}-question multiple choice English quiz focused on:
 Topic: "${topic}"
 Target Level: ${difficulty}
 
-Create 5 high-quality, authentic questions testing subtle nuances, grammar rules, or idiomatic accuracy.
+${scopeGuidance}
+
+Create EXACTLY ${questionCount} high-quality, authentic questions testing subtle nuances, grammar rules, or lexical accuracy.
 Include 4 realistic options per question with clever distractors that target common student confusions.
 
 CRITICAL MULTIPLE CHOICE REQUIREMENT:
 - You MUST randomly distribute the correct answer across option indices 0, 1, 2, and 3 (Options A, B, C, D) across the questions!
-- NEVER put the correct answer at index 0 (Option A) for all questions! Ensure varied distribution (e.g., Q1 at 2, Q2 at 0, Q3 at 3, Q4 at 1, Q5 at 2).
+- NEVER put the correct answer at index 0 (Option A) for all questions! Ensure varied distribution.
 - Set "correctAnswerIndex" to the actual index (0, 1, 2, or 3) of the correct answer.
-- In "explanation", explain why the correct choice is linguistically sound and why the distractors are invalid, without writing static references like "Option A" or "Đáp án 1".
+- In "explanation", explain why the correct choice is linguistically sound and why the distractors are invalid, in Vietnamese or bilingual English-Vietnamese.
 
 Format your entire answer as a valid JSON object enclosed in \`\`\`json and \`\`\`.
 
@@ -196,17 +231,18 @@ JSON Structure:
   "questions": [
     {
       "id": 1,
+      "category": "vocab | grammar",
       "question": "Contextual stem with a blank (e.g., 'Had the weather conditions _______ worse, the flight would have been diverted.')",
       "options": ["Distractor A", "Correct Answer B", "Distractor C", "Distractor D"],
       "correctAnswerIndex": 1,
-      "explanation": "Detailed pedagogical explanation of why this answer is correct and why the distractors are grammatically invalid",
-      "grammarRule": "Rule name (e.g. Inversion in Third Conditional)"
+      "explanation": "Detailed pedagogical explanation in Vietnamese of why this answer is correct and why distractors are invalid",
+      "grammarRule": "Rule or vocabulary focus (e.g. Inversion in Third Conditional)"
     }
   ]
 }`;
 
       return {
-        systemInstruction: 'You are an official Cambridge exam question creator. Return strictly valid JSON enclosed in ```json ```.',
+        systemInstruction: 'You are an official Cambridge and ETS exam question creator. Return strictly valid JSON enclosed in ```json ```.',
         userPrompt,
       };
     }
@@ -277,10 +313,25 @@ JSON Structure:
       "wordFamily": "e.g. schedule (v) - scheduled (adj) or N/A",
       "wordFamilyDetails": {
         "noun": "Noun form (e.g. confirmation, schedule)",
+        "nounMeaning": "Nghĩa tiếng Việt của danh từ (vd: sự xác nhận)",
         "verb": "Verb form (e.g. confirm, schedule)",
+        "verbMeaning": "Nghĩa tiếng Việt của động từ (vd: xác nhận)",
         "adjective": "Adjective form (e.g. confirmed, scheduled)",
-        "adverb": "Adverb form if applicable or N/A"
+        "adjectiveMeaning": "Nghĩa tiếng Việt của tính từ (vd: đã được xác nhận)",
+        "adverb": "Adverb form if applicable or N/A",
+        "adverbMeaning": "Nghĩa tiếng Việt của trạng từ (nếu có)"
       },
+      "synonyms": [
+        {
+          "word": "Synonym 1",
+          "meaning": "Nghĩa tiếng Việt của từ đồng nghĩa",
+          "nuance": "Sắc thái hoặc ngữ cảnh sử dụng"
+        },
+        {
+          "word": "Synonym 2",
+          "meaning": "Nghĩa tiếng Việt"
+        }
+      ],
       "wordFormExercise": {
         "sentence": "A TOEIC Part 5 sentence with blank '_______' testing word forms of this root word",
         "options": ["NounForm", "VerbForm", "AdjForm", "AdvForm"],

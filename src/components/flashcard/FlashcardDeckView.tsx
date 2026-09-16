@@ -653,27 +653,64 @@ export const FlashcardDeckView: React.FC<FlashcardDeckViewProps> = ({
                     {currentCard.wordFamilyDetails.noun && (
                       <div className="p-1.5 rounded-md bg-zinc-850/70 border border-zinc-800">
                         <span className="text-[9px] text-sky-400 block uppercase font-bold">N: Danh từ</span>
-                        <span className="text-neutral-200 truncate block">{currentCard.wordFamilyDetails.noun}</span>
+                        <span className="text-neutral-200 font-bold truncate block">{currentCard.wordFamilyDetails.noun}</span>
+                        {currentCard.wordFamilyDetails.nounMeaning && (
+                          <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {currentCard.wordFamilyDetails.nounMeaning}</span>
+                        )}
                       </div>
                     )}
                     {currentCard.wordFamilyDetails.verb && (
                       <div className="p-1.5 rounded-md bg-zinc-850/70 border border-zinc-800">
                         <span className="text-[9px] text-emerald-400 block uppercase font-bold">V: Động từ</span>
-                        <span className="text-neutral-200 truncate block">{currentCard.wordFamilyDetails.verb}</span>
+                        <span className="text-neutral-200 font-bold truncate block">{currentCard.wordFamilyDetails.verb}</span>
+                        {currentCard.wordFamilyDetails.verbMeaning && (
+                          <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {currentCard.wordFamilyDetails.verbMeaning}</span>
+                        )}
                       </div>
                     )}
                     {currentCard.wordFamilyDetails.adjective && (
                       <div className="p-1.5 rounded-md bg-zinc-850/70 border border-zinc-800">
                         <span className="text-[9px] text-amber-400 block uppercase font-bold">Adj: Tính từ</span>
-                        <span className="text-neutral-200 truncate block">{currentCard.wordFamilyDetails.adjective}</span>
+                        <span className="text-neutral-200 font-bold truncate block">{currentCard.wordFamilyDetails.adjective}</span>
+                        {currentCard.wordFamilyDetails.adjectiveMeaning && (
+                          <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {currentCard.wordFamilyDetails.adjectiveMeaning}</span>
+                        )}
                       </div>
                     )}
                     {currentCard.wordFamilyDetails.adverb && (
                       <div className="p-1.5 rounded-md bg-zinc-850/70 border border-zinc-800">
                         <span className="text-[9px] text-purple-400 block uppercase font-bold">Adv: Trạng từ</span>
-                        <span className="text-neutral-200 truncate block">{currentCard.wordFamilyDetails.adverb}</span>
+                        <span className="text-neutral-200 font-bold truncate block">{currentCard.wordFamilyDetails.adverb}</span>
+                        {currentCard.wordFamilyDetails.adverbMeaning && (
+                          <span className="text-[10px] text-zinc-400 font-sans italic block">↳ {currentCard.wordFamilyDetails.adverbMeaning}</span>
+                        )}
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Synonyms Matrix */}
+              {currentCard?.synonyms && currentCard.synonyms.length > 0 && (
+                <div
+                  className="pt-2 border-t border-zinc-850"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase block mb-1.5 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-400" />
+                    <span>Từ đồng nghĩa (Synonyms):</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 text-[11px] font-mono">
+                    {currentCard.synonyms.map((syn, sIdx) => {
+                      const sWord = typeof syn === 'string' ? syn : syn.word;
+                      const sMeaning = typeof syn === 'string' ? undefined : syn.meaning;
+                      return (
+                        <span key={sIdx} className="px-2 py-0.5 rounded bg-zinc-850 border border-emerald-900/50 text-emerald-300">
+                          <strong>{sWord}</strong>
+                          {sMeaning && <span className="text-zinc-400 font-sans ml-1 text-[10px]">({sMeaning})</span>}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

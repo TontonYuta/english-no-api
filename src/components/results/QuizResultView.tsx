@@ -63,6 +63,17 @@ export const QuizResultView: React.FC<QuizResultViewProps> = ({ result }) => {
     return acc;
   }, 0);
 
+  const vocabQuestions = sanitizedQuestions.filter((q) => q.category === 'vocab');
+  const grammarQuestions = sanitizedQuestions.filter((q) => q.category === 'grammar');
+  const vocabCorrect = vocabQuestions.reduce(
+    (acc, q) => (selectedAnswers[q.id] === q.correctAnswerIndex ? acc + 1 : acc),
+    0
+  );
+  const grammarCorrect = grammarQuestions.reduce(
+    (acc, q) => (selectedAnswers[q.id] === q.correctAnswerIndex ? acc + 1 : acc),
+    0
+  );
+
   const isCompleted = answeredCount === totalQuestions && totalQuestions > 0;
 
   return (
@@ -70,7 +81,7 @@ export const QuizResultView: React.FC<QuizResultViewProps> = ({ result }) => {
       {/* Quiz Header & Score Card */}
       <div className="p-6 rounded-none bg-neutral-950 border border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-4 border-l-sky-500">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-none bg-sky-950 text-sky-300 border border-sky-800">
               [{result.difficulty || 'Advanced'}]
             </span>
@@ -78,20 +89,34 @@ export const QuizResultView: React.FC<QuizResultViewProps> = ({ result }) => {
             <span className="text-xs font-mono text-neutral-400">
               [{answeredCount}/{totalQuestions} ANSWERED]
             </span>
+            {vocabQuestions.length > 0 && grammarQuestions.length > 0 && (
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-none bg-indigo-950 text-indigo-300 border border-indigo-800">
+                [TỔNG HỢP: TỪ VỰNG + NGỮ PHÁP]
+              </span>
+            )}
           </div>
           <h2 className="text-xl font-mono font-bold text-white tracking-tight uppercase">
             {result.topic}
           </h2>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {answeredCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-neutral-900 border border-neutral-800 font-mono">
-              <Award className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-neutral-300 uppercase">Score:</span>
-              <span className="text-sm font-bold text-white font-mono">
-                {correctCount}/{totalQuestions}
-              </span>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-neutral-900 border border-neutral-800 font-mono">
+                <Award className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-neutral-300 uppercase">Score:</span>
+                <span className="text-sm font-bold text-white font-mono">
+                  {correctCount}/{totalQuestions}
+                </span>
+              </div>
+              {vocabQuestions.length > 0 && grammarQuestions.length > 0 && (
+                <div className="text-[10px] font-mono text-neutral-400 flex items-center gap-1.5 px-2 py-0.5 bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-sky-300 font-bold">Từ: {vocabCorrect}/{vocabQuestions.length}</span>
+                  <span className="text-neutral-600">|</span>
+                  <span className="text-indigo-300 font-bold">Ngữ: {grammarCorrect}/{grammarQuestions.length}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -134,9 +159,29 @@ export const QuizResultView: React.FC<QuizResultViewProps> = ({ result }) => {
                   <span className="w-6 h-6 rounded-none bg-neutral-900 border border-neutral-700 text-sky-400 text-xs font-mono font-bold flex items-center justify-center shrink-0 mt-0.5">
                     {qIndex + 1}
                   </span>
-                  <p className="text-sm font-semibold text-white leading-relaxed font-mono">
-                    {q.question}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      {q.category && (
+                        <span
+                          className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-none border ${
+                            q.category === 'vocab'
+                              ? 'bg-sky-950/80 text-sky-300 border-sky-800'
+                              : 'bg-indigo-950/80 text-indigo-300 border-indigo-800'
+                          }`}
+                        >
+                          {q.category === 'vocab' ? '📖 TỪ VỰNG' : '⚙️ NGỮ PHÁP'}
+                        </span>
+                      )}
+                      {q.sourceTerm && (
+                        <span className="text-[9px] font-mono text-zinc-400 bg-neutral-900 px-1 py-0.5 border border-neutral-800">
+                          {q.sourceTerm}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-semibold text-white leading-relaxed font-mono">
+                      {q.question}
+                    </p>
+                  </div>
                 </div>
 
                 {hasAnswered && (

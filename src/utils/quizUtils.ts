@@ -5,7 +5,9 @@ import {
   LearnedListening,
   WordFamilyDetails,
   WordFormExercise,
+  SynonymItem,
 } from '../types';
+import { getLearnedWords, getLearnedGrammar } from './learningMemory';
 
 export interface ShuffledChallenge {
   options: string[];
@@ -133,6 +135,7 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
   exampleTranslation?: string;
   wordFamily?: string;
   wordFamilyDetails?: WordFamilyDetails;
+  synonyms?: (string | SynonymItem)[];
   wordFormExercise?: WordFormExercise;
 }> = [
   {
@@ -147,9 +150,16 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
     wordFamily: 'schedule (n) / scheduled (adj)',
     wordFamilyDetails: {
       noun: 'schedule',
+      nounMeaning: 'lịch trình, thời khóa biểu',
       verb: 'schedule',
+      verbMeaning: 'lên lịch, sắp xếp thời gian',
       adjective: 'scheduled',
+      adjectiveMeaning: 'đã được lên lịch trước',
     },
+    synonyms: [
+      { word: 'Timetable', meaning: 'thời gian biểu', nuance: 'Dùng cho tàu xe hoặc lịch học' },
+      { word: 'Agenda', meaning: 'chương trình nghị sự', nuance: 'Dùng cho mục tiêu trong cuộc họp' },
+    ],
     wordFormExercise: {
       sentence: 'The project manager asked the team to _______ the weekly status meeting for Thursday.',
       options: ['schedule', 'scheduled', 'scheduling', 'scheduler'],
@@ -170,9 +180,16 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
     wordFamily: 'colleague (n) - collegial (adj)',
     wordFamilyDetails: {
       noun: 'colleague',
+      nounMeaning: 'đồng nghiệp',
       adjective: 'collegial',
+      adjectiveMeaning: 'thân thiện, hợp tác giữa đồng nghiệp',
       adverb: 'collegially',
+      adverbMeaning: 'một cách hòa nhã, có tinh thần đồng đội',
     },
+    synonyms: [
+      { word: 'Coworker', meaning: 'người làm chung việc', nuance: 'Từ phổ thông trong tiếng Anh-Mỹ' },
+      { word: 'Associate', meaning: 'cộng sự kinh doanh', nuance: 'Văn phong trang trọng hơn' },
+    ],
     wordFormExercise: {
       sentence: 'Mr. David works exceptionally well with all of his _______ in the regional office.',
       options: ['colleague', 'colleagues', 'collegial', 'collegially'],
@@ -193,7 +210,12 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
     wordFamily: 'deadline (n)',
     wordFamilyDetails: {
       noun: 'deadline',
+      nounMeaning: 'hạn chót, thời hạn cuối',
     },
+    synonyms: [
+      { word: 'Due date', meaning: 'ngày đến hạn', nuance: 'Thường dùng cho nộp bài hoặc thanh toán' },
+      { word: 'Cutoff date', meaning: 'ngày giới hạn cuối cùng', nuance: 'Dùng trong hệ thống hoặc đăng ký' },
+    ],
     wordFormExercise: {
       sentence: 'All department heads must submit their budget proposals before the final _______.',
       options: ['deadlines', 'deadline', 'deadly', 'deadening'],
@@ -214,10 +236,18 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
     wordFamily: 'accommodate (v) - accommodation (n) - accommodating (adj)',
     wordFamilyDetails: {
       noun: 'accommodation',
+      nounMeaning: 'chỗ ở / sự thu xếp thỏa đáng',
       verb: 'accommodate',
+      verbMeaning: 'đáp ứng, thu xếp chỗ',
       adjective: 'accommodating',
+      adjectiveMeaning: 'chu đáo, sẵn lòng giúp đỡ',
       adverb: 'accommodatingly',
+      adverbMeaning: 'một cách chu đáo, niềm nở',
     },
+    synonyms: [
+      { word: 'Satisfy', meaning: 'làm hài lòng / đáp ứng', nuance: 'Nhấn mạnh việc thỏa mãn điều kiện' },
+      { word: 'Oblige', meaning: 'làm vừa lòng / giúp đỡ', nuance: 'Văn phong nhã nhặn, lịch thiệp' },
+    ],
     wordFormExercise: {
       sentence: 'The hotel staff were remarkably _______ to the travelers during the flight delay.',
       options: ['accommodate', 'accommodation', 'accommodating', 'accommodatingly'],
@@ -238,9 +268,16 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
     wordFamily: 'contingency (n) - contingent (adj)',
     wordFamilyDetails: {
       noun: 'contingency',
+      nounMeaning: 'sự việc bất ngờ / phương án dự phòng',
       adjective: 'contingent',
+      adjectiveMeaning: 'phụ thuộc vào điều kiện',
       adverb: 'contingently',
+      adverbMeaning: 'một cách có điều kiện',
     },
+    synonyms: [
+      { word: 'Dependent on', meaning: 'phụ thuộc vào', nuance: 'Từ ngữ thông dụng hàng ngày' },
+      { word: 'Conditional upon', meaning: 'có điều kiện kèm theo', nuance: 'Văn phong pháp lý, hợp đồng' },
+    ],
     wordFormExercise: {
       sentence: 'Signing the merger agreement is strictly _______ upon approval from the antitrust commission.',
       options: ['contingence', 'contingent', 'contingently', 'contingency'],
@@ -261,9 +298,16 @@ export const SAMPLE_VOCAB_FOR_TEST: Array<{
     wordFamily: 'stipulation (n) - stipulate (v)',
     wordFamilyDetails: {
       noun: 'stipulation',
+      nounMeaning: 'điều khoản quy định',
       verb: 'stipulate',
+      verbMeaning: 'quy định rõ, cam kết',
       adjective: 'stipulated',
+      adjectiveMeaning: 'đã được quy định rõ',
     },
+    synonyms: [
+      { word: 'Clause', meaning: 'điều khoản trong văn bản', nuance: 'Phần cụ thể trong hợp đồng' },
+      { word: 'Condition', meaning: 'điều kiện giao kèo', nuance: 'Điều kiện tiên quyết để thỏa thuận có hiệu lực' },
+    ],
     wordFormExercise: {
       sentence: 'The partnership contract clearly _______ that all financial audits must be conducted quarterly.',
       options: ['stipulation', 'stipulates', 'stipulatedly', 'stipulating'],
@@ -1139,4 +1183,155 @@ export function generateListeningTestQuestions(
     };
   });
 }
+
+export interface CombinedQuizQuestion {
+  id: number;
+  category: 'vocab' | 'grammar';
+  question: string;
+  options: string[];
+  correctAnswerIndex: number;
+  explanation: string;
+  grammarRule?: string;
+  sourceTerm?: string;
+}
+
+/**
+ * Generates an integrated multiple-choice quiz combining Vocabulary and Grammar.
+ * Customizable question count, supports active recall from learned memory with fallback.
+ */
+export function generateCombinedQuizQuestions(params?: {
+  totalQuestions?: number;
+  scope?: 'mixed' | 'vocab' | 'grammar';
+  includeVocab?: boolean;
+  includeGrammar?: boolean;
+  words?: LearnedWord[];
+  grammar?: LearnedGrammar[];
+}): CombinedQuizQuestion[] {
+  const total = Math.min(30, Math.max(3, params?.totalQuestions ?? 5));
+  const scope = params?.scope;
+
+  let incVocab = params?.includeVocab ?? true;
+  let incGrammar = params?.includeGrammar ?? true;
+
+  if (scope === 'vocab') {
+    incVocab = true;
+    incGrammar = false;
+  } else if (scope === 'grammar') {
+    incVocab = false;
+    incGrammar = true;
+  } else if (scope === 'mixed') {
+    incVocab = true;
+    incGrammar = true;
+  }
+
+  // Words pool: use provided or load from storage, fallback to sample pool
+  let currentWords: LearnedWord[] = [];
+  try {
+    currentWords = params?.words ?? getLearnedWords();
+  } catch {
+    currentWords = params?.words ?? [];
+  }
+
+  const wordsPool: LearnedWord[] =
+    currentWords.length > 0
+      ? currentWords
+      : SAMPLE_VOCAB_FOR_TEST.map((s, i) => ({
+          id: `sample_w_${i}`,
+          term: s.term,
+          ipa: s.ipa,
+          vietnamesePhonetic: s.vietnamesePhonetic,
+          partOfSpeech: s.partOfSpeech,
+          vietnameseMeaning: s.vietnameseMeaning,
+          level: s.level,
+          wordFamily: s.wordFamily,
+          wordFamilyDetails: s.wordFamilyDetails,
+          synonyms: s.synonyms,
+          wordFormExercise: s.wordFormExercise,
+          exampleSentence: s.exampleSentence,
+          exampleTranslation: s.exampleTranslation,
+          learnedAt: new Date().toISOString(),
+          reviewCount: 0,
+          mastered: false,
+        }));
+
+  // Grammar pool
+  let currentGrammar: LearnedGrammar[] = [];
+  try {
+    currentGrammar = params?.grammar ?? getLearnedGrammar();
+  } catch {
+    currentGrammar = params?.grammar ?? [];
+  }
+
+  const grammarPool: LearnedGrammar[] =
+    currentGrammar.length > 0
+      ? currentGrammar
+      : SAMPLE_GRAMMAR_FOR_TEST.map((s, idx) => ({
+          id: `sample_g_${idx}`,
+          ruleName: s.ruleName,
+          formula: s.formula,
+          vietnameseMeaning: s.ruleName,
+          level: s.level,
+          learnedAt: new Date().toISOString(),
+          reviewCount: 0,
+          mastered: false,
+        }));
+
+  let vocabCount = 0;
+  let grammarCount = 0;
+
+  if (incVocab && incGrammar) {
+    grammarCount = Math.floor(total / 2);
+    vocabCount = total - grammarCount;
+  } else if (incVocab) {
+    vocabCount = total;
+    grammarCount = 0;
+  } else {
+    grammarCount = total;
+    vocabCount = 0;
+  }
+
+  const combined: Omit<CombinedQuizQuestion, 'id'>[] = [];
+
+  if (vocabCount > 0) {
+    const vocabQuestions = generateVocabTestQuestions(wordsPool, Math.min(vocabCount, wordsPool.length), 'all');
+    if (vocabQuestions.length > 0) {
+      for (let i = 0; i < vocabCount; i++) {
+        const vq = vocabQuestions[i % vocabQuestions.length];
+        combined.push({
+          category: 'vocab',
+          question: `[TỪ VỰNG] ${vq.prompt}`,
+          options: vq.options,
+          correctAnswerIndex: vq.correctIndex,
+          explanation: vq.explanation,
+          sourceTerm: vq.term,
+        });
+      }
+    }
+  }
+
+  if (grammarCount > 0) {
+    const grammarQuestions = generateGrammarTestQuestions(grammarPool, Math.min(grammarCount, grammarPool.length));
+    if (grammarQuestions.length > 0) {
+      for (let i = 0; i < grammarCount; i++) {
+        const gq = grammarQuestions[i % grammarQuestions.length];
+        combined.push({
+          category: 'grammar',
+          question: `[NGỮ PHÁP] ${gq.prompt}`,
+          options: gq.options,
+          correctAnswerIndex: gq.correctIndex,
+          explanation: gq.explanation,
+          grammarRule: gq.ruleName,
+        });
+      }
+    }
+  }
+
+  // Shuffle combined list so questions are mixed randomly
+  const shuffled = [...combined].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, total).map((q, idx) => ({
+    ...q,
+    id: idx + 1,
+  }));
+}
+
 

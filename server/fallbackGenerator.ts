@@ -5,6 +5,7 @@ import {
   VocabResult,
   RoleplayResult,
   QuizResult,
+  QuizQuestion,
   ToeicLessonResult,
   GrammarLessonResult,
   ReadingLessonResult,
@@ -432,79 +433,148 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
     }
 
     case 'quiz': {
-      const topic = (inputData.topic as string) || 'Conditionals & Hypothetical Situations';
+      const topic = (inputData.topic as string) || 'Conditionals & Word Form in Business';
       const difficulty = (inputData.difficulty as string) || 'Upper-Intermediate (B2)';
+      const questionCount = Math.max(3, Math.min(30, Number(inputData.questionCount) || 5));
+      const quizType = (inputData.quizType as string) || 'mixed';
+
+      // Grammar question bank
+      const grammarBank: QuizQuestion[] = [
+        {
+          id: 1,
+          question: 'Had the weather conditions _______ so volatile, the harbor authorities would not have suspended the ferry services.',
+          options: ['had not been', 'not were', 'not been', 'haven’t been'],
+          correctAnswerIndex: 2,
+          explanation: 'This is an inverted Third Conditional expressing an unreal past condition. The standard form "If the weather had not been..." becomes "Had the weather not been..." via subject-auxiliary inversion.',
+          grammarRule: 'Third Conditional Inversion with Negative Adverbial',
+          category: 'grammar',
+        },
+        {
+          id: 2,
+          question: 'Were the company _______ its current expansion strategy, substantial venture capital would be required immediately.',
+          options: ['pursues', 'to pursue', 'pursued', 'has pursued'],
+          correctAnswerIndex: 1,
+          explanation: 'In Second Conditional inversion, "If the company pursued..." is formally inverted into "Were + subject + to-infinitive": "Were the company to pursue...".',
+          grammarRule: 'Formal Inversion of Second Conditional with "Were + to-infinitive"',
+          category: 'grammar',
+        },
+        {
+          id: 3,
+          question: 'Should any unexpected discrepancies _______ during the audit, please inform the financial controller without delay.',
+          options: ['arises', 'will arise', 'arose', 'arise'],
+          correctAnswerIndex: 3,
+          explanation: 'Inverted First Conditional with "Should" replaces "If any unexpected discrepancies should arise". After the modal auxiliary "Should", the verb must remain in bare infinitive form ("arise").',
+          grammarRule: 'First Conditional Inversion with Modal "Should"',
+          category: 'grammar',
+        },
+        {
+          id: 4,
+          question: 'If she _______ for that scholarship last year, she _______ studying at Cambridge right now.',
+          options: [
+            'didn’t apply / wouldn’t be',
+            'hadn’t applied / wouldn’t be',
+            'hadn’t applied / wouldn’t have been',
+            'wouldn’t apply / isn’t',
+          ],
+          correctAnswerIndex: 1,
+          explanation: 'This is a Mixed Conditional: a past condition ("last year" -> Past Perfect "hadn\'t applied") with a present result ("right now" -> would + bare infinitive "wouldn\'t be studying").',
+          grammarRule: 'Mixed Conditional (Past Condition -> Present Consequence)',
+          category: 'grammar',
+        },
+        {
+          id: 5,
+          question: 'Provided that all safety protocols _______ adhered to, the plant will resume full operations on Monday.',
+          options: ['were strictly', 'are strictly', 'will be strictly', 'would be strictly'],
+          correctAnswerIndex: 1,
+          explanation: '"Provided that" acts as a conditional conjunction equivalent to "if". In present-future conditionals, the conditional clause takes the present simple ("are strictly adhered to").',
+          grammarRule: 'Conditional Conjunctions ("Provided that / As long as")',
+          category: 'grammar',
+        },
+      ];
+
+      // Vocabulary question bank
+      const vocabBank: QuizQuestion[] = [
+        {
+          id: 6,
+          question: 'The management made every effort to be _______ to the client’s special requests regarding the delivery schedule.',
+          options: ['accommodate', 'accommodation', 'accommodating', 'accommodatingly'],
+          correctAnswerIndex: 2,
+          explanation: 'Sau linking verb "to be", ta cần tính từ "accommodating" (sẵn lòng giúp đỡ, chu đáo) để bổ nghĩa cho chủ ngữ.',
+          grammarRule: 'Word Form: Linking Verb + Adjective Complement',
+          category: 'vocab',
+          sourceTerm: 'Accommodate',
+        },
+        {
+          id: 7,
+          question: 'The signing of the merger contract is strictly _______ upon obtaining regulatory clearance from the antitrust bureau.',
+          options: ['contingency', 'contingent', 'contingently', 'contingence'],
+          correctAnswerIndex: 1,
+          explanation: 'Cấu trúc "be contingent upon" (tùy thuộc vào) cần tính từ "contingent" đứng sau to be và bổ nghĩa bởi trạng từ strictly.',
+          grammarRule: 'Collocation & Word Form: Be Contingent Upon',
+          category: 'vocab',
+          sourceTerm: 'Contingent upon',
+        },
+        {
+          id: 8,
+          question: 'All employees must carefully review the contractual _______ before endorsing the partnership memorandum.',
+          options: ['stipulations', 'stipulates', 'stipulating', 'stipulatedly'],
+          correctAnswerIndex: 0,
+          explanation: 'Sau tính từ "contractual", ta cần một danh từ số nhiều "stipulations" (các điều khoản quy định) làm tân ngữ của động từ review.',
+          grammarRule: 'Word Form: Adjective + Noun Object',
+          category: 'vocab',
+          sourceTerm: 'Stipulation',
+        },
+        {
+          id: 9,
+          question: 'Please provide an official written _______ of your attendance by Friday noon.',
+          options: ['confirm', 'confirmation', 'confirmed', 'confirming'],
+          correctAnswerIndex: 1,
+          explanation: 'Sau các tính từ "official written", ta cần một danh từ "confirmation" (sự xác nhận) để tạo thành cụm danh từ hoàn chỉnh.',
+          grammarRule: 'Word Form: Noun phrase modification',
+          category: 'vocab',
+          sourceTerm: 'Confirm',
+        },
+        {
+          id: 10,
+          question: 'The department head commended Sarah for working so _______ with her teammates on the quarterly project.',
+          options: ['colleague', 'collegial', 'collegially', 'colleagueship'],
+          correctAnswerIndex: 2,
+          explanation: 'Động từ "working" kết hợp với phó từ "collegially" (với tinh thần đồng nghiệp, hợp tác) để chỉ cách thức làm việc.',
+          grammarRule: 'Word Form: Verb + Adverb of Manner',
+          category: 'vocab',
+          sourceTerm: 'Colleague',
+        },
+      ];
+
+      // Assemble questions based on quizType
+      let pool: QuizQuestion[] = [];
+      if (quizType === 'vocab') {
+        pool = [...vocabBank];
+      } else if (quizType === 'grammar') {
+        pool = [...grammarBank];
+      } else {
+        // Mixed: interleave grammar and vocab
+        const maxLen = Math.max(grammarBank.length, vocabBank.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (i < vocabBank.length) pool.push(vocabBank[i]);
+          if (i < grammarBank.length) pool.push(grammarBank[i]);
+        }
+      }
+
+      // Build the final question list according to questionCount
+      const selectedQuestions: QuizQuestion[] = [];
+      for (let i = 0; i < questionCount; i++) {
+        const base = pool[i % pool.length];
+        selectedQuestions.push({
+          ...base,
+          id: i + 1,
+        });
+      }
 
       const quizData: QuizResult = {
         topic,
         difficulty,
-        questions: [
-          {
-            id: 1,
-            question: 'Had the weather conditions _______ so volatile, the harbor authorities would not have suspended the ferry services.',
-            options: [
-              'had not been',
-              'not were',
-              'not been',
-              'haven’t been',
-            ],
-            correctAnswerIndex: 2,
-            explanation: 'This is an inverted Third Conditional expressing an unreal past condition. The standard form "If the weather had not been..." becomes "Had the weather not been..." via subject-auxiliary inversion. "Had not been" is incorrect because "Had" has already been placed before the subject.',
-            grammarRule: 'Third Conditional Inversion with Negative Adverbial',
-          },
-          {
-            id: 2,
-            question: 'Were the company _______ its current expansion strategy, substantial venture capital would be required immediately.',
-            options: [
-              'pursues',
-              'to pursue',
-              'pursued',
-              'has pursued',
-            ],
-            correctAnswerIndex: 1,
-            explanation: 'In Second Conditional inversion (referring to hypothetical present/future), "If the company pursued..." is formally inverted into "Were + subject + to-infinitive": "Were the company to pursue...".',
-            grammarRule: 'Formal Inversion of Second Conditional with "Were + to-infinitive"',
-          },
-          {
-            id: 3,
-            question: 'Should any unexpected discrepancies _______ during the audit, please inform the financial controller without delay.',
-            options: [
-              'arises',
-              'will arise',
-              'arose',
-              'arise',
-            ],
-            correctAnswerIndex: 3,
-            explanation: 'Inverted First Conditional with "Should" replaces "If any unexpected discrepancies should arise". After the modal auxiliary "Should", the verb must remain in its bare infinitive form ("arise").',
-            grammarRule: 'First Conditional Inversion with Modal "Should"',
-          },
-          {
-            id: 4,
-            question: 'If she _______ for that scholarship last year, she _______ studying at Cambridge right now.',
-            options: [
-              'didn’t apply / wouldn’t be',
-              'hadn’t applied / wouldn’t be',
-              'hadn’t applied / wouldn’t have been',
-              'wouldn’t apply / isn’t',
-            ],
-            correctAnswerIndex: 1,
-            explanation: 'This is a Mixed Conditional: a past condition ("last year" -> Past Perfect "hadn\'t applied") with a present result ("right now" -> would + bare infinitive "wouldn\'t be studying").',
-            grammarRule: 'Mixed Conditional (Past Condition -> Present Consequence)',
-          },
-          {
-            id: 5,
-            question: 'Provided that all safety protocols _______ adhered to, the plant will resume full operations on Monday.',
-            options: [
-              'were strictly',
-              'are strictly',
-              'will be strictly',
-              'would be strictly',
-            ],
-            correctAnswerIndex: 1,
-            explanation: '"Provided that" acts as a conditional conjunction equivalent to "if/on condition that". In present-future conditionals, the conditional clause takes the present simple ("are strictly adhered to"), not the future tense.',
-            grammarRule: 'Conditional Conjunctions ("Provided that / As long as")',
-          },
-        ],
+        questions: selectedQuestions,
       };
 
       return { type: 'quiz', data: quizData };
@@ -534,9 +604,16 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
               wordFamily: 'schedule (n - lịch) / schedule (v - lên lịch)',
               wordFamilyDetails: {
                 noun: 'schedule',
+                nounMeaning: 'Lịch trình, thời khóa biểu',
                 verb: 'schedule',
+                verbMeaning: 'Lên lịch, sắp xếp thời gian',
                 adjective: 'scheduled',
+                adjectiveMeaning: 'Đã được lên lịch',
               },
+              synonyms: [
+                { word: 'timetable', meaning: 'Thời gian biểu', nuance: 'Dùng cho tàu xe, lớp học' },
+                { word: 'agenda', meaning: 'Chương trình nghị sự', nuance: 'Lịch trình cuộc họp' },
+              ],
               wordFormExercise: {
                 sentence: 'The project manager asked the team to _______ the weekly status meeting.',
                 options: ['schedule', 'scheduled', 'scheduling', 'scheduler'],
@@ -559,9 +636,16 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
               wordFamily: 'colleague (n)',
               wordFamilyDetails: {
                 noun: 'colleague',
+                nounMeaning: 'Đồng nghiệp',
                 adjective: 'collegial',
+                adjectiveMeaning: 'Mang tính đồng nghiệp, hợp tác',
                 adverb: 'collegially',
+                adverbMeaning: 'Một cách hợp tác',
               },
+              synonyms: [
+                { word: 'coworker', meaning: 'Đồng nghiệp', nuance: 'Từ phổ biến trong tiếng Anh Mỹ' },
+                { word: 'peer', meaning: 'Người cùng cấp bậc', nuance: 'Đồng đẳng về trình độ hoặc chức vụ' },
+              ],
               wordFormExercise: {
                 sentence: 'Mr. David works well with all of his _______ in the sales department.',
                 options: ['colleague', 'colleagues', 'collegial', 'collegially'],
@@ -584,9 +668,16 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
               wordFamily: 'confirm (v) - confirmation (n - sự xác nhận)',
               wordFamilyDetails: {
                 noun: 'confirmation',
+                nounMeaning: 'Sự xác nhận, chứng thực',
                 verb: 'confirm',
+                verbMeaning: 'Xác nhận, khẳng định',
                 adjective: 'confirmed',
+                adjectiveMeaning: 'Đã được xác nhận',
               },
+              synonyms: [
+                { word: 'verify', meaning: 'Xác minh độ chính xác', nuance: 'Kiểm tra tính đúng đắn của dữ liệu' },
+                { word: 'validate', meaning: 'Công nhận tính hợp lệ', nuance: 'Kiểm tra về mặt quy định, hiệu lực' },
+              ],
               wordFormExercise: {
                 sentence: 'Please send an email _______ of your hotel booking as soon as possible.',
                 options: ['confirm', 'confirmation', 'confirmed', 'confirming'],
@@ -635,10 +726,18 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             wordFamily: 'accommodate (v) - accommodation (n) - accommodating (adj)',
             wordFamilyDetails: {
               noun: 'accommodation',
+              nounMeaning: 'Chỗ ở; sự đáp ứng/thu xếp',
               verb: 'accommodate',
+              verbMeaning: 'Đáp ứng, thu xếp thỏa đáng',
               adjective: 'accommodating',
-              adverb: 'accommodatingly'
+              adjectiveMeaning: 'Sẵn lòng giúp đỡ, chu đáo',
+              adverb: 'accommodatingly',
+              adverbMeaning: 'Một cách chu đáo, niềm nở',
             },
+            synonyms: [
+              { word: 'cater to', meaning: 'Phục vụ, đáp ứng nhu cầu', nuance: 'Nhấn mạnh việc thỏa mãn thị hiếu hoặc yêu cầu đặc biệt' },
+              { word: 'fulfill', meaning: 'Hoàn thành, đáp ứng', nuance: 'Thường dùng cho tiêu chuẩn, nghĩa vụ hoặc mong đợi' },
+            ],
             wordFormExercise: {
               sentence: 'The hotel management made every effort to be _______ to our special requests.',
               options: ['accommodate', 'accommodation', 'accommodating', 'accommodatingly'],
@@ -660,9 +759,16 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             wordFamily: 'contingency (n - phương án dự phòng) - contingent (adj)',
             wordFamilyDetails: {
               noun: 'contingency',
+              nounMeaning: 'Sự việc bất ngờ, phương án dự phòng',
               adjective: 'contingent',
-              adverb: 'contingently'
+              adjectiveMeaning: 'Tùy thuộc vào điều kiện tiên quyết',
+              adverb: 'contingently',
+              adverbMeaning: 'Một cách ngẫu nhiên, tùy thuộc',
             },
+            synonyms: [
+              { word: 'dependent on', meaning: 'Phụ thuộc vào', nuance: 'Dùng phổ biến trong cả văn nói và viết' },
+              { word: 'conditional upon', meaning: 'Tùy thuộc vào điều kiện', nuance: 'Mang tính pháp lý, hợp đồng chính thức' },
+            ],
             wordFormExercise: {
               sentence: 'The year-end bonus is strictly _______ upon achieving our quarterly revenue target.',
               options: ['contingency', 'contingent', 'contingently', 'contingence'],
@@ -684,9 +790,16 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
             wordFamily: 'stipulate (v) - stipulation (n)',
             wordFamilyDetails: {
               noun: 'stipulation',
+              nounMeaning: 'Điều khoản quy định bắt buộc',
               verb: 'stipulate',
-              adjective: 'stipulated'
+              verbMeaning: 'Quy định, đặt điều kiện',
+              adjective: 'stipulated',
+              adjectiveMeaning: 'Đã được quy định rõ trong văn bản',
             },
+            synonyms: [
+              { word: 'clause', meaning: 'Điều khoản hợp đồng', nuance: 'Mục cụ thể trong văn bản pháp lý' },
+              { word: 'provision', meaning: 'Điều khoản quy định', nuance: 'Quy định pháp lý hoặc điều kiện giao kèo' },
+            ],
             wordFormExercise: {
               sentence: 'The partnership contract clearly _______ that all financial audits must be conducted quarterly.',
               options: ['stipulation', 'stipulates', 'stipulatedly', 'stipulating'],

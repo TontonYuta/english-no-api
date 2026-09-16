@@ -10,6 +10,7 @@ import {
   MessageSquare,
   PenTool,
   Brain,
+  HelpCircle,
   ChevronDown,
   Zap,
   Target,
@@ -98,6 +99,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: <PenTool className="w-4 h-4 text-rose-400" />,
       labelVi: 'Luyện Viết',
       labelEn: 'Writing',
+    },
+    {
+      id: 'quiz',
+      icon: <HelpCircle className="w-4 h-4 text-amber-400" />,
+      labelVi: 'Đề Thi (Quiz)',
+      labelEn: 'Quiz & Test',
+      badge: 'Custom',
     },
     {
       id: 'memory',
