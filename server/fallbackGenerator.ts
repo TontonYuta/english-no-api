@@ -583,7 +583,256 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
     case 'toeic_lesson': {
       const userLevel = (inputData.userLevel as string) || 'A1';
       const topic = (inputData.topic as string) || (userLevel === 'A1' ? 'First Day at the Office' : 'Contract Renewal & Vendor Negotiation');
-      
+      const vocabMethod = (inputData.vocabMethod as string) || 'core';
+      const isStoryReadingMode =
+        vocabMethod === 'reading' ||
+        inputData.situationType === 'story' ||
+        inputData.modeFocus === 'reading' ||
+        /truyện|story|bài đọc|reading|câu chuyện|anecdote|cảm hứng|inspire/i.test(topic);
+
+      if (isStoryReadingMode) {
+        if (userLevel === 'A1') {
+          const a1StoryData: ToeicLessonResult = {
+            topic: topic || 'A Small Habit That Sparked Joy',
+            userLevel: 'A1',
+            situationType: 'story',
+            vocabMethod: 'reading',
+            situationTitle: 'A Small Habit That Sparked Joy (Thói Quen Nhỏ Thay Đổi Cuộc Sống)',
+            scenarioText:
+              'Every morning, Lan enjoys a peaceful routine in her small kitchen. She prepares warm tea and writes down three good things in her journal. This simple practice fills her with deep gratitude. She discovers that every single day brings new opportunities when started with a positive attitude.',
+            scenarioTranslationVi:
+              'Mỗi buổi sáng, Lan tận hưởng một thói quen yên bình trong căn bếp nhỏ của mình. Cô chuẩn bị tách trà ấm và viết ra ba điều tốt đẹp vào cuốn nhật ký. Thói quen giản dị này lấp đầy trong cô lòng biết ơn sâu sắc. Cô khám phá ra rằng mỗi ngày trôi qua đều mang lại những cơ hội mới khi bắt đầu bằng một thái độ tích cực.',
+            targetWords: [
+              {
+                term: 'Routine',
+                ipa: '/ruːˈtiːn/',
+                vietnamesePhonetic: 'ru-tin',
+                partOfSpeech: 'noun (countable/uncountable)',
+                vietnameseMeaning: 'Thói quen hàng ngày, nếp sinh hoạt đều đặn',
+                wordFamily: 'routine (n) - routinely (adv)',
+                wordFamilyDetails: {
+                  noun: 'routine',
+                  nounMeaning: 'Thói quen, lịch trình thường lệ',
+                  adjective: 'routine',
+                  adjectiveMeaning: 'Thông thường, theo thói quen',
+                  adverb: 'routinely',
+                  adverbMeaning: 'Một cách thường lệ, đều đặn',
+                },
+                synonyms: [
+                  { word: 'habit', meaning: 'Thói quen', nuance: 'Thói quen cá nhân hình thành tự nhiên' },
+                  { word: 'practice', meaning: 'Tập quán, thói quen', nuance: 'Hành động lặp đi lặp lại có chủ đích' },
+                ],
+                wordFormExercise: {
+                  sentence: 'Doctors recommend exercising _______ to maintain physical health.',
+                  options: ['routine', 'routines', 'routinely', 'routined'],
+                  correctIndex: 2,
+                  targetForm: 'adverb',
+                  explanation: "Bổ nghĩa cho động từ 'exercising', ta cần một trạng từ 'routinely' (một cách đều đặn)."
+                },
+                exampleSentence: 'Every morning, Lan enjoys a peaceful routine in her small kitchen.',
+                exampleTranslation: 'Mỗi buổi sáng, Lan tận hưởng một thói quen yên bình trong căn bếp nhỏ của mình.',
+                simpleBreakdown: 'Lan enjoys (Lan tận hưởng) + a peaceful routine (một thói quen yên bình).',
+                etsTrapTip: 'Người Việt hay phát âm nuốt âm "t" ở giữa. Hãy đọc rõ: "ru-TIN".'
+              },
+              {
+                term: 'Gratitude',
+                ipa: '/ˈɡræt̬.ə.tuːd/',
+                vietnamesePhonetic: 'go-ra-ti-tiu-đ',
+                partOfSpeech: 'noun (uncountable)',
+                vietnameseMeaning: 'Lòng biết ơn, sự trân trọng',
+                wordFamily: 'gratitude (n) - grateful (adj) - gratefully (adv)',
+                wordFamilyDetails: {
+                  noun: 'gratitude',
+                  nounMeaning: 'Lòng biết ơn',
+                  adjective: 'grateful',
+                  adjectiveMeaning: 'Biết ơn, trân trọng',
+                  adverb: 'gratefully',
+                  adverbMeaning: 'Một cách biết ơn, cảm kích',
+                },
+                synonyms: [
+                  { word: 'thankfulness', meaning: 'Sự biết ơn', nuance: 'Từ đồng nghĩa thân mật hơn' },
+                  { word: 'appreciation', meaning: 'Sự trân trọng, đánh giá cao', nuance: 'Dùng phổ biến trong cả công sở' },
+                ],
+                wordFormExercise: {
+                  sentence: 'She expressed her sincere _______ to everyone who assisted her.',
+                  options: ['grateful', 'gratefully', 'gratitude', 'grating'],
+                  correctIndex: 2,
+                  targetForm: 'noun',
+                  explanation: "Sau tính từ sở hữu 'her' và tính từ 'sincere', ta cần một danh từ 'gratitude' (lòng biết ơn)."
+                },
+                exampleSentence: 'This simple practice fills her with deep gratitude.',
+                exampleTranslation: 'Thói quen giản dị này lấp đầy trong cô lòng biết ơn sâu sắc.',
+                simpleBreakdown: 'fills her (lấp đầy cô) + with deep gratitude (với lòng biết ơn sâu sắc).',
+                etsTrapTip: 'Lưu ý tính từ tương ứng là "grateful" (viết là -ful, không phải -full).'
+              },
+              {
+                term: 'Positive',
+                ipa: '/ˈpɑː.zə.tɪv/',
+                vietnamesePhonetic: 'po-zờ-típ',
+                partOfSpeech: 'adjective',
+                vietnameseMeaning: 'Tích cực, lạc quan, có lợi',
+                wordFamily: 'positivity (n) - positive (adj) - positively (adv)',
+                wordFamilyDetails: {
+                  noun: 'positivity',
+                  nounMeaning: 'Sự tích cực, năng lượng tích cực',
+                  adjective: 'positive',
+                  adjectiveMeaning: 'Tích cực, lạc quan',
+                  adverb: 'positively',
+                  adverbMeaning: 'Một cách tích cực',
+                },
+                synonyms: [
+                  { word: 'optimistic', meaning: 'Lạc quan', nuance: 'Nhìn về tương lai với niềm tin tốt đẹp' },
+                  { word: 'constructive', meaning: 'Mang tính xây dựng', nuance: 'Dùng trong góp ý công việc' },
+                ],
+                wordFormExercise: {
+                  sentence: 'Maintaining a _______ attitude helps employees overcome daily challenges.',
+                  options: ['positive', 'positively', 'positivity', 'positiveness'],
+                  correctIndex: 0,
+                  targetForm: 'adjective',
+                  explanation: "Đứng trước danh từ 'attitude' (thái độ), ta cần một tính từ 'positive' để bổ nghĩa."
+                },
+                exampleSentence: 'Every single day brings new opportunities when started with a positive attitude.',
+                exampleTranslation: 'Mỗi ngày đều mang lại những cơ hội mới khi bắt đầu bằng một thái độ tích cực.',
+                simpleBreakdown: 'a positive attitude = một thái độ tích cực.',
+                etsTrapTip: 'Trọng âm rơi vào âm tiết đầu: /ˈPɑː.zə.tɪv/.'
+              }
+            ],
+            interactiveChallenge: {
+              prompt: 'Theo bài đọc trên, điều gì giúp Lan bắt đầu một ngày mới tràn ngập niềm vui và lòng biết ơn?',
+              options: [
+                'Uống cà phê đặc và vội vã đi làm ngay',
+                'Thói quen uống trà ấm và viết ra ba điều tốt đẹp vào nhật ký',
+                'Kiểm tra email công việc liên tục từ sáng sớm',
+                'Ngủ nướng thêm để tránh mệt mỏi'
+              ],
+              correctIndex: 1,
+              explanation: 'Bài đọc chỉ rõ: "She prepares warm tea and writes down three good things in her journal. This simple practice fills her with deep gratitude."',
+              takeawayTip: 'Học từ vựng qua câu chuyện giàu cảm xúc giúp não bộ ghi nhớ sâu hơn 3 lần so với học vẹt từng từ riêng lẻ.'
+            }
+          };
+          return { type: 'toeic_lesson', data: a1StoryData };
+        } else {
+          // B1 / B2 Story Fallback
+          const bStoryData: ToeicLessonResult = {
+            topic: topic || 'Stepping Beyond the Comfort Zone',
+            userLevel: (userLevel as any) || 'B1',
+            situationType: 'story',
+            vocabMethod: 'reading',
+            situationTitle: 'Stepping Beyond the Comfort Zone (Bước Ra Khỏi Vùng An Toàn)',
+            scenarioText:
+              'When Minh decided to transition into clean technology, he encountered immense uncertainty. However, actively embracing the challenge became a pivotal turning point in his career. Through remarkable resilience and continuous self-reflection, he mastered sustainable design principles and now leads community initiatives with boundless enthusiasm.',
+            scenarioTranslationVi:
+              'Khi Minh quyết định chuyển hướng sang lĩnh vực công nghệ sạch, anh từng đối mặt với sự bất định tột cùng. Tuy nhiên, việc chủ động đón nhận thách thức đã trở thành bước ngoặt then chốt trong sự nghiệp của anh. Nhờ sự kiên cường đáng nể và tinh thần tự nhìn nhận liên tục, anh đã làm chủ các nguyên lý thiết kế bền vững và hiện đang dẫn dắt các sáng kiến cộng đồng với lòng nhiệt huyết vô bờ.',
+            targetWords: [
+              {
+                term: 'Embrace',
+                ipa: '/ɪmˈbreɪs/',
+                vietnamesePhonetic: 'im-bờ-rây-s',
+                partOfSpeech: 'verb (transitive)',
+                vietnameseMeaning: 'Đón nhận, nắm bắt cơ hội hoặc thay đổi một cách tích cực',
+                wordFamily: 'embrace (v/n)',
+                wordFamilyDetails: {
+                  noun: 'embrace',
+                  nounMeaning: 'Cái ôm; sự đón nhận',
+                  verb: 'embrace',
+                  verbMeaning: 'Đón nhận, nắm bắt, bao gồm',
+                },
+                synonyms: [
+                  { word: 'welcome', meaning: 'Nhiệt liệt chào đón', nuance: 'Thái độ cởi mở với cái mới' },
+                  { word: 'adopt', meaning: 'Áp dụng, tiếp nhận', nuance: 'Dùng cho phương pháp, công nghệ mới' },
+                ],
+                wordFormExercise: {
+                  sentence: 'Successful leaders willingly _______ technological changes rather than resisting them.',
+                  options: ['embrace', 'embraced', 'embracing', 'embraces'],
+                  correctIndex: 0,
+                  targetForm: 'verb',
+                  explanation: "Chủ ngữ số nhiều 'leaders' đi cùng trạng từ 'willingly' cần một động từ nguyên thể 'embrace'."
+                },
+                exampleSentence: 'Actively embracing the challenge became a pivotal turning point.',
+                exampleTranslation: 'Việc chủ động đón nhận thách thức đã trở thành bước ngoặt then chốt.',
+                simpleBreakdown: 'embracing (đón nhận) + the challenge (thách thức).',
+                etsTrapTip: 'Trong tiếng Anh học thuật và kinh doanh, "embrace" thường mang nghĩa đón nhận thay đổi/ý tưởng, không chỉ là cái ôm thể chất.'
+              },
+              {
+                term: 'Pivotal',
+                ipa: '/ˈpɪv.ə.t̬əl/',
+                vietnamesePhonetic: 'pi-vơ-tồ',
+                partOfSpeech: 'adjective',
+                vietnameseMeaning: 'Then chốt, mang tính chất bước ngoặt quyết định',
+                wordFamily: 'pivot (n/v) - pivotal (adj) - pivotally (adv)',
+                wordFamilyDetails: {
+                  noun: 'pivot',
+                  nounMeaning: 'Trục xoay, điểm tựa then chốt',
+                  verb: 'pivot',
+                  verbMeaning: 'Xoay trục, đổi hướng chiến lược',
+                  adjective: 'pivotal',
+                  adjectiveMeaning: 'Then chốt, có tính bước ngoặt',
+                },
+                synonyms: [
+                  { word: 'crucial', meaning: 'Cực kỳ quan trọng', nuance: 'Quyết định sự thành bại' },
+                  { word: 'decisive', meaning: 'Mang tính quyết định', nuance: 'Dẫn tới kết quả chung cuộc' },
+                ],
+                wordFormExercise: {
+                  sentence: 'Her mentorship played a _______ role in the startup’s rapid international expansion.',
+                  options: ['pivot', 'pivoting', 'pivotal', 'pivotally'],
+                  correctIndex: 2,
+                  targetForm: 'adjective',
+                  explanation: "Đứng trước danh từ 'role', ta cần một tính từ 'pivotal' (then chốt)."
+                },
+                exampleSentence: 'Embracing the challenge became a pivotal turning point in his career.',
+                exampleTranslation: 'Đón nhận thách thức đã trở thành bước ngoặt then chốt trong sự nghiệp của anh.',
+                simpleBreakdown: 'a pivotal turning point = một bước ngoặt then chốt.',
+                etsTrapTip: 'Cụm collocation kinh điển: "play a pivotal role in something" (đóng vai trò then chốt).'
+              },
+              {
+                term: 'Resilience',
+                ipa: '/rɪˈzɪl.jəns/',
+                vietnamesePhonetic: 'ri-zi-li-ơn-s',
+                partOfSpeech: 'noun (uncountable)',
+                vietnameseMeaning: 'Khả năng phục hồi, kiên cường vượt qua nghịch cảnh',
+                wordFamily: 'resilience (n) - resilient (adj) - resiliently (adv)',
+                wordFamilyDetails: {
+                  noun: 'resilience',
+                  nounMeaning: 'Sự kiên cường, khả năng phục hồi',
+                  adjective: 'resilient',
+                  adjectiveMeaning: 'Kiên cường, bền bỉ',
+                  adverb: 'resiliently',
+                  adverbMeaning: 'Một cách kiên cường',
+                },
+                synonyms: [
+                  { word: 'perseverance', meaning: 'Sự kiên trì, bền bỉ', nuance: 'Không bỏ cuộc dù gặp khó' },
+                  { word: 'toughness', meaning: 'Sự rắn rỏi, kiên cường', nuance: 'Khả năng chịu đựng áp lực' },
+                ],
+                wordFormExercise: {
+                  sentence: 'The entire team demonstrated remarkable _______ during the economic downturn.',
+                  options: ['resilience', 'resilient', 'resiliently', 'resile'],
+                  correctIndex: 0,
+                  targetForm: 'noun',
+                  explanation: "Sau tính từ 'remarkable' (đáng nể), ta cần một danh từ 'resilience' làm tân ngữ cho 'demonstrated'."
+                },
+                exampleSentence: 'Through remarkable resilience and continuous self-reflection, he mastered sustainable design.',
+                exampleTranslation: 'Nhờ sự kiên cường đáng nể và tinh thần tự nhìn nhận liên tục, anh đã làm chủ thiết kế bền vững.',
+                simpleBreakdown: 'Through remarkable resilience = Nhờ sự kiên cường đáng nể.',
+                etsTrapTip: 'Danh từ là "resilience", tính từ là "resilient". Tránh dùng lẫn lộn.'
+              }
+            ],
+            interactiveChallenge: {
+              prompt: 'Theo câu chuyện, yếu tố nào đóng vai trò là "bước ngoặt then chốt" (pivotal turning point) trong sự nghiệp của Minh?',
+              options: [
+                'Tránh né mọi rủi ro để giữ sự ổn định an toàn',
+                'Chủ động đón nhận thách thức và sự bất định (embracing the challenge)',
+                'Chờ đợi người khác giao việc và hướng dẫn từng bước',
+                'Bỏ cuộc ngay khi gặp sự hoài nghi bản thân'
+              ],
+              correctIndex: 1,
+              explanation: 'Câu chuyện nêu rõ: "However, actively embracing the challenge became a pivotal turning point in his career."',
+              takeawayTip: 'Học từ vựng qua câu chuyện truyền cảm hứng giúp bạn ghi nhớ cả cấu trúc Collocation sống động trong ngữ cảnh thực tế.'
+            }
+          };
+          return { type: 'toeic_lesson', data: bStoryData };
+        }
+      }
+
       if (userLevel === 'A1') {
         const a1Data: ToeicLessonResult = {
           topic: 'First Day at the Office & Meeting Colleagues',
@@ -925,8 +1174,11 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
     }
 
     case 'reading_lesson': {
-      const userLevel = (inputData.userLevel as 'A1' | 'A2' | 'B1' | 'B2') || 'A1';
+      const userLevel = (inputData.userLevel as string) || (inputData.readingLevel as string) || 'B1';
       const topic = (inputData.topic as string) || 'Đời sống, Khám phá & Giao tiếp thường ngày';
+      const targetWordCount = typeof inputData.targetWordCount === 'number' && inputData.targetWordCount > 0
+        ? inputData.targetWordCount
+        : 250;
 
       const isTravelOrLife = /du lịch|travel|life|ẩm thực|dining|cà phê|coffee|văn hóa|khám phá/i.test(topic);
       const isTech = /công nghệ|tech|ai|khoa học|science/i.test(topic);
@@ -935,92 +1187,83 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
 
       if (isTravelOrLife) {
         readingData = {
-          title: 'A Perfect Morning at a Local Coffee Shop',
+          title: 'The Art of Mindful Mornings at Local Cafes',
           userLevel,
           topic,
+          targetWordCount,
           genre: 'story',
-          passage: 'Every Saturday morning, Liam visits a cozy neighborhood cafe near the park. The aroma of freshly brewed coffee fills the warm room. He orders a warm croissant and an iced latte, then spends an hour reading his favorite travel novel before meeting his friends.',
-          translationVi: 'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng gần công viên. Hương thơm của cà phê mới pha lan tỏa khắp căn phòng ấm áp. Anh gọi một chiếc bánh sừng bò nóng hổi cùng một ly latte đá, rồi dành một tiếng đọc cuốn tiểu thuyết du lịch yêu thích trước khi gặp bạn bè.',
+          passage: 'Every Saturday morning, Liam visits a cozy neighborhood cafe nestled near the central park. The inviting aroma of freshly ground Arabica coffee and warm sourdough pastries fills the sunlit room as gentle acoustic music plays in the background.\n\nHe usually orders a golden butter croissant and an iced oat milk latte, then settles into a quiet corner table by the window. For the next hour, Liam intentionally disconnects his smartphone and sets aside his bustling work schedule. Instead, he immerses himself in a captivating travel novel, occasionally pausing to observe local residents walking their dogs along the quiet, tree-lined avenue.\n\nThis deliberate pause has evolved into an indispensable personal ritual. Liam believes that in an increasingly hurried world dominated by continuous screen time, taking thirty to sixty minutes for unhurried reflection and literary discovery is essential to rejuvenate both mental focus and emotional well-being before meeting friends for weekend activities.',
+          translationVi: 'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng nằm nép mình bên cạnh công viên trung tâm. Hương thơm quyến rũ của hạt cà phê Arabica mới xay cùng những mẻ bánh nướng nóng hổi lan tỏa khắp căn phòng ngập nắng trong điệu nhạc mộc êm dịu.\n\nAnh thường gọi một chiếc bánh sừng bò bơ vàng ruộm cùng một ly latte sữa yến mạch đá, rồi ngồi vào chiếc bàn gỗ yên tĩnh cạnh cửa sổ. Trong một tiếng tiếp theo, Liam chủ động tắt thông báo điện thoại và gác lại lịch trình bận rộn. Thay vào đó, anh đắm chìm vào cuốn tiểu thuyết du lịch lôi cuốn, thi thoảng dừng lại ngắm nhìn cư dân địa phương dắt thú cưng đi dạo dọc theo đại lộ rợp bóng cây.\n\nKhoảng lặng có chủ đích này đã trở thành một nghi thức cá nhân không thể thiếu. Liam tin rằng giữa một thế giới ngày càng vội vã và tràn ngập màn hình điện tử, việc dành ra 30 đến 60 phút để suy ngẫm thư thái và khám phá trang sách là điều thiết yếu để tái tạo sự tập trung cũng như năng lượng tinh thần trước khi gặp gỡ bạn bè vào cuối tuần.',
           keyVocabulary: [
-            { term: 'Cozy', ipa: '/ˈkoʊ.zi/', meaning: 'Ấm cúng, dễ chịu', contextHint: 'a cozy neighborhood cafe' },
-            { term: 'Aroma', ipa: '/əˈroʊ.mə/', meaning: 'Hương thơm dễ chịu', contextHint: 'aroma of freshly brewed coffee' },
-            { term: 'Neighborhood', ipa: '/ˈneɪ.bər.hʊd/', meaning: 'Khu phố lân cận, quanh nhà', contextHint: 'neighborhood cafe' },
+            { term: 'Nestled', ipa: '/ˈnes.əld/', meaning: 'Nằm nép mình ở vị trí yên bình', contextHint: 'nestled near the central park' },
+            { term: 'Intentionally', ipa: '/ɪnˈten.ʃən.əl.i/', meaning: 'Một cách có chủ đích, tự nguyện', contextHint: 'intentionally disconnects his phone' },
+            { term: 'Indispensable', ipa: '/ˌɪn.dɪˈspen.sə.bəl/', meaning: 'Không thể thiếu, vô cùng quan trọng', contextHint: 'an indispensable personal ritual' },
+            { term: 'Rejuvenate', ipa: '/rɪˈdʒuː.vən.eɪt/', meaning: 'Tái tạo, làm tươi mới năng lượng', contextHint: 'rejuvenate mental focus and well-being' },
           ],
           comprehensionQuiz: {
-            question: 'Liam thường làm gì tại quán cà phê trước khi gặp bạn?',
+            question: 'Theo bài viết, mục đích chính của Liam khi dành thời gian tại quán cà phê mỗi sáng là gì?',
             options: [
-              'Làm thêm bài tập văn phòng',
-              'Đọc cuốn tiểu thuyết du lịch yêu thích',
-              'Mua cà phê mang về nhà ngay',
-              'Chạy bộ quanh công viên'
+              'Tranh thủ giải quyết các email công việc tồn đọng từ tuần trước',
+              'Chủ động tách khỏi nhịp sống vội vã để đọc sách và tái tạo năng lượng tinh thần',
+              'Tìm kiếm cơ hội đàm phán hợp đồng kinh doanh mới',
+              'Học các công thức pha chế đồ uống chuyên nghiệp'
             ],
             correctIndex: 1,
-            explanation: 'Trong bài nêu rõ: "then spends an hour reading his favorite travel novel before meeting his friends".'
+            explanation: 'Đoạn văn kết luận: "taking thirty to sixty minutes for unhurried reflection and literary discovery is essential to rejuvenate both mental focus and emotional well-being".'
           }
         };
       } else if (isTech) {
         readingData = {
-          title: 'How Smart Devices Shape Modern Habits',
+          title: 'How Generative AI Is Reshaping Daily Learning Habits',
           userLevel,
           topic,
+          targetWordCount,
           genre: 'article',
-          passage: 'Digital devices have transformed how we organize daily tasks and communicate with others. From smart alarm clocks to language learning apps, technology helps people track their productivity and acquire new skills anytime, anywhere. However, mindful breaks from screens remain essential for mental balance.',
-          translationVi: 'Các thiết bị kỹ thuật số đã thay đổi cách chúng ta sắp xếp công việc và giao tiếp với mọi người. Từ đồng hồ báo thức thông minh đến các ứng dụng học ngoại ngữ, công nghệ giúp mọi người theo dõi hiệu suất và tích lũy kỹ năng mới mọi lúc, mọi nơi. Dẫu vậy, việc chủ động nghỉ ngơi rời xa màn hình vẫn là điều thiết yếu để cân bằng tâm trí.',
+          passage: 'Digital devices and artificial intelligence have fundamentally transformed how people acquire knowledge and organize daily priorities. From intelligent tutoring systems to personalized language assistants, technology now enables learners to tailor study materials precisely to their CEFR levels, schedule flexible practice intervals, and receive instant feedback at any hour of the day.\n\nModern educational platforms leverage spaced repetition algorithms to predict when a learner is likely to forget a grammatical rule or vocabulary item. By presenting active recall challenges at optimal intervals, these tools maximize long-term retention while significantly reducing study fatigue. Furthermore, interactive voice recognition allows individuals to practice conversational pronunciation in private, judgment-free environments.\n\nNevertheless, educational psychologists emphasize that technology serves as a powerful accelerator, not a total substitute for human curiosity and disciplined habit formation. Pairing cutting-edge AI feedback with consistent daily routines remains the gold standard for achieving authentic language fluency.',
+          translationVi: 'Các thiết bị số và trí tuệ nhân tạo đã thay đổi căn bản cách con người tiếp thu tri thức cũng như sắp xếp các ưu tiên hàng ngày. Từ các hệ thống gia sư thông minh đến trợ lý ngôn ngữ cá nhân hóa, công nghệ hiện nay cho phép người học tinh chỉnh tài liệu chính xác theo cấp độ CEFR, lên lịch học tập linh hoạt và nhận phản hồi tức thì vào bất kỳ thời điểm nào trong ngày.\n\nCác nền tảng giáo dục hiện đại tận dụng thuật toán lặp lại ngắt quãng (Spaced Repetition) để dự đoán thời điểm người học sắp quên một cấu trúc ngữ pháp hay từ vựng. Bằng cách đưa ra thử thách gợi nhớ chủ động vào những khoảng thời gian tối ưu, các công cụ này tối đa hóa khả năng ghi nhớ dài hạn trong khi giảm thiểu đáng kể sự mệt mỏi khi học. Thêm vào đó, công nghệ nhận diện giọng nói tương tác giúp người học luyện phát âm trong một môi trường riêng tư và không lo bị phán xét.\n\nDẫu vậy, các nhà tâm lý học giáo dục nhấn mạnh rằng công nghệ đóng vai trò như một đòn bẩy thúc đẩy mạnh mẽ chứ không thể thay thế hoàn toàn cho sự tò mò và tính kỷ luật tự thân. Việc kết hợp phản hồi chuẩn xác từ AI với thói quen rèn luyện kiên trì mỗi ngày vẫn là chuẩn mực vàng để đạt được sự lưu loát thực chất.',
           keyVocabulary: [
-            { term: 'Productivity', ipa: '/ˌproʊ.dʌkˈtɪv.ə.t̬i/', meaning: 'Năng suất, hiệu quả công việc', contextHint: 'track their productivity' },
-            { term: 'Acquire', ipa: '/əˈkwaɪ.ɚ/', meaning: 'Tích lũy, lĩnh hội kỹ năng', contextHint: 'acquire new skills' },
-            { term: 'Essential', ipa: '/ɪˈsen.ʃəl/', meaning: 'Cực kỳ cần thiết, cốt lõi', contextHint: 'remain essential for balance' },
+            { term: 'Accelerate', ipa: '/əkˈsel.ə.reɪt/', meaning: 'Thúc đẩy, gia tăng tốc độ phát triển', contextHint: 'technology serves as a powerful accelerator' },
+            { term: 'Retention', ipa: '/rɪˈten.ʃən/', meaning: 'Khả năng lưu giữ, duy trì trí nhớ', contextHint: 'maximize long-term retention' },
+            { term: 'Optimal', ipa: '/ˈɑːp.tə.məl/', meaning: 'Tối ưu, lý tưởng nhất', contextHint: 'presenting challenges at optimal intervals' },
+            { term: 'Fluency', ipa: '/ˈfluː.ən.si/', meaning: 'Sự trôi chảy, lưu loát trong ngôn ngữ', contextHint: 'achieving authentic language fluency' },
           ],
           comprehensionQuiz: {
-            question: 'Theo bài viết, điều gì vẫn rất quan trọng để cân bằng tinh thần?',
+            question: 'Theo bài viết, điều kiện then chốt nào kết hợp cùng AI để đạt được sự lưu loát ngôn ngữ thực chất?',
             options: [
-              'Luôn bật màn hình cả ngày',
-              'Tải thật nhiều ứng dụng mới',
-              'Chủ động dành thời gian nghỉ ngơi, rời xa màn hình',
-              'Bỏ dùng tất cả thiết bị thông minh'
+              'Chỉ cần tải thật nhiều ứng dụng học tập đắt tiền',
+              'Duy trì thói quen học tập kỷ luật và tính tự giác hàng ngày',
+              'Ngưng hoàn toàn việc đọc sách và chỉ nghe thụ động',
+              'Phụ thuộc tuyệt đối vào máy móc mà không cần nỗ lực cá nhân'
             ],
-            correctIndex: 2,
-            explanation: 'Bài viết kết luận: "mindful breaks from screens remain essential for mental balance" (nghỉ ngơi rời xa màn hình là thiết yếu).'
+            correctIndex: 1,
+            explanation: 'Đoạn cuối nhấn mạnh: "Pairing cutting-edge AI feedback with consistent daily routines remains the gold standard for achieving authentic language fluency".'
           }
         };
       } else {
         readingData = {
-          title: userLevel === 'B1' || userLevel === 'B2' ? 'Exploring New Hobbies in Daily Life' : 'A Friendly Welcome Note',
+          title: userLevel === 'C1' || userLevel === 'B2' ? 'The Cognitive Architecture of Habit Formation' : 'Building Meaningful Habits in Modern Life',
           userLevel,
           topic,
-          genre: userLevel === 'B1' || userLevel === 'B2' ? 'article' : 'notice',
-          passage: userLevel === 'B1' || userLevel === 'B2'
-            ? 'Discovering a new creative hobby can bring renewed energy to your daily routine. Whether it is indoor gardening, photography, or cooking international dishes, dedicating thirty minutes each evening allows you to unwind, express creativity, and build confidence outside your regular responsibilities.'
-            : 'Welcome to our community center! Every morning from 8:00 AM, free English conversation tables are open for everyone. You can meet friendly people, practice speaking naturally, and enjoy complimentary tea.',
-          translationVi: userLevel === 'B1' || userLevel === 'B2'
-            ? 'Khám phá một sở thích sáng tạo mới có thể mang lại nguồn năng lượng tươi mới cho nhịp sống thường ngày. Dù là làm vườn trong nhà, nhiếp ảnh hay nấu các món ăn quốc tế, việc dành ra 30 phút mỗi tối sẽ giúp bạn thư giãn, thể hiện sự sáng tạo và xây dựng sự tự tin bên ngoài những nghĩa vụ hàng ngày.'
-            : 'Chào mừng bạn đến với trung tâm cộng đồng của chúng tôi! Mỗi sáng từ 8:00, các bàn hội thoại tiếng Anh miễn phí mở cửa đón chào mọi người. Bạn có thể gặp gỡ những người bạn thân thiện, luyện nói tự nhiên và thưởng thức trà miễn phí.',
+          targetWordCount,
+          genre: 'article',
+          passage: 'Cultivating sustainable daily habits requires a structured blend of clear cue triggers, deliberate repetition, and meaningful internal rewards. Behavioral researchers have consistently observed that individuals who attempt drastic lifestyle transformations overnight frequently experience burnout, whereas those who commit to modest, incremental daily routines sustain long-term progress across months and years.\n\nWhen developing complex cognitive proficiencies—such as mastering a foreign language or acquiring programming skills—consistency dramatically outweighs occasional bursts of intense effort. Dedicating twenty focused minutes each morning to active recall and contextual reading stimulates neural plasticity far more effectively than an irregular weekend cram session. The cumulative compound effect of micro-progress gradually builds confidence and intuitive mastery.\n\nUltimately, sustainable self-improvement is not measured by dramatic heroic gestures, but by the quiet fidelity to positive routines that one chooses to practice day after day.',
+          translationVi: 'Việc xây dựng những thói quen hàng ngày bền vững đòi hỏi sự kết hợp chặt chẽ giữa các tín hiệu kích hoạt rõ ràng, sự lặp lại có chủ đích và phần thưởng nội tại ý nghĩa. Các nhà nghiên cứu hành vi nhận thấy rằng những người cố gắng thay đổi lối sống chóng vánh chỉ sau một đêm thường nhanh chóng kiệt sức, trong khi những người cam kết với các thói quen nhỏ tích lũy hàng ngày lại duy trì được tiến bộ dài hạn qua nhiều tháng và nhiều năm.\n\nKhi rèn luyện các năng lực tư duy phức tạp—chẳng hạn như làm chủ một ngoại ngữ hay học kỹ năng lập trình—tính nhất quán vượt trội hơn rất nhiều so với những đợt nỗ lực dồn dập ngắt quãng. Việc dành ra 20 phút tập trung mỗi sáng để gợi nhớ chủ động và đọc hiểu ngữ cảnh kích thích sự dẻo dai của hệ thần kinh hiệu quả hơn nhiều so với việc nhồi nhét dồn dập vào cuối tuần. Hiệu ứng lãi kép của những bước tiến nhỏ sẽ dần kiến tạo nên sự tự tin và phản xạ nhạy bén.\n\nSau cùng, sự tiến bộ bền vững không được đo đếm bằng những hành động bộc phát hoành tráng, mà được khẳng định bởi sự kiên định bền bỉ với những thói quen tích cực được thực hành đều đặn mỗi ngày.',
           keyVocabulary: [
-            { term: 'Routine', ipa: '/ruːˈtiːn/', meaning: 'Thói quen, lịch trình hàng ngày', contextHint: 'daily routine' },
-            { term: 'Unwind', ipa: '/ʌnˈwaɪnd/', meaning: 'Nghỉ ngơi, thư giãn xả stress', contextHint: 'allows you to unwind' },
-            { term: 'Confidence', ipa: '/ˈkɑːn.fə.dəns/', meaning: 'Sự tự tin', contextHint: 'build confidence' }
+            { term: 'Cultivate', ipa: '/ˈkʌl.tə.veɪt/', meaning: 'Nuôi dưỡng, rèn luyện thói quen', contextHint: 'cultivating sustainable daily habits' },
+            { term: 'Incremental', ipa: '/ˌɪŋ.krəˈmen.t̬əl/', meaning: 'Từng bước một, tăng dần dần', contextHint: 'modest, incremental daily routines' },
+            { term: 'Consistency', ipa: '/kənˈsɪs.tən.si/', meaning: 'Tính kiên định, nhất quán liên tục', contextHint: 'consistency dramatically outweighs bursts' },
+            { term: 'Cumulative', ipa: '/ˈkjuː.mjə.lə.t̬ɪv/', meaning: 'Tích lũy, dồn lại theo thời gian', contextHint: 'cumulative compound effect of progress' },
           ],
           comprehensionQuiz: {
-            question: userLevel === 'B1' || userLevel === 'B2'
-              ? 'Dành thời gian cho sở thích mới mang lại lợi ích gì theo đoạn văn?'
-              : 'Người tham gia có thể làm gì tại trung tâm mỗi sáng?',
-            options: userLevel === 'B1' || userLevel === 'B2'
-              ? [
-                  'Tăng thêm căng thẳng công việc',
-                  'Giúp thư giãn, sáng tạo và xây dựng sự tự tin',
-                  'Bắt buộc phải bỏ hết việc khác',
-                  'Chỉ tập trung vào kiếm thêm thu nhập'
-                ]
-              : [
-                  'Luyện giao tiếp tiếng Anh tự nhiên và giao lưu thân thiện',
-                  'Tham gia thi cử áp lực',
-                  'Đăng ký khóa học trả phí đắt đỏ',
-                  'Mua sắm đồ dùng gia đình'
-                ],
-            correctIndex: userLevel === 'B1' || userLevel === 'B2' ? 1 : 0,
-            explanation: userLevel === 'B1' || userLevel === 'B2'
-              ? 'Đoạn văn nêu: "dedicating thirty minutes each evening allows you to unwind, express creativity, and build confidence".'
-              : 'Đoạn thông báo nêu: "free English conversation tables are open for everyone. You can meet friendly people, practice speaking naturally".'
+            question: 'Theo đoạn văn, phương pháp nào mang lại hiệu quả cao hơn khi phát triển các kỹ năng phức tạp như học ngoại ngữ?',
+            options: [
+              'Chỉ nhồi nhét học nhiều giờ liền vào cuối tuần',
+              'Dành một khoảng thời gian tập trung ngắn nhưng đều đặn mỗi ngày',
+              'Thay đổi toàn bộ lối sống chóng vánh trong 24 giờ',
+              'Học ngắt quãng không cần theo bất kỳ lịch trình nào'
+            ],
+            correctIndex: 1,
+            explanation: 'Bài viết khẳng định: "Dedicating twenty focused minutes each morning to active recall stimulates neural plasticity far more effectively than an irregular weekend cram session".'
           }
         };
       }

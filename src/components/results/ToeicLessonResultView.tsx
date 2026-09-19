@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ToeicLessonResult, ToeicWord } from '../../types';
 import {
   Volume2,
@@ -19,10 +19,19 @@ import {
   Layers,
   Repeat,
   Mic,
-  Bookmark
+  Bookmark,
+  BookOpen,
+  Play,
+  Pause,
+  Square,
 } from 'lucide-react';
 import { shuffleOptionsWithCorrectIndex } from '../../utils/quizUtils';
-import { playAudioPronunciation } from '../../utils/speechUtils';
+import {
+  playAudioPronunciation,
+  splitTextIntoSentences,
+  createSequentialAudioPlayer,
+  SequentialAudioController,
+} from '../../utils/speechUtils';
 import { PronunciationCoachModal, PronunciationCoachTarget } from '../speech/PronunciationCoachModal';
 import { getLearnedWords, toggleWordMastery } from '../../utils/learningMemory';
 import { FlashcardDeckView } from '../flashcard/FlashcardDeckView';
@@ -42,6 +51,27 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
   const [showTranslation, setShowTranslation] = useState(false);
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
   const [vocabDisplayMode, setVocabDisplayMode] = useState<'grid' | 'flashcard'>('grid');
+
+  // Interactive Target Word Quick-Popup in Story
+  const [activeWordPopup, setActiveWordPopup] = useState<ToeicWord | null>(null);
+
+  // Audio Playback & Karaoke State for the Story/Scenario
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isPausedAudio, setIsPausedAudio] = useState(false);
+  const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const audioControllerRef = useRef<SequentialAudioController | null>(null);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      audioControllerRef.current?.stop();
+    };
+  }, []);
+
+  const sentences = useMemo(() => {
+    return splitTextIntoSentences(result.scenarioText || '');
+  }, [result.scenarioText]);
 
   // Pronunciation Coach Modal State
   const [coachTarget, setCoachTarget] = useState<PronunciationCoachTarget | null>(null);
@@ -122,6 +152,125 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Play full story/scenario sequentially with sentence karaoke
+  const handlePlayFullReading = () => {
+    if (sentences.length === 0) return;
+
+    if (isPausedAudio && audioControllerRef.current) {
+      audioControllerRef.current.resume();
+      setIsPausedAudio(false);
+      setIsPlayingAudio(true);
+      return;
+    }
+
+    audioControllerRef.current?.stop();
+    setIsPlayingAudio(true);
+    setIsPausedAudio(false);
+    setActiveSentenceIndex(0);
+
+    const controller = createSequentialAudioPlayer(sentences, {
+      rate: playbackSpeed,
+      pauseBetweenMs: 450,
+      onIndexChange: (index) => {
+        setActiveSentenceIndex(index);
+      },
+      onEnd: () => {
+        setIsPlayingAudio(false);
+        setIsPausedAudio(false);
+        setActiveSentenceIndex(null);
+      },
+      onError: () => {
+        setIsPlayingAudio(false);
+        setIsPausedAudio(false);
+        setActiveSentenceIndex(null);
+      },
+    });
+
+    audioControllerRef.current = controller;
+    controller.play(0);
+  };
+
+  const handlePauseReading = () => {
+    audioControllerRef.current?.pause();
+    setIsPausedAudio(true);
+    setIsPlayingAudio(false);
+  };
+
+  const handleStopReading = () => {
+    audioControllerRef.current?.stop();
+    setIsPlayingAudio(false);
+    setIsPausedAudio(false);
+    setActiveSentenceIndex(null);
+  };
+
+  const isStoryMode =
+    result.situationType === 'story' ||
+    result.situationType === 'article' ||
+    result.situationType === 'reading' ||
+    result.vocabMethod === 'reading';
+
+  // Helper to render text with target words highlighted as interactive buttons
+  const renderHighlightedScenario = (text: string, words: ToeicWord[]) => {
+    if (!text) return null;
+    if (!words || words.length === 0) return text;
+
+    const sortedTerms = [...words]
+      .filter((w) => w.term && w.term.trim())
+      .sort((a, b) => b.term.length - a.term.length);
+
+    if (sortedTerms.length === 0) return text;
+
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\b(${sortedTerms.map((w) => escapeRegExp(w.term.trim())).join('|')})\\b`, 'gi');
+
+    const parts: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(text)) !== null) {
+      const matchStart = match.index;
+      const matchText = match[0];
+      const matchEnd = matchStart + matchText.length;
+
+      if (matchStart > lastIdx) {
+        parts.push(text.substring(lastIdx, matchStart));
+      }
+
+      const matchedWord = sortedTerms.find(
+        (w) => w.term.toLowerCase() === matchText.toLowerCase()
+      );
+
+      if (matchedWord) {
+        parts.push(
+          <button
+            key={`term-${matchStart}-${matchText}`}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              playAudioPronunciation(matchedWord.term);
+              setActiveWordPopup(matchedWord);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 my-0.5 rounded-md font-bold text-sky-200 bg-sky-500/25 border border-sky-400/50 hover:bg-sky-500/40 hover:text-white hover:border-sky-300 transition-all cursor-pointer shadow-xs group"
+            title={`Nhấp để nghe & xem: ${matchedWord.term} (${matchedWord.ipa}) - ${matchedWord.vietnameseMeaning}`}
+          >
+            <span>{matchText}</span>
+            <Volume2 className="w-3 h-3 text-sky-400 group-hover:scale-110 transition-transform" />
+          </button>
+        );
+      } else {
+        parts.push(matchText);
+      }
+
+      lastIdx = matchEnd;
+    }
+
+    if (lastIdx < text.length) {
+      parts.push(text.substring(lastIdx));
+    }
+
+    return parts;
+  };
+
   const getSituationIcon = () => {
     switch (result.situationType) {
       case 'email':
@@ -132,6 +281,10 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
         return <MessageSquare className="w-4 h-4 text-emerald-400" />;
       case 'meeting':
         return <Users className="w-4 h-4 text-indigo-400" />;
+      case 'story':
+      case 'article':
+      case 'reading':
+        return <BookOpen className="w-4 h-4 text-emerald-400" />;
       default:
         return <Bell className="w-4 h-4 text-purple-400" />;
     }
@@ -146,7 +299,11 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-sky-400" />
-                <span>TOEIC PROGRESSIVE SCENARIO</span>
+                <span>
+                  {isStoryMode
+                    ? '🌟 CÂU CHUYỆN HỌC TỪ VỰNG TRUYỀN CẢM HỨNG'
+                    : 'TOEIC PROGRESSIVE SCENARIO'}
+                </span>
               </span>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
                 LEVEL {result.userLevel || 'A1'}
@@ -190,31 +347,82 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
           </div>
         </div>
 
-        {/* Workplace Scenario Reader Box */}
+        {/* Workplace Scenario / Inspiring Story Reader Box */}
         <div className="pt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
-              <span>🏢 BỐI CẢNH THỰC TẾ (AUTHENTIC CONTEXT)</span>
-            </span>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                {isStoryMode ? (
+                  <>
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>📖 BÀI ĐỌC TRUYỀN CẢM HỨNG (CÁC TỪ VỰNG MỤC TIÊU ĐƯỢC TÔ SÁNG)</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🏢 BỐI CẢNH THỰC TẾ (AUTHENTIC CONTEXT)</span>
+                  </>
+                )}
+              </span>
+              {isStoryMode && (
+                <p className="text-[11px] text-neutral-400 font-sans mt-0.5">
+                  💡 Nhấp vào từ vựng được tô sáng để nghe phát âm, xem phiên âm IPA và nghĩa chi tiết.
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => speakText(result.scenarioText, 1.0)}
-                className="flex items-center gap-1 text-xs font-mono text-sky-400 hover:text-sky-300 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-750 border border-sky-500/30 transition-colors cursor-pointer"
-                title="Nghe toàn bộ đoạn văn (tốc độ chuẩn 1.0x)"
-              >
-                <Volume2 className={`w-3.5 h-3.5 ${speakingWord === result.scenarioText ? 'animate-bounce' : ''}`} />
-                <span>🔊 1.0x</span>
-              </button>
+              {/* Karaoke Sequential Player Controls */}
+              {isPlayingAudio ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePauseReading}
+                    className="flex items-center gap-1 text-xs font-mono text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors cursor-pointer"
+                    title="Tạm dừng đọc"
+                  >
+                    <Pause className="w-3.5 h-3.5" />
+                    <span>TẠM DỪNG</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStopReading}
+                    className="flex items-center gap-1 text-xs font-mono text-rose-400 hover:text-rose-300 px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
+                    title="Dừng đọc"
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    <span>DỪNG</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handlePlayFullReading}
+                  className="flex items-center gap-1 text-xs font-mono text-sky-400 hover:text-sky-300 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-750 border border-sky-500/30 transition-colors cursor-pointer"
+                  title="Nghe toàn bộ câu chuyện với hiệu ứng Karaoke theo từng câu"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>🔊 {isPausedAudio ? 'TIẾP TỤC' : 'ĐỌC TOÀN BÀI'}</span>
+                </button>
+              )}
 
+              {/* Speed toggle */}
               <button
                 type="button"
-                onClick={() => speakText(result.scenarioText, 0.75)}
-                className="flex items-center gap-1 text-xs font-mono text-amber-400 hover:text-amber-300 px-2 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-750 border border-amber-500/30 transition-colors cursor-pointer"
-                title="Nghe chậm toàn bộ đoạn văn (0.75x)"
+                onClick={() => {
+                  const nextSpeed = playbackSpeed === 1.0 ? 0.75 : 1.0;
+                  setPlaybackSpeed(nextSpeed);
+                  if (audioControllerRef.current) {
+                    audioControllerRef.current.setRate(nextSpeed);
+                  }
+                }}
+                className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                  playbackSpeed === 0.75
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-zinc-800/80 text-neutral-400 hover:text-neutral-200 border border-zinc-700/60'
+                }`}
+                title="Chuyển tốc độ đọc chậm 0.75x hoặc chuẩn 1.0x"
               >
-                <span>🐢 0.75x</span>
+                <span>{playbackSpeed === 0.75 ? '🐢 0.75x' : '⚡ 1.0x'}</span>
               </button>
 
               <button
@@ -228,7 +436,7 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
                   })
                 }
                 className="flex items-center gap-1 text-xs font-mono text-emerald-400 hover:text-emerald-300 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors cursor-pointer"
-                title="Luyện đọc đoạn văn và chấm điểm"
+                title="Luyện đọc câu chuyện và chấm điểm qua microphone"
               >
                 <Mic className="w-3.5 h-3.5 text-emerald-400" />
                 <span>🎙️ LUYỆN ĐỌC</span>
@@ -237,7 +445,7 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowTranslation(!showTranslation)}
-                className="flex items-center gap-1 text-xs font-mono text-zinc-300 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/60 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-xs font-mono text-zinc-300 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-750 border border-zinc-700/60 transition-colors cursor-pointer"
               >
                 {showTranslation ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 <span>{showTranslation ? 'ẨN BẢN DỊCH' : 'XEM DỊCH'}</span>
@@ -245,13 +453,103 @@ export const ToeicLessonResultView: React.FC<ToeicLessonResultViewProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-lg bg-zinc-850/50 border border-zinc-800/80 text-zinc-100 text-sm leading-relaxed font-sans">
-            {result.scenarioText}
+          {/* Interactive Text Display Box */}
+          <div className="p-4 rounded-xl bg-zinc-850/50 border border-zinc-800/80 text-zinc-100 text-sm leading-relaxed font-sans space-y-2">
+            {isPlayingAudio ? (
+              <div className="space-y-2">
+                {sentences.map((sent, idx) => (
+                  <p
+                    key={idx}
+                    className={`p-2 rounded-lg transition-all duration-200 leading-relaxed font-sans ${
+                      activeSentenceIndex === idx
+                        ? 'bg-sky-500/15 border-l-4 border-l-sky-400 pl-3 text-white font-medium shadow-sm'
+                        : 'text-zinc-200 hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    {renderHighlightedScenario(sent, result.targetWords || [])}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <div className="text-zinc-100 text-sm sm:text-base leading-relaxed font-sans">
+                {renderHighlightedScenario(result.scenarioText, result.targetWords || [])}
+              </div>
+            )}
           </div>
+
+          {/* Active Target Word Quick Popover Drawer */}
+          {activeWordPopup && (
+            <div className="p-3.5 rounded-xl bg-zinc-900 border-2 border-sky-500/70 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => playAudioPronunciation(activeWordPopup.term)}
+                  className="p-2.5 rounded-xl bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 border border-sky-500/40 cursor-pointer transition-all"
+                  title="Nghe phát âm từ"
+                >
+                  <Volume2 className="w-5 h-5" />
+                </button>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-white text-base font-mono">{activeWordPopup.term}</span>
+                    <span className="text-xs font-mono text-sky-300">{activeWordPopup.ipa}</span>
+                    {activeWordPopup.vietnamesePhonetic && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-amber-300 border border-amber-500/30">
+                        🗣️ {activeWordPopup.vietnamesePhonetic}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-neutral-400">
+                      {activeWordPopup.partOfSpeech}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-200 mt-1 font-medium">{activeWordPopup.vietnameseMeaning}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleOpenCoach({
+                      term: activeWordPopup.term,
+                      ipa: activeWordPopup.ipa,
+                      vietnameseMeaning: activeWordPopup.vietnameseMeaning,
+                      exampleSentence: activeWordPopup.exampleSentence,
+                      level: result.userLevel || 'A1-B2',
+                    })
+                  }
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-mono font-bold border border-emerald-500/40 flex items-center gap-1 cursor-pointer transition-all"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>Luyện phát âm</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleMastery(activeWordPopup.term)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold border flex items-center gap-1 cursor-pointer transition-all ${
+                    masteredMap[activeWordPopup.term.toLowerCase()]
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-zinc-800 text-neutral-400 border-zinc-700 hover:text-white'
+                  }`}
+                >
+                  <span>{masteredMap[activeWordPopup.term.toLowerCase()] ? '⭐ Đã thuộc' : '☆ Đánh dấu thuộc'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveWordPopup(null)}
+                  className="px-2 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-neutral-400 hover:text-white text-xs cursor-pointer transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
 
           {showTranslation && (
             <div className="p-3.5 rounded-lg bg-sky-950/20 border-l-2 border-l-sky-500 border border-sky-900/30 text-xs text-zinc-300 leading-relaxed font-sans">
-              <strong className="text-sky-300 block mb-1 font-mono uppercase">Bản dịch tiếng Việt:</strong>
+              <strong className="text-sky-300 block mb-1 font-mono uppercase">Bản dịch tiếng Việt câu chuyện:</strong>
               {result.scenarioTranslationVi}
             </div>
           )}

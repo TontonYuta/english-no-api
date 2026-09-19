@@ -1,0 +1,317 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# PlayEng Studio - Desktop Application Launcher
+# ==============================================================================
+
+set -e
+
+APP_DIR="/home/tontonyuta/english-no-api"
+PORT=3000
+STATE_DIR="$HOME/.local/state/playeng-studio"
+CONFIG_DIR="$HOME/.config/playeng-studio"
+PID_FILE="$STATE_DIR/server.pid"
+LOG_FILE="$STATE_DIR/server.log"
+ICON_FILE="$HOME/.local/share/icons/playeng-studio.png"
+WAS_REBUILT=0
+
+mkdir -p "$STATE_DIR" "$CONFIG_DIR"
+
+notify() {
+    local title="$1"
+    local message="$2"
+    if which notify-send >/dev/null 2>&1; then
+        notify-send -i "$ICON_FILE" "$title" "$message" 2>/dev/null || true
+    fi
+}
+
+is_server_running() {
+    if curl -s -m 1 "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+needs_build() {
+    if [ ! -f "$APP_DIR/dist/server.cjs" ] || [ ! -f "$APP_DIR/dist/index.html" ]; then
+        return 0
+    fi
+
+    local targets=()
+    for item in "$APP_DIR/src" "$APP_DIR/server" "$APP_DIR/server.ts" "$APP_DIR/index.html" "$APP_DIR/package.json" "$APP_DIR/vite.config.ts" "$APP_DIR/tsconfig.json"; do
+        if [ -e "$item" ]; then
+            targets+=("$item")
+        fi
+    done
+
+    # Check if any source code, server code, index.html or config is newer than dist/server.cjs
+    local newer
+    newer=$(find "${targets[@]}" -type f -newer "$APP_DIR/dist/server.cjs" 2>/dev/null | head -n 1)
+    if [ -n "$newer" ]; then
+        return 0
+    fi
+    return 1
+}
+
+build_bundle() {
+    echo "[PlayEng Studio] Building production bundle..."
+    cd "$APP_DIR"
+    if ! npm run build >> "$LOG_FILE" 2>&1; then
+        echo "[PlayEng Studio] Error: Build failed! Check $LOG_FILE for details." >&2
+        notify "PlayEng Studio: Lỗi Build" "Quá trình build thất bại. Vui lòng kiểm tra $LOG_FILE"
+        return 1
+    fi
+    WAS_REBUILT=1
+    echo "[PlayEng Studio] Build completed successfully."
+}
+
+start_server() {
+    local must_rebuild=0
+    if needs_build; then
+        must_rebuild=1
+    fi
+
+    if [ "$must_rebuild" -eq 1 ]; then
+        echo "[PlayEng Studio] Source code has changed or build is missing. Rebuilding..."
+        build_bundle
+        if is_server_running; then
+            echo "[PlayEng Studio] Restarting server to apply updates..."
+            stop_server
+        fi
+    elif is_server_running; then
+        echo "[PlayEng Studio] Server is already running on http://127.0.0.1:$PORT"
+        return 0
+    fi
+
+    echo "[PlayEng Studio] Starting background server..."
+    cd "$APP_DIR"
+
+    # Start Node server as independent daemon using setsid
+    NODE_ENV=production setsid node "$APP_DIR/dist/server.cjs" >> "$LOG_FILE" 2>&1 < /dev/null &
+    local server_pid=$!
+    disown $server_pid 2>/dev/null || true
+    echo "$server_pid" > "$PID_FILE"
+
+    # Wait for server to become healthy
+    local max_wait=20
+    local count=0
+    while ! is_server_running; do
+        sleep 0.5
+        count=$((count + 1))
+        if [ $count -ge $max_wait ]; then
+            echo "[PlayEng Studio] Error: Server failed to start within 10 seconds. Check logs at $LOG_FILE" >&2
+            return 1
+        fi
+    done
+
+    echo "[PlayEng Studio] Server started successfully at http://127.0.0.1:$PORT (PID: $server_pid)"
+    if [ "$WAS_REBUILT" -eq 1 ]; then
+        notify "PlayEng Studio: Đã cập nhật" "Ứng dụng đã tự động build lại và nạp code mới nhất!"
+    else
+        notify "PlayEng Studio" "Máy chủ AI English đã sẵn sàng tại http://localhost:$PORT"
+    fi
+}
+
+stop_server() {
+    echo "[PlayEng Studio] Stopping server..."
+    if [ -f "$PID_FILE" ]; then
+        local pid
+        pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid" 2>/dev/null || true
+            fi
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    # Cleanup any hanging server process on port 3000 if needed
+    local pids_on_port
+    pids_on_port=$(lsof -ti :$PORT 2>/dev/null || true)
+    if [ -n "$pids_on_port" ]; then
+        kill -9 $pids_on_port 2>/dev/null || true
+    fi
+
+    echo "[PlayEng Studio] Server stopped."
+}
+
+stop_browser() {
+    echo "[PlayEng Studio] Stopping browser window..."
+    local browser_pids
+    browser_pids=$(pgrep -f "user-data-dir=$CONFIG_DIR/browser-data" 2>/dev/null || true)
+    if [ -n "$browser_pids" ]; then
+        kill $browser_pids 2>/dev/null || true
+        sleep 0.5
+        kill -9 $browser_pids 2>/dev/null || true
+    fi
+    rm -f "$CONFIG_DIR/browser-data/Singleton"* 2>/dev/null || true
+}
+
+stop_all() {
+    stop_browser
+    stop_server
+}
+
+open_window() {
+    local force_restart=${1:-0}
+    local target_url="http://localhost:$PORT"
+
+    # Filter out internal script subcommands from browser arguments
+    local browser_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            0|1|start|stop|stop-server|stop-browser|restart|rebuild|status|logs|"%U"|"%u")
+                ;;
+            *)
+                if [ -n "$arg" ]; then
+                    browser_args+=("$arg")
+                fi
+                ;;
+        esac
+    done
+
+    # Check for Chrome / Chromium binaries to launch in dedicated standalone app window
+    local chrome_candidates=(
+        "/home/tontonyuta/.local/bin/google-chrome"
+        "/home/tontonyuta/.local/bin/google-chrome-stable"
+        "/home/tontonyuta/.local/bin/chromium"
+        "/usr/bin/google-chrome"
+        "/usr/bin/google-chrome-stable"
+        "/usr/bin/chromium-browser"
+        "/usr/bin/chromium"
+    )
+
+    local found_browser=""
+    for b in "${chrome_candidates[@]}"; do
+        if [ -x "$b" ]; then
+            found_browser="$b"
+            break
+        fi
+    done
+
+    if [ -n "$found_browser" ]; then
+        local browser_profile="$CONFIG_DIR/browser-data"
+        mkdir -p "$browser_profile"
+
+        # If code was rebuilt or force_restart requested, stop existing browser window so it loads fresh bundle
+        if [ "$WAS_REBUILT" -eq 1 ] || [ "$force_restart" -eq 1 ]; then
+            echo "[PlayEng Studio] Code was updated/restarted. Refreshing browser window..."
+            stop_browser
+        fi
+
+        # Check if an existing browser window is already running with this profile
+        local running_pid=""
+        if [ -L "$browser_profile/SingletonLock" ]; then
+            local lock_target
+            lock_target=$(readlink "$browser_profile/SingletonLock" 2>/dev/null || true)
+            local lock_pid="${lock_target##*-}"
+            if [ -n "$lock_pid" ] && kill -0 "$lock_pid" 2>/dev/null; then
+                running_pid="$lock_pid"
+            fi
+        fi
+
+        if [ -z "$running_pid" ]; then
+            local candidate_pids
+            candidate_pids=$(pgrep -f "user-data-dir=$browser_profile" 2>/dev/null || true)
+            for p in $candidate_pids; do
+                if kill -0 "$p" 2>/dev/null; then
+                    running_pid="$p"
+                    break
+                fi
+            done
+        fi
+
+        if [ -n "$running_pid" ]; then
+            echo "[PlayEng Studio] App window is already open (PID $running_pid)."
+            # Let existing Chromium instance handle focus via ProcessSingleton
+            setsid -f "$found_browser" \
+                --no-sandbox \
+                --app="$target_url" \
+                --user-data-dir="$browser_profile" \
+                --class="playeng-studio" \
+                --name="playeng-studio" \
+                "${browser_args[@]}" >/dev/null 2>&1
+            return 0
+        fi
+
+        # If no instance is running, perform clean recovery of any stale crash artifacts:
+        # 1. Clean stale Singleton locks left by previous crashes/kills
+        rm -f "$browser_profile/Singleton"* 2>/dev/null || true
+
+        # 2. Clean up any 0-byte orphan SQLite journal files
+        find "$browser_profile" -name "*-journal" -size 0 -delete 2>/dev/null || true
+
+        # 3. Reset crashed exit_type in Preferences to Normal to avoid restore/profile warnings
+        local pref_file="$browser_profile/Default/Preferences"
+        if [ -f "$pref_file" ]; then
+            sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/g; s/"exit_type": "Crashed"/"exit_type": "Normal"/g; s/"exited_cleanly":false/"exited_cleanly":true/g; s/"exited_cleanly": false/"exited_cleanly": true/g' "$pref_file" 2>/dev/null || true
+        fi
+
+        echo "[PlayEng Studio] Launching standalone app window via $found_browser..."
+        setsid -f "$found_browser" \
+            --no-sandbox \
+            --app="$target_url" \
+            --user-data-dir="$browser_profile" \
+            --class="playeng-studio" \
+            --name="playeng-studio" \
+            --window-size=1280,840 \
+            --password-store=basic \
+            --no-first-run \
+            --no-default-browser-check \
+            --disable-features=Translate,OptimizationHints \
+            --disable-component-update \
+            "${browser_args[@]}" > "$STATE_DIR/browser.log" 2>&1
+    else
+        echo "[PlayEng Studio] Opening via default web browser..."
+        if which xdg-open >/dev/null 2>&1; then
+            setsid xdg-open "$target_url" >/dev/null 2>&1 &
+        else
+            echo "[PlayEng Studio] Please open $target_url in your browser."
+        fi
+    fi
+}
+
+case "$1" in
+    start)
+        start_server
+        ;;
+    stop)
+        stop_all
+        ;;
+    stop-server)
+        stop_server
+        ;;
+    stop-browser)
+        stop_browser
+        ;;
+    restart)
+        stop_server
+        start_server
+        open_window 1
+        ;;
+    rebuild)
+        echo "[PlayEng Studio] Manual rebuild requested. Building bundle..."
+        build_bundle
+        WAS_REBUILT=1
+        stop_server
+        start_server
+        open_window 1
+        ;;
+    status)
+        if is_server_running; then
+            echo "[PlayEng Studio] Status: ACTIVE (http://127.0.0.1:$PORT)"
+            exit 0
+        else
+            echo "[PlayEng Studio] Status: INACTIVE"
+            exit 1
+        fi
+        ;;
+    logs)
+        tail -f "$LOG_FILE"
+        ;;
+    *)
+        start_server
+        open_window
+        ;;
+esac

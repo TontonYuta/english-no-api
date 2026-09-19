@@ -510,9 +510,21 @@ export default function App() {
               translationVi: data.result.data.translationVi,
               level: data.result.data.userLevel || 'A1',
               topic: data.result.data.topic,
-              keyWords: data.result.data.keyVocabulary?.map((k: any) => ({ term: k.term, meaning: k.meaning })),
+              keyWords: data.result.data.keyVocabulary?.map((k: any) => ({ term: k.term, meaning: k.meaning || k.meaningVi || k.term })),
               questions: data.result.data.comprehensionQuiz ? [data.result.data.comprehensionQuiz] : [],
             });
+            if (data.result.data.keyVocabulary && data.result.data.keyVocabulary.length > 0) {
+              addLearnedWords(
+                data.result.data.keyVocabulary.map((k: any) => ({
+                  term: k.term,
+                  ipa: k.ipa || '',
+                  partOfSpeech: 'vocab',
+                  vietnameseMeaning: k.meaning || k.meaningVi || k.term,
+                  exampleSentence: k.contextHint || k.contextSentence || '',
+                  level: data.result.data.userLevel || 'A1',
+                }))
+              );
+            }
           } else if (data.result.type === 'listening_lesson' && data.result.data) {
             addLearnedListening({
               title: data.result.data.title,

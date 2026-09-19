@@ -1193,6 +1193,88 @@ test('server: fallbackGenerator and promptBuilders support questionCount and qui
   assert.ok(fallbackHasGrammar, 'Fallback must have grammar questions');
 });
 
+test('vocabThroughReading: promptBuilders and fallbackGenerator generate inspiring stories for vocabulary learning', () => {
+  // 1. Prompt builder with vocabMethod: 'reading'
+  const storyPrompt = buildChatbotPrompt('toeic_lesson', {
+    userLevel: 'A1',
+    topic: 'A Small Habit That Sparked Joy',
+    wordCount: 3,
+    vocabMethod: 'reading',
+  });
+  assert.match(storyPrompt.userPrompt, /SPECIAL PEDAGOGICAL MODE: LEARN VOCABULARY THROUGH AN INSPIRING STORY/i);
+  assert.match(storyPrompt.userPrompt, /"situationType": "story \| article/i);
+  assert.match(storyPrompt.userPrompt, /living context/i);
+
+  // 2. Fallback generator with vocabMethod: 'reading' (A1)
+  const a1Story = generateRealisticFallback('toeic_lesson', {
+    userLevel: 'A1',
+    topic: 'Morning routine story',
+    vocabMethod: 'reading',
+  });
+  assert.equal(a1Story.type, 'toeic_lesson');
+  const a1Data = a1Story.data as any;
+  assert.equal(a1Data.situationType, 'story');
+  assert.ok(a1Data.scenarioText.length > 50, 'Story text must be substantial');
+  assert.ok(a1Data.targetWords.length >= 3, 'Must have at least 3 target words');
+  assert.ok(a1Data.targetWords.some((w: any) => w.term.toLowerCase() === 'routine'), 'Should have Routine word');
+  assert.ok(a1Data.interactiveChallenge?.prompt, 'Must have an interactive challenge');
+
+  // 3. Fallback generator with situationType: 'story' (B1/B2)
+  const bStory = generateRealisticFallback('toeic_lesson', {
+    userLevel: 'B2',
+    topic: 'Overcoming challenges and stepping beyond comfort zones',
+    vocabMethod: 'reading',
+  });
+  assert.equal(bStory.type, 'toeic_lesson');
+  const bData = bStory.data as any;
+  assert.equal(bData.situationType, 'story');
+  assert.ok(bData.targetWords.some((w: any) => w.term.toLowerCase() === 'embrace'), 'Should have Embrace word');
+  assert.ok(bData.targetWords.some((w: any) => w.term.toLowerCase() === 'resilience'), 'Should have Resilience word');
+
+  // 4. Memory persistence of story vocabulary
+  localStorage.clear();
+  addLearnedWords(a1Data.targetWords);
+  const learned = getLearnedWords();
+  assert.equal(learned.length, a1Data.targetWords.length);
+  assert.equal(learned[0].term, 'Routine');
+});
+
+test('readingConfig: setup word count, min/max limits and reading difficulty levels (A1 to C1)', () => {
+  // 1. Prompt Builder with custom targetWordCount 400 and Level C1
+  const c1Prompt = buildChatbotPrompt('reading_lesson', {
+    userLevel: 'C1',
+    topic: 'Artificial Intelligence & Future of Humanities',
+    targetWordCount: 400,
+  });
+  assert.ok(c1Prompt.userPrompt.includes('Level C1'));
+  assert.ok(c1Prompt.userPrompt.includes('~400 words'));
+  assert.ok(c1Prompt.userPrompt.includes('340 and 480 words'));
+  assert.ok(c1Prompt.userPrompt.includes('Advanced academic/professional prose'));
+
+  // 2. Prompt Builder with custom targetWordCount 150 and Level A1
+  const a1Prompt = buildChatbotPrompt('reading_lesson', {
+    userLevel: 'A1',
+    topic: 'My Favorite Weekend',
+    targetWordCount: 150,
+  });
+  assert.ok(a1Prompt.userPrompt.includes('Level A1'));
+  assert.ok(a1Prompt.userPrompt.includes('~150 words'));
+
+  // 3. Fallback Generator with custom targetWordCount and multi-paragraph passage
+  const readingFallback = generateRealisticFallback('reading_lesson', {
+    userLevel: 'B2',
+    topic: 'How Generative AI Is Reshaping Daily Learning Habits',
+    targetWordCount: 300,
+  });
+  assert.equal(readingFallback.type, 'reading_lesson');
+  assert.ok(readingFallback.data.passage.includes('\n\n'), 'Should have multiple paragraphs separated by double line breaks');
+  assert.ok(readingFallback.data.passage.split(/\s+/).length >= 100, 'Passage should not be too short');
+  assert.ok(readingFallback.data.keyVocabulary.length >= 3);
+  assert.ok(readingFallback.data.comprehensionQuiz.question.length > 0);
+  assert.equal(readingFallback.data.comprehensionQuiz.options.length, 4);
+});
+
+
 
 
 

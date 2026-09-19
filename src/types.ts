@@ -245,7 +245,8 @@ export interface ToeicWord {
 export interface ToeicLessonResult {
   topic: string;
   userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
-  situationType: 'email' | 'memo' | 'meeting' | 'chat' | 'announcement';
+  situationType: 'email' | 'memo' | 'meeting' | 'chat' | 'announcement' | 'story' | 'article' | 'reading';
+  vocabMethod?: 'core' | 'reading';
   situationTitle: string;
   scenarioText: string;
   scenarioTranslationVi: string;
@@ -364,11 +365,13 @@ export interface LearnedReading {
 
 export interface ReadingLessonResult {
   title: string;
-  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  userLevel?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | string;
   topic: string;
   genre: 'email' | 'announcement' | 'memo' | 'chat' | 'notice' | 'article' | 'story' | 'guide' | 'review' | string;
   passage: string;
   translationVi: string;
+  targetWordCount?: number;
+  actualWordCount?: number;
   keyVocabulary: {
     term: string;
     ipa?: string;

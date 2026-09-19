@@ -284,6 +284,21 @@ TARGET LEARNER LEVEL: B2 (UPPER-INTERMEDIATE / TOEIC 700+)
         ? `\nCRITICAL ANTI-REPETITION: The student has ALREADY learned these words: [${excludeTerms.slice(-30).join(', ')}]. DO NOT pick any of these words! Pick completely fresh words for level ${userLevel}.`
         : '';
 
+      const vocabMethod = (inputData.vocabMethod as string) || 'core';
+      const isStoryReadingMode = vocabMethod === 'reading' || inputData.situationType === 'story' || inputData.modeFocus === 'reading';
+
+      let storyGuidance = '';
+      if (isStoryReadingMode) {
+        storyGuidance = `
+SPECIAL PEDAGOGICAL MODE: LEARN VOCABULARY THROUGH AN INSPIRING STORY / READING PASSAGE!
+- Write an engaging, inspiring, and culturally rich short story or narrative reading passage (80-140 words, calibrated for level ${userLevel}).
+- The story can be an inspiring personal journey, an interesting life anecdote, a travel discovery, a daily observation, or an uplifting life lesson.
+- Seamlessly weave the ${wordCount} target vocabulary words into the storyline so the learner absorbs them naturally in living context.
+- "situationType" MUST be "story" or "article".
+- "situationTitle" should be an evocative, uplifting title (e.g. "A Small Habit That Sparked Joy", "The Cozy Bakery Down the Lane", "Stepping Beyond Comfort Zones").
+- In "targetWords", each word's "exampleSentence" MUST quote or reflect the sentence in this story where the word appears!`;
+      }
+
       const userPrompt = `You are a Patient, Oxford/ETS Certified Master English Educator specializing in Vietnamese learners.
 Create a bespoke, engaging, zero-stress daily micro-lesson with precise pedagogical scaffolding.
 
@@ -291,6 +306,7 @@ Current Learner Level: ${userLevel}
 Theme / Topic: "${topic}" (Can be daily life, travel, dining, tech, or workplace)
 Number of Target Words: ${wordCount}
 ${levelGuidance}
+${storyGuidance}
 ${antiRepetitionRule}
 
 Format your response strictly as valid JSON enclosed in \`\`\`json and \`\`\`.
@@ -299,10 +315,10 @@ JSON Structure:
 {
   "topic": "${topic}",
   "userLevel": "${userLevel}",
-  "situationType": "email | memo | conversation | chat | announcement",
-  "situationTitle": "Engaging, concise title of the scenario",
-  "scenarioText": "Short, natural, level-appropriate English text",
-  "scenarioTranslationVi": "Natural, clear Vietnamese translation of the scenario",
+  "situationType": "story | article | email | memo | conversation | chat | announcement",
+  "situationTitle": "Engaging, concise title of the scenario or story",
+  "scenarioText": "Short, natural, level-appropriate English story or passage text",
+  "scenarioTranslationVi": "Natural, clear Vietnamese translation of the scenario or story",
   "targetWords": [
     {
       "term": "Target word or phrase",
@@ -500,25 +516,45 @@ JSON Structure:
     }
 
     case 'reading_lesson': {
-      const userLevel = (inputData.userLevel as string) || 'A1';
+      const userLevel = (inputData.userLevel as string) || (inputData.readingLevel as string) || 'B1';
       const topic = (inputData.topic as string) || 'Daily Life, Culture & Discovery';
 
-      let wordLimit = '50-80 words (clear, engaging, short sentences, friendly)';
-      if (userLevel === 'A2') wordLimit = '80-120 words (common real-life vocabulary and natural expressions)';
-      if (userLevel === 'B1') wordLimit = '120-160 words (intermediate story, article, guide, blog post, or message exchange)';
-      if (userLevel === 'B2') wordLimit = '160-200 words (advanced article, analysis, commentary, or formal document)';
+      // Parse target word count (default based on level, minimum 150 words for solid reading practice)
+      let defaultWords = 250;
+      if (userLevel === 'A1') defaultWords = 150;
+      else if (userLevel === 'A2') defaultWords = 200;
+      else if (userLevel === 'B1') defaultWords = 260;
+      else if (userLevel === 'B2') defaultWords = 350;
+      else if (userLevel === 'C1') defaultWords = 480;
+
+      const targetWordCount = typeof inputData.targetWordCount === 'number' && inputData.targetWordCount > 0
+        ? inputData.targetWordCount
+        : defaultWords;
+
+      const minWords = Math.max(80, Math.round(targetWordCount * 0.85));
+      const maxWords = Math.round(targetWordCount * 1.2);
+
+      let levelGuidance = 'A1 (Clear, simple syntax, high-frequency everyday vocabulary, friendly, welcoming tone)';
+      if (userLevel === 'A2') levelGuidance = 'A2 (Common real-life expressions, connected clauses, practical anecdotes or notices)';
+      if (userLevel === 'B1') levelGuidance = 'B1 (Intermediate vocabulary, natural transitions, compound-complex sentences, informative or narrative flow)';
+      if (userLevel === 'B2') levelGuidance = 'B2 (Upper-intermediate, nuanced vocabulary, formal/semi-formal tone, analytical insight, professional or editorial style)';
+      if (userLevel === 'C1') levelGuidance = 'C1 (Advanced academic/professional prose, sophisticated discourse markers, precise idiomatic language, high analytical depth)';
 
       const userPrompt = `You are a Master English Reading Comprehension Instructor for Vietnamese students.
-Create an authentic, level-appropriate reading passage for Level ${userLevel}.
-Topic: "${topic}" (Open theme: daily life, science, technology, travel, food, hobbies, culture, human stories, or practical communication).
-Target Length: ${wordLimit}
+Create an authentic, level-appropriate, and engaging reading passage for Level ${userLevel}.
+Topic: "${topic}" (Open theme: daily life, science, technology, travel, food, hobbies, culture, human stories, career, psychology, or modern society).
+
+LENGTH & STRUCTURE SPECIFICATIONS:
+- Target Length: Approximately ~${targetWordCount} words (Strictly between ${minWords} and ${maxWords} words).
+- CRITICAL REQUIREMENT: Do NOT generate a short snippet. Write a well-developed, multi-paragraph passage with natural paragraphs separated by double line breaks (\\n\\n). Ensure narrative depth, vivid details, authentic context, and cohesive transitions.
+- Pedagogical Standard: ${levelGuidance}.
 
 Requirements:
-1. Genre can be: article, story, blog post, review, guide, email, announcement, memo, chat, or notice.
+1. Genre can be: article, story, blog post, review, guide, email exchange, announcement, memo, interview, or personal essay.
 2. Provide an engaging, creative title.
-3. Keep sentences natural, modern, and well-structured.
-4. Provide a faithful, natural Vietnamese translation.
-5. Extract 3-4 key vocabulary words in context with IPA, Vietnamese meaning, and context hints.
+3. Keep sentences natural, modern, and grammatically rich according to Level ${userLevel}.
+4. Provide a faithful, natural, high-quality Vietnamese translation matching the paragraphs.
+5. Extract ${targetWordCount >= 300 ? '5-6' : '3-4'} key vocabulary words in context with IPA, Vietnamese meaning, and context hints.
 6. Create 1 multiple-choice comprehension check question with 4 options (randomize correctIndex 0-3) and a detailed pedagogical explanation in Vietnamese.
 
 Format strictly as JSON inside \`\`\`json and \`\`\`.
@@ -528,8 +564,9 @@ JSON Structure:
   "title": "Title of the passage",
   "userLevel": "${userLevel}",
   "topic": "${topic}",
-  "genre": "article | story | blog | review | guide | email | announcement | memo | chat | notice",
-  "passage": "Full English passage text",
+  "targetWordCount": ${targetWordCount},
+  "genre": "article | story | blog | review | guide | email | announcement | memo | interview | essay",
+  "passage": "Full English passage text with paragraphs separated by \\n\\n",
   "translationVi": "Natural Vietnamese translation",
   "keyVocabulary": [
     {

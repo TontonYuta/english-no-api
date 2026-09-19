@@ -70,6 +70,12 @@ export const ReadingLessonResultView: React.FC<ReadingLessonResultViewProps> = (
     return splitTextIntoSentences(result.passage || '');
   }, [result.passage]);
 
+  // Calculate actual word count of the passage
+  const wordCount = useMemo(() => {
+    if (!result.passage) return 0;
+    return result.passage.trim().split(/\s+/).filter(Boolean).length;
+  }, [result.passage]);
+
   // Clean up audio on unmount
   useEffect(() => {
     return () => {
@@ -183,8 +189,11 @@ export const ReadingLessonResultView: React.FC<ReadingLessonResultViewProps> = (
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-none bg-neutral-900 text-neutral-300 border border-neutral-800 uppercase">
                 {result.genre || 'Notice'}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-none bg-neutral-900 text-purple-300 border border-neutral-800">
-                LEVEL {result.userLevel || 'A1'}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-none bg-neutral-900 text-purple-300 border border-neutral-800 font-bold">
+                LEVEL {result.userLevel || 'B1'}
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-none bg-neutral-900 text-cyan-300 border border-neutral-800 font-bold">
+                📏 {wordCount} TỪ {result.targetWordCount ? `(MỤC TIÊU ~${result.targetWordCount}w)` : ''}
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">

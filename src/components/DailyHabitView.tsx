@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   TaskType,
   ChatbotProvider,
@@ -96,6 +96,17 @@ const VOCAB_TOPICS: TopicOption[] = [
   { id: 'health', label: '🏃 Sức Khỏe, Thể Thao & Đời Sống', enLabel: '🏃 Health & Sports', icon: '🏃' },
   { id: 'workplace', label: '💼 Công Sở, Đồng Nghiệp & Email', enLabel: '💼 Workplace & Email', icon: '💼' },
   { id: 'surprise', label: '🎲 Đa Dạng Tự Do / Ngẫu Nhiên', enLabel: '🎲 Smart Surprise', icon: '🎲' },
+];
+
+export const VOCAB_STORY_TOPICS: TopicOption[] = [
+  { id: 'inspiration', label: '🌟 Câu Chuyện Động Lực & Cảm Hứng Sống', enLabel: '🌟 Inspiring Stories', icon: '🌟' },
+  { id: 'anecdote', label: '☕ Chuyện Đời Thường & Khoảnh Khắc Hài Hước', enLabel: '☕ Daily Anecdotes', icon: '☕' },
+  { id: 'travel_tales', label: '✈️ Du Ký, Khám Phá Thế Giới & Ẩm Thực', enLabel: '✈️ Travel & Food', icon: '✈️' },
+  { id: 'tech_future', label: '💡 Khoa Học Kỳ Thú & Đổi Mới Công Nghệ', enLabel: '💡 Science & Innovation', icon: '💡' },
+  { id: 'mindfulness', label: '🧘 Tâm Lý Học, Hạnh Phúc & Cân Bằng', enLabel: '🧘 Mindfulness & Habits', icon: '🧘' },
+  { id: 'nature_wonders', label: '🐾 Thiên Nhiên, Rừng Xanh & Động Vật', enLabel: '🐾 Nature & Wildlife', icon: '🐾' },
+  { id: 'culture_discovery', label: '🎨 Nghệ Thuật, Âm Nhạc & Văn Hóa', enLabel: '🎨 Arts & Culture', icon: '🎨' },
+  { id: 'surprise_story', label: '🎲 Câu Chuyện Bất Ngờ Ngẫu Nhiên', enLabel: '🎲 Surprise Story', icon: '🎲' },
 ];
 
 const READING_TOPICS: TopicOption[] = [
@@ -224,9 +235,21 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
           translationVi: currentResult.data.translationVi,
           level: currentResult.data.userLevel || userLevel,
           topic: currentResult.data.topic || 'Business & Daily',
-          keyWords: (currentResult.data.keyVocabulary || []).map((k) => ({ term: k.term, meaning: k.meaning })),
+          keyWords: (currentResult.data.keyVocabulary || []).map((k: any) => ({ term: k.term, meaning: k.meaning || k.meaningVi || k.term })),
           questions: currentResult.data.comprehensionQuiz ? [currentResult.data.comprehensionQuiz] : [],
         });
+        if (currentResult.data.keyVocabulary && currentResult.data.keyVocabulary.length > 0) {
+          addLearnedWords(
+            currentResult.data.keyVocabulary.map((k: any) => ({
+              term: k.term,
+              ipa: k.ipa || '',
+              partOfSpeech: 'vocab',
+              vietnameseMeaning: k.meaning || k.meaningVi || k.term,
+              exampleSentence: k.contextHint || k.contextSentence || '',
+              level: currentResult.data.userLevel || userLevel,
+            }))
+          );
+        }
         setMemoryTick((prev) => prev + 1);
       } else if (currentResult.type === 'listening_lesson' && currentResult.data) {
         addLearnedListening({
@@ -249,11 +272,75 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
 
   // Topic & Grammar Focus States
   const [selectedVocabTopic, setSelectedVocabTopic] = useState<TopicOption>(VOCAB_TOPICS[0]);
+  const [selectedStoryTopic, setSelectedStoryTopic] = useState<TopicOption>(VOCAB_STORY_TOPICS[0]);
+  const [vocabLearningMethod, setVocabLearningMethod] = useState<'core' | 'reading'>('core');
+  const [customVocabTopic, setCustomVocabTopic] = useState<string>('');
+  const [customStoryTopic, setCustomStoryTopic] = useState<string>('');
   const [selectedReadingTopic, setSelectedReadingTopic] = useState<TopicOption>(READING_TOPICS[0]);
   const [selectedListeningTopic, setSelectedListeningTopic] = useState<TopicOption>(LISTENING_TOPICS[0]);
-  const [customVocabTopic, setCustomVocabTopic] = useState<string>('');
   const [customReadingTopic, setCustomReadingTopic] = useState<string>('');
   const [customListeningTopic, setCustomListeningTopic] = useState<string>('');
+
+  // Reading Level & Word Count Controls (Customizable by user)
+  const [readingLevel, setReadingLevel] = useState<'A1' | 'A2' | 'B1' | 'B2' | 'C1'>(() => {
+    try {
+      const saved = localStorage.getItem('playeng_reading_level');
+      if (saved && ['A1', 'A2', 'B1', 'B2', 'C1'].includes(saved)) {
+        return saved as 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
+      }
+    } catch {}
+    return (userLevel as 'A1' | 'A2' | 'B1' | 'B2') || 'B1';
+  });
+
+  const handleSetReadingLevel = (lvl: 'A1' | 'A2' | 'B1' | 'B2' | 'C1') => {
+    setReadingLevel(lvl);
+    try {
+      localStorage.setItem('playeng_reading_level', lvl);
+    } catch {}
+  };
+
+  type ReadingWordPreset = '150' | '250' | '400' | '600' | 'custom';
+  const [readingWordPreset, setReadingWordPreset] = useState<ReadingWordPreset>(() => {
+    try {
+      const saved = localStorage.getItem('playeng_reading_word_preset');
+      if (saved && ['150', '250', '400', '600', 'custom'].includes(saved)) {
+        return saved as ReadingWordPreset;
+      }
+    } catch {}
+    return '250';
+  });
+
+  const [customReadingWords, setCustomReadingWords] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('playeng_reading_custom_words');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 50 && val <= 1500) return val;
+      }
+    } catch {}
+    return 300;
+  });
+
+  const handleSetReadingWordPreset = (preset: ReadingWordPreset) => {
+    setReadingWordPreset(preset);
+    try {
+      localStorage.setItem('playeng_reading_word_preset', preset);
+    } catch {}
+  };
+
+  const handleSetCustomReadingWords = (count: number) => {
+    setCustomReadingWords(count);
+    try {
+      localStorage.setItem('playeng_reading_custom_words', count.toString());
+    } catch {}
+  };
+
+  const effectiveReadingWordCount = useMemo(() => {
+    if (readingWordPreset === 'custom') {
+      return customReadingWords || 300;
+    }
+    return parseInt(readingWordPreset, 10) || 250;
+  }, [readingWordPreset, customReadingWords]);
   const [selectedGrammarFocus, setSelectedGrammarFocus] = useState<GrammarFocus>(() => {
     try {
       const raw = localStorage.getItem('playeng_settings');
@@ -315,22 +402,45 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
     });
   };
 
-  // 1. Pillar 1 Generator: Vocab
-  const handleGenerateVocab = (overrideCount?: number, overrideTopic?: string) => {
+  // 1. Pillar 1 Generator: Vocab (Supports both Core Words and Inspiring Stories)
+  const handleGenerateVocab = (
+    overrideCount?: number,
+    overrideTopic?: string,
+    overrideMethod?: 'core' | 'reading'
+  ) => {
+    const method = overrideMethod || vocabLearningMethod;
     const settings = getSettings();
     const count = overrideCount || settings.dailyVocabCount || 3;
-    let topicStr = overrideTopic || customVocabTopic.trim() || selectedVocabTopic.label;
-    if (selectedVocabTopic.id === 'surprise' && !customVocabTopic.trim() && !overrideTopic) {
-      const randomVocabPool = [
-        'Thiên Nhiên, Động Vật Hoang Dã & Rừng Xanh (Nature & Wildlife)',
-        'Ẩm Thực Đường Phố & Gia Vị Đặc Trưng (Street Food & Spices)',
-        'Âm Nhạc, Nhạc Cụ & Lễ Hội Âm Nhạc (Music & Festivals)',
-        'Khám Phá Vũ Trụ & Các Ngôi Sao (Space & Galaxies)',
-        'Tâm Lý Học, Cảm Xúc & Tư Duy Tích Cực (Emotions & Positive Mindset)',
-        'Du Lịch Bụi & Văn Hóa Bản Địa (Backpacking & Local Cultures)',
-      ];
-      topicStr = randomVocabPool[Math.floor(Math.random() * randomVocabPool.length)];
+    let topicStr = '';
+
+    if (method === 'reading') {
+      topicStr = overrideTopic || customStoryTopic.trim() || selectedStoryTopic.label;
+      if (selectedStoryTopic.id === 'surprise_story' && !customStoryTopic.trim() && !overrideTopic) {
+        const randomStoryPool = [
+          'Một Thói Quen Nhỏ Buổi Sáng Thay Đổi Cuộc Đời (Morning Habit That Transformed Life)',
+          'Tiệm Bánh Cổ Điển Trong Con Hẻm Nhỏ Paris (Cozy Bakery in Paris)',
+          'Hành Trình Chinh Phục Ngọn Núi Đầu Tiên (First Mountain Trekking Adventure)',
+          'Người Bạn Bốn Chân Kỳ Diệu Giữa Phố Thị (A Rescued Dog and Urban Kindness)',
+          'Bước Ra Khỏi Vùng An Toàn Đam Mê Sáng Tạo (Stepping Beyond Comfort Zone)',
+          'Bí Ẩn Tách Cà Phê Lúc Bình Minh Bên Bờ Biển (Sunrise Coffee by the Ocean)',
+        ];
+        topicStr = randomStoryPool[Math.floor(Math.random() * randomStoryPool.length)];
+      }
+    } else {
+      topicStr = overrideTopic || customVocabTopic.trim() || selectedVocabTopic.label;
+      if (selectedVocabTopic.id === 'surprise' && !customVocabTopic.trim() && !overrideTopic) {
+        const randomVocabPool = [
+          'Thiên Nhiên, Động Vật Hoang Dã & Rừng Xanh (Nature & Wildlife)',
+          'Ẩm Thực Đường Phố & Gia Vị Đặc Trưng (Street Food & Spices)',
+          'Âm Nhạc, Nhạc Cụ & Lễ Hội Âm Nhạc (Music & Festivals)',
+          'Khám Phá Vũ Trụ & Các Ngôi Sao (Space & Galaxies)',
+          'Tâm Lý Học, Cảm Xúc & Tư Duy Tích Cực (Emotions & Positive Mindset)',
+          'Du Lịch Bụi & Văn Hóa Bản Địa (Backpacking & Local Cultures)',
+        ];
+        topicStr = randomVocabPool[Math.floor(Math.random() * randomVocabPool.length)];
+      }
     }
+
     const excludeTerms = getExcludeWordsList();
     markStepCompleted('vocab');
     onRunDailyTask('toeic_lesson', {
@@ -338,7 +448,9 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
       userLevel,
       excludeTerms,
       wordCount: count,
-      modeFocus: 'vocab',
+      vocabMethod: method,
+      situationType: method === 'reading' ? 'story' : 'email',
+      modeFocus: method === 'reading' ? 'reading' : 'vocab',
     });
   };
 
@@ -374,8 +486,9 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
     const excludeTerms = getExcludeWordsList();
     markStepCompleted('reading');
     onRunDailyTask('reading_lesson', {
-      topic: `${topicStr} (Level ${userLevel})`,
-      userLevel,
+      topic: `${topicStr} (Level ${readingLevel})`,
+      userLevel: readingLevel,
+      targetWordCount: effectiveReadingWordCount,
       excludeTerms,
     });
   };
@@ -1125,15 +1238,33 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
               <>
                 <button
                   type="button"
-                  onClick={() => setSubModeForCurrent('learn')}
+                  onClick={() => {
+                    setSubModeForCurrent('learn');
+                    setVocabLearningMethod('core');
+                  }}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all duration-150 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                    currentSubMode === 'learn'
+                    currentSubMode === 'learn' && vocabLearningMethod === 'core'
                       ? 'bg-zinc-800 text-white border border-zinc-700/80 shadow-sm'
                       : 'bg-zinc-850/40 text-neutral-400 hover:text-neutral-200 border border-zinc-800/60'
                   }`}
                 >
                   <BookOpen className="w-4 h-4 text-sky-400" />
-                  <span>[ 📖 HỌC TỪ MỚI &amp; WORDFORM ]</span>
+                  <span>[ ⚡ TỪ CỐT LÕI &amp; WORDFORM ]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubModeForCurrent('learn');
+                    setVocabLearningMethod('reading');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all duration-150 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                    currentSubMode === 'learn' && vocabLearningMethod === 'reading'
+                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm'
+                      : 'bg-zinc-850/40 text-neutral-400 hover:text-emerald-300 border border-zinc-800/60'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>[ 📖 TỪ VỰNG QUA BÀI ĐỌC ]</span>
                 </button>
                 <button
                   type="button"
@@ -1144,7 +1275,7 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
                       : 'bg-zinc-850/40 text-neutral-400 hover:text-amber-300 border border-zinc-800/60'
                   }`}
                 >
-                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <Bookmark className="w-4 h-4 text-amber-400" />
                   <span>[ 🎴 FLASHCARD ÔN TẬP ({learnedWords.length}) ]</span>
                 </button>
                 <button
@@ -1320,24 +1451,29 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
       )}
 
       {/* =========================================================
-          PANEL 1: TỪ VỰNG CỐT LÕI (Daily Core Vocabulary)
+          PANEL 1: TỪ VỰNG CỐT LÕI & TỪ VỰNG QUA BÀI ĐỌC
       ========================================================= */}
       {activeTab === 'vocab' && currentSubMode === 'learn' && (
         <div className="p-6 rounded-xl bg-zinc-900/70 border border-zinc-800/80 shadow-sm space-y-5 backdrop-blur-sm">
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800/80">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/30 flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5 text-sky-400" />
-                  <span>TRỤ CỘT 01: TỪ VỰNG CỐT LÕI</span>
+                  <span>TRỤ CỘT 01: NẠP TỪ VỰNG TIẾNG ANH</span>
                 </span>
                 <span className="text-xs font-mono text-neutral-400">[ LEVEL {userLevel} ]</span>
               </div>
               <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
-                NẠP 3 TỪ VỰNG / COLLOCATIONS VÀNG (1-CLICK AI)
+                {vocabLearningMethod === 'reading'
+                  ? '📖 HỌC TỪ VỰNG QUA BÀI ĐỌC & CÂU CHUYỆN TRUYỀN CẢM HỨNG'
+                  : '⚡ NẠP 3 TỪ VỰNG CỐT LÕI & BIẾN THỂ WORD FORM'}
               </h3>
               <p className="text-xs text-neutral-400 mt-1">
-                AI sẽ soạn 3 từ vựng thiết yếu nhất theo trình độ <strong>{userLevel}</strong>, kèm hướng dẫn phát âm tiếng Việt (ví dụ: Colleague → <em>"CÓ-li-gừ"</em>) và ngữ cảnh đề thi.
+                {vocabLearningMethod === 'reading'
+                  ? 'Đắm chìm vào những câu chuyện truyền cảm hứng, du ký và mẩu chuyện đời thường lôi cuốn. Từ vựng được tô sáng trực tiếp trong ngữ cảnh, có âm thanh Karaoke và tự động lưu vào bộ nhớ.'
+                  : `AI sẽ soạn 3 từ vựng thiết yếu nhất theo trình độ ${userLevel}, kèm hướng dẫn phát âm tiếng Việt (ví dụ: Colleague → "CÓ-li-gừ") và bài tập dạng từ Part 5.`}
               </p>
             </div>
 
@@ -1346,86 +1482,235 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
             </div>
           </div>
 
-          {/* Theme Selection */}
-          <div className="space-y-2">
-            <label className="block text-xs font-mono font-bold text-neutral-300 uppercase">
-              CHỦ ĐỀ NẠP TỪ HÔM NAY:
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {VOCAB_TOPICS.map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedVocabTopic(topic);
-                    setCustomVocabTopic('');
-                  }}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all duration-150 cursor-pointer ${
-                    selectedVocabTopic.id === topic.id && !customVocabTopic.trim()
-                      ? 'bg-sky-600 text-white font-bold border border-sky-400 shadow-sm'
-                      : 'bg-zinc-850/60 text-neutral-300 hover:bg-zinc-800 hover:text-white border border-zinc-750'
-                  }`}
-                >
-                  <span>{topic.icon}</span>
-                  <span>{topic.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Vocab Topic Input */}
-            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <span className="text-xs font-mono text-neutral-400 shrink-0 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                <span>HOẶC TỰ NHẬP CHỦ ĐỀ BẤT KỲ:</span>
-              </span>
-              <div className="flex-1 flex items-center gap-1.5 bg-zinc-850/70 border border-zinc-750 rounded-lg px-3 py-2">
-                <input
-                  type="text"
-                  value={customVocabTopic}
-                  onChange={(e) => setCustomVocabTopic(e.target.value)}
-                  placeholder="Nhập bất kỳ chủ đề nào (VD: Nuôi mèo, Leo núi, Du hành vũ trụ, Nấu ăn...)"
-                  className="w-full bg-transparent text-xs text-white placeholder-neutral-500 outline-none font-sans"
-                />
-                {customVocabTopic && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomVocabTopic('')}
-                    className="text-[10px] font-mono text-neutral-400 hover:text-white underline cursor-pointer shrink-0"
-                  >
-                    Xóa
-                  </button>
-                )}
+          {/* Mode Selector Switcher Tabs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 rounded-xl bg-zinc-950/60 border border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setVocabLearningMethod('core')}
+              className={`p-3 rounded-lg text-left transition-all duration-150 cursor-pointer flex items-start gap-3 ${
+                vocabLearningMethod === 'core'
+                  ? 'bg-zinc-850 border border-sky-500/40 shadow-sm'
+                  : 'hover:bg-zinc-900 border border-transparent'
+              }`}
+            >
+              <div className={`p-2 rounded-lg shrink-0 ${vocabLearningMethod === 'core' ? 'bg-sky-500/20 text-sky-400' : 'bg-zinc-800 text-neutral-400'}`}>
+                <Zap className="w-4 h-4" />
               </div>
-            </div>
-          </div>
-
-          {/* Action Trigger */}
-          <div className="pt-4 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-            {!focusMode ? (
-              <div className="text-xs font-mono text-neutral-400 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
-                <span>
-                  ENGINE: <strong className="text-white">{provider.toUpperCase()}</strong>
-                </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs font-bold ${vocabLearningMethod === 'core' ? 'text-white' : 'text-neutral-300'}`}>
+                    ⚡ Nạp Từ Cốt Lõi &amp; Word Form
+                  </span>
+                  {vocabLearningMethod === 'core' && (
+                    <span className="text-[10px] font-mono font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30">
+                      ĐANG CHỌN
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">
+                  Ngắn gọn, trọng tâm thi cử &amp; giao tiếp chuẩn xác, bảng họ từ Noun/Verb/Adj/Adv.
+                </p>
               </div>
-            ) : <div />}
+            </button>
 
             <button
               type="button"
-              disabled={isAutomating}
-              onClick={() => handleGenerateVocab()}
-              className={`w-full sm:w-auto px-7 py-3 rounded-lg font-bold text-xs uppercase tracking-wider text-white transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md ${
-                isAutomating
-                  ? 'bg-zinc-800 text-neutral-400 cursor-not-allowed border border-zinc-700'
-                  : 'bg-sky-600 hover:bg-sky-500 border border-sky-400/80'
+              onClick={() => setVocabLearningMethod('reading')}
+              className={`p-3 rounded-lg text-left transition-all duration-150 cursor-pointer flex items-start gap-3 ${
+                vocabLearningMethod === 'reading'
+                  ? 'bg-zinc-850 border border-emerald-500/40 shadow-sm'
+                  : 'hover:bg-zinc-900 border border-transparent'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-white" />
-              <span>
-                {isAutomating ? 'AI ĐANG SOẠN TỪ VỰNG...' : '🚀 TẠO BÀI TỪ VỰNG HÔM NAY (1-CLICK)'}
-              </span>
+              <div className={`p-2 rounded-lg shrink-0 ${vocabLearningMethod === 'reading' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-neutral-400'}`}>
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs font-bold ${vocabLearningMethod === 'reading' ? 'text-white' : 'text-neutral-300'}`}>
+                    📖 Học Qua Bài Đọc &amp; Câu Chuyện
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                    ✨ TĂNG CẢM HỨNG
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">
+                  Câu chuyện lôi cuốn, từ vựng tô sáng tương tác, Karaoke âm thanh và ngữ cảnh sống động.
+                </p>
+              </div>
             </button>
           </div>
+
+          {/* METHOD 1: CORE VOCABULARY SELECTION */}
+          {vocabLearningMethod === 'core' && (
+            <div className="space-y-4 pt-1">
+              <div className="space-y-2">
+                <label className="block text-xs font-mono font-bold text-neutral-300 uppercase">
+                  CHỦ ĐỀ NẠP TỪ HÔM NAY:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {VOCAB_TOPICS.map((topic) => (
+                    <button
+                      key={topic.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVocabTopic(topic);
+                        setCustomVocabTopic('');
+                      }}
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all duration-150 cursor-pointer ${
+                        selectedVocabTopic.id === topic.id && !customVocabTopic.trim()
+                          ? 'bg-sky-600 text-white font-bold border border-sky-400 shadow-sm'
+                          : 'bg-zinc-850/60 text-neutral-300 hover:bg-zinc-800 hover:text-white border border-zinc-750'
+                      }`}
+                    >
+                      <span>{topic.icon}</span>
+                      <span>{topic.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Vocab Topic Input */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <span className="text-xs font-mono text-neutral-400 shrink-0 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    <span>HOẶC TỰ NHẬP CHỦ ĐỀ BẤT KỲ:</span>
+                  </span>
+                  <div className="flex-1 flex items-center gap-1.5 bg-zinc-850/70 border border-zinc-750 rounded-lg px-3 py-2">
+                    <input
+                      type="text"
+                      value={customVocabTopic}
+                      onChange={(e) => setCustomVocabTopic(e.target.value)}
+                      placeholder="Nhập bất kỳ chủ đề nào (VD: Nuôi mèo, Leo núi, Du hành vũ trụ, Nấu ăn...)"
+                      className="w-full bg-transparent text-xs text-white placeholder-neutral-500 outline-none font-sans"
+                    />
+                    {customVocabTopic && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomVocabTopic('')}
+                        className="text-[10px] font-mono text-neutral-400 hover:text-white underline cursor-pointer shrink-0"
+                      >
+                        Xóa
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Trigger */}
+              <div className="pt-4 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                {!focusMode ? (
+                  <div className="text-xs font-mono text-neutral-400 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-400" />
+                    <span>
+                      ENGINE: <strong className="text-white">{provider.toUpperCase()}</strong>
+                    </span>
+                  </div>
+                ) : <div />}
+
+                <button
+                  type="button"
+                  disabled={isAutomating}
+                  onClick={() => handleGenerateVocab(undefined, undefined, 'core')}
+                  className={`w-full sm:w-auto px-7 py-3 rounded-lg font-bold text-xs uppercase tracking-wider text-white transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md ${
+                    isAutomating
+                      ? 'bg-zinc-800 text-neutral-400 cursor-not-allowed border border-zinc-700'
+                      : 'bg-sky-600 hover:bg-sky-500 border border-sky-400/80'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-white" />
+                  <span>
+                    {isAutomating ? 'AI ĐANG SOẠN TỪ VỰNG...' : '🚀 TẠO BÀI TỪ VỰNG HÔM NAY (1-CLICK)'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* METHOD 2: VOCABULARY THROUGH INSPIRING STORIES */}
+          {vocabLearningMethod === 'reading' && (
+            <div className="space-y-4 pt-1">
+              <div className="space-y-2">
+                <label className="block text-xs font-mono font-bold text-neutral-300 uppercase flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>CHỌN CHỦ ĐỀ CÂU CHUYỆN TRUYỀN CẢM HỨNG:</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {VOCAB_STORY_TOPICS.map((topic) => (
+                    <button
+                      key={topic.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStoryTopic(topic);
+                        setCustomStoryTopic('');
+                      }}
+                      className={`p-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all duration-150 cursor-pointer text-left ${
+                        selectedStoryTopic.id === topic.id && !customStoryTopic.trim()
+                          ? 'bg-emerald-600 text-white font-bold border border-emerald-400 shadow-sm'
+                          : 'bg-zinc-850/60 text-neutral-300 hover:bg-zinc-800 hover:text-white border border-zinc-750'
+                      }`}
+                    >
+                      <span className="text-base shrink-0">{topic.icon}</span>
+                      <span className="leading-snug">{topic.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Story Topic Input */}
+                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <span className="text-xs font-mono text-neutral-400 shrink-0 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>HOẶC TỰ NHẬP CÂU CHUYỆN BẠN THÍCH:</span>
+                  </span>
+                  <div className="flex-1 flex items-center gap-1.5 bg-zinc-850/70 border border-zinc-750 rounded-lg px-3 py-2">
+                    <input
+                      type="text"
+                      value={customStoryTopic}
+                      onChange={(e) => setCustomStoryTopic(e.target.value)}
+                      placeholder="VD: Chuyến tàu đêm qua dãy Alps, Tiệm sách cũ ở London, Chú mèo tìm đường về nhà..."
+                      className="w-full bg-transparent text-xs text-white placeholder-neutral-500 outline-none font-sans"
+                    />
+                    {customStoryTopic && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomStoryTopic('')}
+                        className="text-[10px] font-mono text-neutral-400 hover:text-white underline cursor-pointer shrink-0"
+                      >
+                        Xóa
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Story Action Trigger */}
+              <div className="pt-4 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                {!focusMode ? (
+                  <div className="text-xs font-mono text-neutral-400 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span>
+                      ENGINE: <strong className="text-white">{provider.toUpperCase()}</strong> [ STORY MODE ]
+                    </span>
+                  </div>
+                ) : <div />}
+
+                <button
+                  type="button"
+                  disabled={isAutomating}
+                  onClick={() => handleGenerateVocab(undefined, undefined, 'reading')}
+                  className={`w-full sm:w-auto px-7 py-3 rounded-lg font-bold text-xs uppercase tracking-wider text-white transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer shadow-md ${
+                    isAutomating
+                      ? 'bg-zinc-800 text-neutral-400 cursor-not-allowed border border-zinc-700'
+                      : 'bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/80'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4 text-white" />
+                  <span>
+                    {isAutomating ? 'AI ĐANG VIẾT CÂU CHUYỆN...' : '📖 TẠO CÂU CHUYỆN HỌC TỪ VỰNG (1-CLICK AI)'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1602,20 +1887,115 @@ export const DailyHabitView: React.FC<DailyHabitViewProps> = ({
             </div>
           </div>
 
-          {/* Level Guidance Preview */}
-          <div className="p-4 rounded-xl bg-zinc-850/60 border-l-4 border-l-emerald-500 border-y border-r border-zinc-800/80 space-y-1.5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400 block">
-              [ HƯỚNG DẪN ĐỌC HIỂU LEVEL {userLevel} ]:
-            </span>
-            <p className="text-xs text-neutral-300 leading-relaxed font-sans">
-              {userLevel === 'A1'
-                ? 'Đoạn văn ngắn 35-50 từ, từ vựng cơ bản, mẫu câu đơn giản, có bản dịch tiếng Việt đi kèm.'
-                : userLevel === 'A2'
-                ? 'Đoạn văn 60-80 từ: thông báo lịch trình, memo ngắn văn phòng, email trao đổi công việc.'
-                : userLevel === 'B1'
-                ? 'Đoạn văn 90-120 từ: đề xuất dự án, thông cáo báo chí, khiếu nại dịch vụ và đàm phán hợp đồng.'
-                : 'Đoạn văn 120-150 từ: hợp đồng pháp lý, điều khoản bảo hành phức tạp, bẫy từ đồng nghĩa TOEIC 700+.'}
-            </p>
+          {/* Reading Level & Word Count Controls */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 rounded-xl bg-zinc-850/60 border border-zinc-800/80">
+            {/* 1. Reading Level Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-mono font-bold text-neutral-200 uppercase flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>1. MỨC ĐỘ BÀI ĐỌC (CEFR LEVEL):</span>
+                </label>
+                <span className="text-[11px] font-mono text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
+                  {readingLevel}
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {(['A1', 'A2', 'B1', 'B2', 'C1'] as const).map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => handleSetReadingLevel(lvl)}
+                    className={`py-2 px-1 rounded-lg text-center font-mono text-xs font-bold transition-all cursor-pointer border ${
+                      readingLevel === lvl
+                        ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm shadow-emerald-900/50 scale-[1.02]'
+                        : 'bg-zinc-800/80 hover:bg-zinc-750 text-neutral-300 border-zinc-700 hover:text-white'
+                    }`}
+                  >
+                    <div>{lvl}</div>
+                    <div className="text-[9px] font-sans font-normal opacity-80 mt-0.5">
+                      {lvl === 'A1'
+                        ? 'Cơ bản'
+                        : lvl === 'A2'
+                        ? 'Sơ cấp'
+                        : lvl === 'B1'
+                        ? 'Trung cấp'
+                        : lvl === 'B2'
+                        ? 'TOEIC 700'
+                        : 'IELTS 7.5'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-neutral-400 font-sans leading-relaxed pt-1">
+                {readingLevel === 'A1'
+                  ? 'A1 (Cơ bản): Câu ngắn rõ ràng, từ vựng thông dụng hàng ngày, giọng văn thân thiện, có bản dịch song ngữ chi tiết.'
+                  : readingLevel === 'A2'
+                  ? 'A2 (Sơ cấp): Giao tiếp đời sống, câu ghép tự nhiên, thông báo ngắn, tình huống mua sắm, du lịch, nhà hàng.'
+                  : readingLevel === 'B1'
+                  ? 'B1 (Trung cấp): Đọc hiểu văn sự, bài viết blog, email trao đổi, liên kết câu mạch lạc, chuẩn B1 / TOEIC 550+.'
+                  : readingLevel === 'B2'
+                  ? 'B2 (Trung cao): Báo chí, phân tích, thông cáo, hợp đồng, bình luận sâu sắc, từ vựng phong phú, chuẩn TOEIC 700+.'
+                  : 'C1 (Cao cấp): Văn phong học thuật, tiểu luận chuyên sâu, bài viết tạp chí, cấu trúc đa tầng, chuẩn IELTS 7.5+ / C1.'}
+              </p>
+            </div>
+
+            {/* 2. Target Word Count Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-mono font-bold text-neutral-200 uppercase flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                  <span>2. SỐ TỪ & ĐỘ DÀI BÀI ĐỌC:</span>
+                </label>
+                <span className="text-[11px] font-mono text-cyan-300 font-bold bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
+                  ~{effectiveReadingWordCount} TỪ
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                {[
+                  { id: '150', label: '150 từ', sub: 'Ngắn gọn' },
+                  { id: '250', label: '250 từ', sub: 'Chuẩn đẹp' },
+                  { id: '400', label: '400 từ', sub: 'Dài bài báo' },
+                  { id: '600', label: '600 từ', sub: 'Chuyên sâu' },
+                  { id: 'custom', label: 'Tùy chỉnh', sub: `${customReadingWords}w` },
+                ].map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSetReadingWordPreset(preset.id as ReadingWordPreset)}
+                    className={`py-2 px-1 rounded-lg text-center font-mono text-xs font-bold transition-all cursor-pointer border ${
+                      readingWordPreset === preset.id
+                        ? 'bg-cyan-600 text-white border-cyan-400 shadow-sm shadow-cyan-900/50 scale-[1.02]'
+                        : 'bg-zinc-800/80 hover:bg-zinc-750 text-neutral-300 border-zinc-700 hover:text-white'
+                    }`}
+                  >
+                    <div>{preset.label}</div>
+                    <div className="text-[9px] font-sans font-normal opacity-80 mt-0.5">{preset.sub}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Word Count Input if selected */}
+              {readingWordPreset === 'custom' ? (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs font-mono text-neutral-300 shrink-0">Nhập số từ mong muốn:</span>
+                  <input
+                    type="number"
+                    min={80}
+                    max={1200}
+                    step={25}
+                    value={customReadingWords}
+                    onChange={(e) => handleSetCustomReadingWords(Math.max(50, Math.min(1500, parseInt(e.target.value, 10) || 250)))}
+                    className="w-24 bg-zinc-900 border border-cyan-500 rounded px-2.5 py-1 text-xs font-mono text-white text-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  />
+                  <span className="text-xs font-mono text-neutral-400">từ (80 - 1200 từ)</span>
+                </div>
+              ) : (
+                <p className="text-[11px] text-neutral-400 font-sans leading-relaxed pt-1">
+                  Độ dài mục tiêu: <strong className="text-cyan-300 font-mono">~{effectiveReadingWordCount} từ</strong> (Bài đọc chia {effectiveReadingWordCount >= 500 ? '4 - 6' : effectiveReadingWordCount >= 300 ? '3 - 4' : '2 - 3'} đoạn văn hoàn chỉnh, phát triển ý đầy đủ, không bị ngắn cụt).
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Reading Topic Selector */}

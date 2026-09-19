@@ -1,0 +1,37 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=PlayEng Studio
+GenericName=English AI Learning Studio
+GenericName[vi]=Phòng Luyện Tiếng Anh AI
+Comment=Ứng Dụng Học Tiếng Anh Thông Minh Tự Động Hóa Qua Playwright (No API Key)
+Comment[en]=Smart English Learning Studio automated via Playwright (No API Key)
+Exec=/home/tontonyuta/.local/bin/playeng-studio %U
+Path=/home/tontonyuta/english-no-api
+Icon=/home/tontonyuta/.local/share/icons/playeng-studio.png
+Terminal=false
+Categories=Education;Languages;
+Keywords=english;hoc;tieng;anh;ielts;cambridge;cefr;vocab;grammar;roleplay;playwright;ai;
+StartupWMClass=playeng-studio
+StartupNotify=true
+Actions=NewWindow;RebuildApp;StopServer;RestartServer;
+
+[Desktop Action NewWindow]
+Name=Mở cửa sổ mới
+Name[en]=New Window
+Exec=/home/tontonyuta/.local/bin/playeng-studio
+
+[Desktop Action RebuildApp]
+Name=Build lại ứng dụng (Cập nhật code mới)
+Name[en]=Rebuild App (Update Code)
+Exec=/home/tontonyuta/.local/bin/playeng-studio rebuild
+
+[Desktop Action StopServer]
+Name=Dừng máy chủ nền
+Name[en]=Stop Background Server
+Exec=/home/tontonyuta/.local/bin/playeng-studio stop
+
+[Desktop Action RestartServer]
+Name=Khởi động lại máy chủ
+Name[en]=Restart Background Server
+Exec=/home/tontonyuta/.local/bin/playeng-studio restart
