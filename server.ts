@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { chromium } from 'playwright-core';
 import { createServer as createViteServer } from 'vite';
-import { runChatbotPipeline } from './server/playwrightEngine';
+import { runChatbotPipeline, getDefaultProfileDir } from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
 import { generateContextualReply } from './src/utils/chatUtils';
@@ -128,7 +128,7 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
 
 // Playwright Engine Status endpoint
 app.get('/api/playwright/status', (req: Request, res: Response) => {
-  const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+  const profileDir = getDefaultProfileDir();
   res.json({
     ready: true,
     supportedProviders: ['fast', 'gemini', 'chatgpt', 'antigravity'],
@@ -150,7 +150,7 @@ app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
   try {
     const provider = req.body?.provider || 'gemini';
     const targetUrl = provider === 'chatgpt' ? 'https://chatgpt.com' : 'https://gemini.google.com/app';
-    const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+    const profileDir = req.body?.userDataDir ? path.resolve(req.body.userDataDir) : getDefaultProfileDir();
     if (!fs.existsSync(profileDir)) {
       fs.mkdirSync(profileDir, { recursive: true });
     }
@@ -427,7 +427,7 @@ app.get('/api/playwright/stream', async (req: Request, res: Response) => {
     const taskType: TaskType = (params.taskType as TaskType) || 'writing';
     const provider: ChatbotProvider = (params.provider as ChatbotProvider) || 'fast';
     const headless = params.headless !== 'false' && params.headless !== false;
-    const userDataDir = (params.userDataDir as string) || '.playwright-profile';
+    const userDataDir = (params.userDataDir as string) || getDefaultProfileDir();
     const simulateIfBlocked = params.simulateIfBlocked !== 'false' && params.simulateIfBlocked !== false;
 
     const config: PlaywrightConfig = {
@@ -455,7 +455,7 @@ app.post('/api/playwright/run', async (req: Request, res: Response) => {
     const fullConfig: PlaywrightConfig = {
       provider: config.provider || 'gemini',
       headless: config.headless !== false,
-      userDataDir: config.userDataDir || '.playwright-profile',
+      userDataDir: config.userDataDir || getDefaultProfileDir(),
       timeoutMs: config.timeoutMs || 35000,
       simulateIfBlocked: config.simulateIfBlocked !== false,
       geminiApiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,

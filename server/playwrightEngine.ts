@@ -1,7 +1,25 @@
 import { chromium, BrowserContext, Page } from 'playwright-core';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { execFile } from 'child_process';
+
+export function getDefaultProfileDir(): string {
+  if (process.env.PLAYENG_PROFILE_DIR) {
+    return process.env.PLAYENG_PROFILE_DIR;
+  }
+  try {
+    const cwd = process.cwd();
+    if (!cwd.startsWith('/opt') && fs.existsSync(path.resolve(cwd, 'package.json'))) {
+      fs.accessSync(cwd, fs.constants.W_OK);
+      return path.resolve(cwd, '.playwright-profile');
+    }
+  } catch {}
+
+  const homeDir = os.homedir();
+  const configDir = process.env.XDG_CONFIG_HOME || path.join(homeDir, '.config');
+  return path.join(configDir, 'playeng-studio', 'playwright-profile');
+}
 import {
   ChatbotProvider,
   PipelineStepId,
@@ -301,9 +319,10 @@ export async function runChatbotPipeline(options: RunPipelineOptions): Promise<T
     emitLog('info', 'launching_browser', `Initializing Playwright persistent context`, `Headless: ${config.headless}`);
 
     // Resolve user data directory
-    const resolvedUserDataDir = path.isAbsolute(config.userDataDir)
-      ? config.userDataDir
-      : path.resolve(process.cwd(), config.userDataDir);
+    const targetDir = config.userDataDir || getDefaultProfileDir();
+    const resolvedUserDataDir = path.isAbsolute(targetDir)
+      ? targetDir
+      : (targetDir === '.playwright-profile' ? getDefaultProfileDir() : path.resolve(process.cwd(), targetDir));
 
     if (!fs.existsSync(resolvedUserDataDir)) {
       fs.mkdirSync(resolvedUserDataDir, { recursive: true });
@@ -754,7 +773,7 @@ export async function generatePassageWithGeminiPlaywright(params: {
   const { level, topic, customTopic, timeoutMs = 40000 } = params;
   const prompt = buildGeminiPassagePrompt(level, topic, customTopic);
 
-  const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+  const profileDir = getDefaultProfileDir();
   if (!fs.existsSync(profileDir)) {
     fs.mkdirSync(profileDir, { recursive: true });
   }

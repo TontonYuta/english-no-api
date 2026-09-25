@@ -123,8 +123,11 @@ start_server() {
     echo "[PlayEng Studio] Starting background server..."
     cd "$APP_DIR"
 
+    export PLAYENG_PROFILE_DIR="$CONFIG_DIR/playwright-profile"
+    mkdir -p "$PLAYENG_PROFILE_DIR"
+
     # Start Node server as independent daemon using setsid
-    NODE_ENV=production setsid node "$APP_DIR/dist/server.cjs" >> "$LOG_FILE" 2>&1 < /dev/null &
+    PLAYENG_PROFILE_DIR="$PLAYENG_PROFILE_DIR" NODE_ENV=production setsid node "$APP_DIR/dist/server.cjs" >> "$LOG_FILE" 2>&1 < /dev/null &
     local server_pid=$!
     disown $server_pid 2>/dev/null || true
     echo "$server_pid" > "$PID_FILE"
