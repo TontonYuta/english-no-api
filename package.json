@@ -1,14 +1,16 @@
 {
-  "name": "react-example",
+  "name": "playeng-studio",
+  "version": "1.0.0",
+  "description": "PlayEng Studio - Smart AI English Learning Studio (No API Key Required)",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build:deb": "bash scripts/build-deb.sh",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist server.js dist-deb",
     "lint": "tsc --noEmit",
     "test": "tsx tests/memoryAndLessons.test.ts"
   },

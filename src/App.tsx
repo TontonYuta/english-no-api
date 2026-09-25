@@ -5,58 +5,23 @@ import {
   PipelineStep,
   AutomationLog,
   TaskResult,
-  PipelineStepId,
-  RoleplayLength,
   DialogueDifficulty,
+  CEFRLevel,
   Language,
   AppSettings,
-  MainTabType,
-  RoleplayResult,
 } from './types';
 import { Navbar } from './components/Navbar';
-import { DailyHabitView } from './components/DailyHabitView';
-import { TaskSelector } from './components/TaskSelector';
-import { WritingForm } from './components/forms/WritingForm';
-import { VocabForm } from './components/forms/VocabForm';
-import { RoleplayForm } from './components/forms/RoleplayForm';
-import { QuizForm } from './components/forms/QuizForm';
 import { AutomationModal } from './components/AutomationModal';
 import { PromptPreviewModal } from './components/PromptPreviewModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MobileRemoteModal } from './components/remote/MobileRemoteModal';
-import { MobileRemoteView } from './components/remote/MobileRemoteView';
-import { WritingResultView } from './components/results/WritingResultView';
-import { VocabResultView } from './components/results/VocabResultView';
-import { RoleplayResultView } from './components/results/RoleplayResultView';
-import { QuizResultView } from './components/results/QuizResultView';
-import { ToeicLessonResultView } from './components/results/ToeicLessonResultView';
-import { GrammarLessonResultView } from './components/results/GrammarLessonResultView';
-import { ReadingLessonResultView } from './components/results/ReadingLessonResultView';
-import { ListeningLessonResultView } from './components/results/ListeningLessonResultView';
-import { ReflexChallengeResultView } from './components/results/ReflexChallengeResultView';
+import { TranslationVocabStudio } from './components/translation/TranslationVocabStudio';
+import { MemoryBankModal } from './components/MemoryBankModal';
 import {
   addLearnedWords,
-  addLearnedGrammar,
   addLearnedReading,
-  addLearnedListening
 } from './utils/learningMemory';
-import { getOpeningChatMessage } from './utils/chatUtils';
-import { generateCombinedQuizQuestions } from './utils/quizUtils';
 import { translations } from './translations';
-import {
-  Play,
-  Terminal,
-  FileCode2,
-  Sparkles,
-  ShieldCheck,
-  CheckCircle2,
-  Cpu,
-  Settings,
-  Globe,
-  MessageSquare,
-  PenTool,
-  HelpCircle,
-} from 'lucide-react';
 
 const DEFAULT_SETTINGS: AppSettings = {
   language: 'vi',
@@ -66,14 +31,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   speechVoice: 'en-US',
   defaultRoleplayLength: 'medium',
   defaultRoleplayDifficulty: 'B2',
-  defaultUserRole: 'Hành khách (Passenger)',
-  defaultAiRole: 'Nhân viên quầy làm thủ tục (Agent)',
+  defaultUserRole: 'Passenger',
+  defaultAiRole: 'Officer',
   simulateIfBlocked: true,
   userLevel: 'A1',
   focusMode: false,
-  quizQuestionCount: 5,
-  quizIncludeVocab: true,
-  quizIncludeGrammar: true,
 };
 
 function getSavedSettings(): AppSettings {
@@ -135,22 +97,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const [currentTab, setCurrentTab] = useState<MainTabType>(() => {
-    return (localStorage.getItem('playeng_current_tab') as MainTabType) || 'today';
-  });
-  const [isScenarioDrawerOpen, setIsScenarioDrawerOpen] = useState(false);
-
-  const handleSetCurrentTab = (tab: MainTabType) => {
-    setCurrentTab(tab);
-    localStorage.setItem('playeng_current_tab', tab);
-  };
-
-  const [userLevel, setUserLevel] = useState<'A1' | 'A2' | 'B1' | 'B2'>(() => {
-    return (localStorage.getItem('playeng_user_level') as 'A1' | 'A2' | 'B1' | 'B2') || settings.userLevel || 'A1';
+  const [userLevel, setUserLevel] = useState<CEFRLevel>(() => {
+    return (localStorage.getItem('playeng_user_level') as CEFRLevel) || settings.userLevel || 'B1';
   });
 
-  const handleSetUserLevel = (lvl: 'A1' | 'A2' | 'B1' | 'B2') => {
+  const handleSetUserLevel = (lvl: CEFRLevel) => {
     setUserLevel(lvl);
+    setPassageDifficulty(lvl as DialogueDifficulty);
     localStorage.setItem('playeng_user_level', lvl);
     setSettings((prev) => ({ ...prev, userLevel: lvl }));
   };
@@ -179,75 +132,80 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileRemoteModalOpen, setIsMobileRemoteModalOpen] = useState(false);
-  const [isMobileRemoteMode, setIsMobileRemoteMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return (
-        window.location.pathname.startsWith('/remote') ||
-        window.location.search.includes('remote')
-      );
-    }
-    return false;
-  });
 
   const t = translations[lang];
 
-  const [activeTask, setActiveTask] = useState<TaskType>('writing');
+  const [activeTask, setActiveTask] = useState<TaskType>('translation_vocab');
   const [provider, setProvider] = useState<ChatbotProvider>(settings.defaultProvider);
   const [headless, setHeadless] = useState<boolean>(settings.headless);
   const [simulateIfBlocked, setSimulateIfBlocked] = useState<boolean>(true);
 
-  // Task 1: Writing state
-  const [writingTopic, setWritingTopic] = useState(
-    'The impact of artificial intelligence on future employment and human creativity'
-  );
-  const [writingTargetBand, setWritingTargetBand] = useState('C1');
-  const [writingEssay, setWritingEssay] = useState(
-    `In contemporary society, artificial intelligence is developing more and more faster. Many people believe that AI will replace many human jobs and make workers to lose their careers. On the other hand, others think that it will create new opportunities and make our work more easier and productive. In my personal opinion, although technology causes some short term problems, government should to invest in education and training programs so workers can adapt on this transformation. Overall, AI is a very big benefit if we use it wisely.`
-  );
+  const handleSelectProvider = (newProvider: ChatbotProvider) => {
+    setProvider(newProvider);
+    setSettings((prev) => {
+      const updated = { ...prev, defaultProvider: newProvider };
+      localStorage.setItem('playeng_settings', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
-  // Task 2: Vocab state
-  const [vocabTerm, setVocabTerm] = useState('Cut corners');
-  const [vocabContext, setVocabContext] = useState(
-    'Engineering quality control and corporate management ethics'
-  );
-
-  // Task 3: Roleplay state
-  const [roleplayScenario, setRoleplayScenario] = useState(
-    'Airport check-in counter with 2.5kg overweight baggage and tight boarding window'
-  );
-  const [roleplayUserRole, setRoleplayUserRole] = useState(settings.defaultUserRole);
-  const [roleplayAiRole, setRoleplayAiRole] = useState(settings.defaultAiRole);
-  const [roleplayLength, setRoleplayLength] = useState<RoleplayLength>(
-    settings.defaultRoleplayLength
-  );
-  const [roleplayDifficulty, setRoleplayDifficulty] = useState<DialogueDifficulty>(
-    settings.defaultRoleplayDifficulty
-  );
-
-  // Task 4: Quiz state
-  const [quizTopic, setQuizTopic] = useState('Inverted Conditionals and Mixed Hypotheticals');
-  const [quizDifficulty, setQuizDifficulty] = useState('Advanced (C1)');
-  const [quizQuestionCount, setQuizQuestionCount] = useState<number>(
-    settings.quizQuestionCount || 5
-  );
-  const [quizType, setQuizType] = useState<'mixed' | 'vocab' | 'grammar'>(() => {
-    if (settings.quizIncludeVocab && settings.quizIncludeGrammar) return 'mixed';
-    if (settings.quizIncludeGrammar) return 'grammar';
-    return 'vocab';
+  // Core Feature: Translation & Contextual Vocab Guessing State (Clean initial state - No mock data)
+  const [passage, setPassage] = useState<string>('');
+  const [passageTitle, setPassageTitle] = useState<string>('');
+  const [passageTopic, setPassageTopic] = useState<string>('Công Nghệ & AI');
+  const [passageDifficulty, setPassageDifficulty] = useState<DialogueDifficulty>(() => {
+    return (localStorage.getItem('playeng_user_level') as DialogueDifficulty) || 'B1';
   });
+  const [targetWords, setTargetWords] = useState<Array<{ word: string; contextSentence: string }>>([]);
+  const [userTranslation, setUserTranslation] = useState<string>('');
+  const [userVocabGuesses, setUserVocabGuesses] = useState<Record<string, string>>({});
+  const [referenceTranslation, setReferenceTranslation] = useState<string>('');
+  const [isMemoryBankModalOpen, setIsMemoryBankModalOpen] = useState(false);
+  const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
 
-  useEffect(() => {
-    if (settings.quizQuestionCount) {
-      setQuizQuestionCount(settings.quizQuestionCount);
+  const handleGeneratePassage = async (
+    targetLevel?: string,
+    targetTopic?: string,
+    customTopic?: string
+  ) => {
+    setIsGeneratingPassage(true);
+    try {
+      const selectedLevel = (targetLevel || userLevel || passageDifficulty || 'B1').toUpperCase();
+      const res = await fetch('/api/passage/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: selectedLevel,
+          topic: targetTopic || passageTopic,
+          customTopic: customTopic || undefined,
+          provider: provider,
+          geminiApiKey: settings.geminiApiKey,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.passage) {
+        setPassage(data.passage.passage);
+        setPassageTitle(data.passage.title);
+        setPassageTopic(data.passage.topic);
+        const effectiveDifficulty = (data.passage.difficulty || selectedLevel) as DialogueDifficulty;
+        setPassageDifficulty(effectiveDifficulty);
+        setTargetWords(data.passage.targetWords || []);
+        if (data.passage.translationVi) {
+          setReferenceTranslation(data.passage.translationVi);
+        }
+        setUserTranslation('');
+        setUserVocabGuesses({});
+        setResult(null);
+        if (selectedLevel !== userLevel) {
+          handleSetUserLevel(selectedLevel as CEFRLevel);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate passage:', err);
+    } finally {
+      setIsGeneratingPassage(false);
     }
-    if (settings.quizIncludeVocab && settings.quizIncludeGrammar) {
-      setQuizType('mixed');
-    } else if (settings.quizIncludeGrammar) {
-      setQuizType('grammar');
-    } else if (settings.quizIncludeVocab) {
-      setQuizType('vocab');
-    }
-  }, [settings.quizQuestionCount, settings.quizIncludeVocab, settings.quizIncludeGrammar]);
+  };
 
   // Pipeline execution & modal states
   const [isAutomating, setIsAutomating] = useState(false);
@@ -325,8 +283,6 @@ export default function App() {
     setLang(newSettings.language);
     setProvider(newSettings.defaultProvider);
     setHeadless(newSettings.headless);
-    setRoleplayLength(newSettings.defaultRoleplayLength);
-    setRoleplayDifficulty(newSettings.defaultRoleplayDifficulty);
     if (newSettings.userLevel) {
       localStorage.setItem('playeng_user_level', newSettings.userLevel);
     }
@@ -356,66 +312,37 @@ export default function App() {
 
   // Current prompt calculation for preview
   const getCurrentPrompt = () => {
-    switch (activeTask) {
-      case 'writing':
-        return `[System: Cambridge/IELTS Senior Writing Assessor]\nTopic: ${writingTopic}\nTarget: ${writingTargetBand}\n\nEssay:\n${writingEssay}\n\n[Instruction: Return strict JSON with CEFR Band, corrections, and improved rewrite]`;
-      case 'vocab':
-        return `[System: English-Vietnamese Lexicographer]\nTerm: ${vocabTerm}\nContext: ${vocabContext}\n\n[Instruction: Return strict JSON with IPA, Vietnamese meaning, nuances, 3 examples, common traps]`;
-      case 'roleplay':
-        return `[System: Communicative Roleplay Coach]\nScenario: ${roleplayScenario}\nPerson 1 (User): ${roleplayUserRole}\nPerson 2 (Partner): ${roleplayAiRole}\nLength: ${roleplayLength}\nTarget Difficulty: ${roleplayDifficulty}\n\n[Instruction: Return strict JSON with 2-way dialogue, Vietnamese translations, pronunciation tips, and speech challenge]`;
-      case 'quiz': {
-        const count = quizQuestionCount || settings.quizQuestionCount || 5;
-        const qScope =
-          quizType === 'mixed'
-            ? 'mixed (both vocabulary and grammar)'
-            : quizType === 'grammar'
-            ? 'grammar only'
-            : 'vocabulary only';
-        return `[System: Cambridge Item Writer]\nTopic: ${quizTopic}\nLevel: ${quizDifficulty}\nScope: ${qScope}\nQuestion Count: ${count}\n\n[Instruction: Return strict JSON with ${count} multiple-choice questions combining vocabulary and grammar, answer key, category ('vocab'|'grammar'), and rule explanations]`;
-      }
-    }
+    const guessesStr = targetWords
+      .map((tw) => `- "${tw.word}": ${userVocabGuesses[tw.word] || '(Chưa đoán)'}`)
+      .join('\n');
+    return `[System: Senior Bilingual English-Vietnamese Translation Professor]\nTitle: ${passageTitle}\nTopic: ${passageTopic} (${passageDifficulty})\nPassage:\n${passage}\n\nUser Translation:\n${userTranslation}\n\nVocab Guesses:\n${guessesStr}\n\n[Instruction: Return strict JSON evaluating translation and contextual vocab guessing]`;
   };
 
-  const handleStartInstantChat = (scen: string, uRole: string, aRole: string, diff: DialogueDifficulty) => {
-    const opening = getOpeningChatMessage({
-      scenario: scen,
-      userRole: uRole,
-      aiRole: aRole,
-    });
-    const instantData: RoleplayResult = {
-      scenario: scen,
-      userRole: uRole,
-      aiRole: aRole,
-      difficulty: diff,
-      dialogue: [opening],
-      keyVocabulary: [],
-      culturalTips: [],
-      followUpChallenge: '',
+  const handleSubmitTranslationVocab = () => {
+    if (!passage.trim()) {
+      alert(lang === 'vi' ? 'Vui lòng nhập hoặc chọn một đoạn văn tiếng Anh.' : 'Please enter or select an English passage.');
+      return;
+    }
+
+    const guessesArray = targetWords.map((tw) => ({
+      word: tw.word,
+      guess: userVocabGuesses[tw.word] || '',
+    }));
+
+    const inputPayload = {
+      passage,
+      title: passageTitle,
+      topic: passageTopic,
+      difficulty: passageDifficulty,
+      targetWords,
+      userTranslation,
+      userVocabGuesses: guessesArray,
+      referenceTranslation,
+      translationVi: referenceTranslation,
     };
-    setResult({ type: 'roleplay', data: instantData });
-    setIsScenarioDrawerOpen(false);
-  };
 
-  const handleStartAutomation = () => {
-    // Validate inputs
-    if (activeTask === 'writing' && !writingEssay.trim()) {
-      alert(lang === 'vi' ? 'Vui lòng nhập hoặc dán bài luận trước.' : 'Please enter or paste an essay first.');
-      return;
-    }
-    if (activeTask === 'vocab' && !vocabTerm.trim()) {
-      alert(lang === 'vi' ? 'Vui lòng nhập từ hoặc thành ngữ cần học.' : 'Please enter a word or idiom first.');
-      return;
-    }
-    if (activeTask === 'roleplay' && !roleplayScenario.trim()) {
-      alert(lang === 'vi' ? 'Vui lòng nhập bối cảnh tình huống hội thoại.' : 'Please enter a roleplay scenario first.');
-      return;
-    }
-    if (activeTask === 'quiz' && !quizTopic.trim()) {
-      alert(lang === 'vi' ? 'Vui lòng nhập chủ điểm trắc nghiệm.' : 'Please enter a quiz topic first.');
-      return;
-    }
-
-    runAutomationPipeline(activeTask, undefined, true);
+    setActiveTask('translation_vocab');
+    runAutomationPipeline('translation_vocab', inputPayload, false);
   };
 
   const runAutomationPipeline = (
@@ -441,26 +368,21 @@ export default function App() {
     // Prepare request payload
     let inputData: Record<string, unknown> = customInputData || {};
     if (!customInputData) {
-      if (taskType === 'writing') {
-        inputData = { essay: writingEssay, topic: writingTopic, targetBand: writingTargetBand };
-      } else if (taskType === 'vocab') {
-        inputData = { term: vocabTerm, context: vocabContext };
-      } else if (taskType === 'roleplay') {
-        inputData = {
-          scenario: roleplayScenario,
-          userRole: roleplayUserRole,
-          aiRole: roleplayAiRole,
-          length: roleplayLength,
-          difficulty: roleplayDifficulty,
-        };
-      } else if (taskType === 'quiz') {
-        inputData = {
-          topic: quizTopic,
-          difficulty: quizDifficulty,
-          questionCount: quizQuestionCount || settings.quizQuestionCount || 5,
-          quizType: quizType || 'mixed',
-        };
-      }
+      const guessesArray = targetWords.map((tw) => ({
+        word: tw.word,
+        guess: userVocabGuesses[tw.word] || '',
+      }));
+      inputData = {
+        passage,
+        title: passageTitle,
+        topic: passageTopic,
+        difficulty: passageDifficulty,
+        targetWords,
+        userTranslation,
+        userVocabGuesses: guessesArray,
+        referenceTranslation,
+        translationVi: referenceTranslation,
+      };
     }
 
     const payload = {
@@ -469,6 +391,7 @@ export default function App() {
       headless,
       userDataDir: '.playwright-profile',
       simulateIfBlocked,
+      geminiApiKey: settings.geminiApiKey,
       inputData,
     };
 
@@ -499,40 +422,35 @@ export default function App() {
           setRawChunk(data.rawChunk);
         } else if (data.type === 'result' && data.result) {
           setResult(data.result);
-          if (data.result.type === 'toeic_lesson' && data.result.data?.targetWords) {
-            addLearnedWords(data.result.data.targetWords);
-          } else if (data.result.type === 'grammar_lesson' && data.result.data) {
-            addLearnedGrammar(data.result.data);
-          } else if (data.result.type === 'reading_lesson' && data.result.data) {
-            addLearnedReading({
-              title: data.result.data.title,
-              passage: data.result.data.passage,
-              translationVi: data.result.data.translationVi,
-              level: data.result.data.userLevel || 'A1',
-              topic: data.result.data.topic,
-              keyWords: data.result.data.keyVocabulary?.map((k: any) => ({ term: k.term, meaning: k.meaning || k.meaningVi || k.term })),
-              questions: data.result.data.comprehensionQuiz ? [data.result.data.comprehensionQuiz] : [],
-            });
-            if (data.result.data.keyVocabulary && data.result.data.keyVocabulary.length > 0) {
+          if (data.result.type === 'translation_vocab' && data.result.data) {
+            const tv = data.result.data;
+            if (tv.vocabEvaluations && tv.vocabEvaluations.length > 0) {
               addLearnedWords(
-                data.result.data.keyVocabulary.map((k: any) => ({
-                  term: k.term,
-                  ipa: k.ipa || '',
-                  partOfSpeech: 'vocab',
-                  vietnameseMeaning: k.meaning || k.meaningVi || k.term,
-                  exampleSentence: k.contextHint || k.contextSentence || '',
-                  level: data.result.data.userLevel || 'A1',
+                tv.vocabEvaluations.map((v: any) => ({
+                  term: v.word,
+                  ipa: v.ipa || '',
+                  partOfSpeech: v.partOfSpeech || 'vocab',
+                  vietnameseMeaning: v.actualMeaningInContext,
+                  exampleSentence: v.exampleSentence || v.contextSentence || '',
+                  level: tv.cefrLevel || 'B2',
                 }))
               );
             }
-          } else if (data.result.type === 'listening_lesson' && data.result.data) {
-            addLearnedListening({
-              title: data.result.data.title,
-              dialogue: data.result.data.dialogue,
-              level: data.result.data.userLevel || 'A1',
-              topic: data.result.data.topic,
-              questions: data.result.data.listeningQuiz ? [data.result.data.listeningQuiz] : [],
-            });
+            if (tv.passage) {
+              addLearnedReading({
+                title: tv.title || 'Bài Luyện Dịch & Đoán Từ',
+                passage: tv.passage,
+                translationVi: tv.translationEvaluation?.referenceTranslation || '',
+                level: (tv.cefrLevel as any) || 'B2',
+                topic: tv.topic || 'Dịch Thuật',
+                keyWords: tv.vocabEvaluations?.map((v: any) => ({
+                  term: v.word,
+                  meaning: v.actualMeaningInContext,
+                })) || [],
+                questions: [],
+              });
+            }
+            handleMarkCompleted();
           }
         } else if (data.type === 'error') {
           setErrorMessage(data.error);
@@ -555,501 +473,60 @@ export default function App() {
     };
   };
 
-  if (isMobileRemoteMode) {
-    return (
-      <MobileRemoteView
-        settings={settings}
-        userLevel={userLevel}
-        streak={streak}
-        onSetUserLevel={handleSetUserLevel}
-        onSwitchToFullApp={() => {
-          setIsMobileRemoteMode(false);
-          if (typeof window !== 'undefined' && window.history && window.history.pushState) {
-            window.history.pushState({}, '', '/');
-          }
-        }}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#0a0b0e] text-neutral-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       {/* Top Header */}
       <Navbar
-        currentTab={currentTab}
-        setCurrentTab={handleSetCurrentTab}
         userLevel={userLevel}
         setUserLevel={handleSetUserLevel}
         streak={streak}
         provider={provider}
-        setProvider={setProvider}
+        setProvider={handleSelectProvider}
         isAutomating={isAutomating}
         lang={lang}
         onToggleLang={handleToggleLang}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenMobileRemote={() => setIsMobileRemoteModalOpen(true)}
+        onOpenMemoryBank={() => setIsMemoryBankModalOpen(true)}
         focusMode={focusMode}
         onToggleFocusMode={handleToggleFocusMode}
+        onGeneratePassage={handleGeneratePassage}
+        isGeneratingPassage={isGeneratingPassage}
       />
 
-      {/* Main Container */}
+      {/* Main Container: Focused Single-Function Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* TABS: Hôm Nay, Từ Vựng, Ngữ Pháp, Đọc & Nghe, Sổ Nhớ */}
-        {(currentTab === 'today' ||
-          currentTab === 'vocab' ||
-          currentTab === 'grammar' ||
-          currentTab === 'read_listen' ||
-          currentTab === 'memory') && (
-          <DailyHabitView
-            provider={provider}
-            isAutomating={isAutomating}
-            steps={steps}
-            currentResult={result}
-            onRunDailyTask={(taskType, inputData) => {
-              setActiveTask(taskType);
-              runAutomationPipeline(taskType, inputData, false);
-            }}
-            lang={lang}
-            onOpenTerminal={() => setIsModalOpen(true)}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            activeTab={currentTab}
-            onSwitchTab={handleSetCurrentTab}
-            userLevel={userLevel}
-            setUserLevel={handleSetUserLevel}
-            streak={streak}
-            isCompletedToday={isCompletedToday}
-            onMarkCompleted={handleMarkCompleted}
-            focusMode={focusMode}
-          />
-        )}
-
-        {/* TAB 5: Live Messenger (Trò Chuyện & Nhắn Tin 2 Chiều) */}
-        {currentTab === 'chat' && (
-          <div className="space-y-6">
-            {/* If a roleplay dialogue is active: */}
-            {result && result.type === 'roleplay' && result.data ? (
-              <div className="space-y-4">
-                {/* Collapsible Scenario Settings Drawer */}
-                {isScenarioDrawerOpen && (
-                  <div className="p-5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 space-y-4 animate-fade-in backdrop-blur-sm">
-                    <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
-                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-sky-400">
-                        [ THIẾT LẬP KỊCH BẢN HỘI THOẠI ]
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setIsScenarioDrawerOpen(false)}
-                        className="text-xs text-neutral-400 hover:text-white cursor-pointer"
-                      >
-                        ✕ Đóng lại
-                      </button>
-                    </div>
-                    <RoleplayForm
-                      scenario={roleplayScenario}
-                      setScenario={setRoleplayScenario}
-                      userRole={roleplayUserRole}
-                      setUserRole={setRoleplayUserRole}
-                      aiRole={roleplayAiRole}
-                      setAiRole={setRoleplayAiRole}
-                      length={roleplayLength}
-                      setLength={setRoleplayLength}
-                      difficulty={roleplayDifficulty}
-                      setDifficulty={setRoleplayDifficulty}
-                      onSelectSample={(s, u, a) => {
-                        setRoleplayScenario(s);
-                        setRoleplayUserRole(u);
-                        setRoleplayAiRole(a);
-                      }}
-                      onStartInstantChat={handleStartInstantChat}
-                      disabled={isAutomating}
-                      lang={lang}
-                    />
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="button"
-                        disabled={isAutomating}
-                        onClick={() => {
-                          setIsScenarioDrawerOpen(false);
-                          setActiveTask('roleplay');
-                          runAutomationPipeline('roleplay', {
-                            scenario: roleplayScenario,
-                            userRole: roleplayUserRole,
-                            aiRole: roleplayAiRole,
-                            length: roleplayLength,
-                            difficulty: roleplayDifficulty,
-                          }, false);
-                        }}
-                        className="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase border border-sky-400/80 cursor-pointer transition-all duration-150 shadow-md"
-                      >
-                        Bắt Đầu Kịch Bản Mới ➔
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Optional Slim Scenario Bar (Only shown outside Focus Mode) */}
-                {!focusMode && !isScenarioDrawerOpen && (
-                  <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-zinc-900/70 border border-zinc-800/80 text-xs font-mono backdrop-blur-sm">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="text-neutral-500 uppercase text-[10px]">Tình huống:</span>
-                      <span className="text-sky-300 font-bold truncate max-w-sm sm:max-w-md">{roleplayScenario}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsScenarioDrawerOpen(true)}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-850 hover:bg-zinc-800 text-neutral-300 hover:text-white border border-zinc-750 text-[11px] cursor-pointer transition-all duration-150 shrink-0"
-                    >
-                      ⚙ Đổi Kịch Bản
-                    </button>
-                  </div>
-                )}
-
-                {/* Pure Live Messenger View */}
-                <RoleplayResultView result={result.data} lang={lang} />
-              </div>
-            ) : (
-              /* Starter Screen if no active dialogue yet */
-              <div className="space-y-6">
-                {isScenarioDrawerOpen && (
-                  <div className="p-5 rounded-xl bg-zinc-900/90 border border-zinc-800/80 space-y-4 backdrop-blur-sm">
-                    <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
-                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-sky-400">
-                        [ TÙY BIẾN KỊCH BẢN HỘI THOẠI ]
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setIsScenarioDrawerOpen(false)}
-                        className="text-xs text-neutral-400 hover:text-white cursor-pointer"
-                      >
-                        ✕ Đóng lại
-                      </button>
-                    </div>
-                    <RoleplayForm
-                      scenario={roleplayScenario}
-                      setScenario={setRoleplayScenario}
-                      userRole={roleplayUserRole}
-                      setUserRole={setRoleplayUserRole}
-                      aiRole={roleplayAiRole}
-                      setAiRole={setRoleplayAiRole}
-                      length={roleplayLength}
-                      setLength={setRoleplayLength}
-                      difficulty={roleplayDifficulty}
-                      setDifficulty={setRoleplayDifficulty}
-                      onSelectSample={(s, u, a) => {
-                        setRoleplayScenario(s);
-                        setRoleplayUserRole(u);
-                        setRoleplayAiRole(a);
-                      }}
-                      onStartInstantChat={handleStartInstantChat}
-                      disabled={isAutomating}
-                      lang={lang}
-                    />
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="button"
-                        disabled={isAutomating}
-                        onClick={() => {
-                          setIsScenarioDrawerOpen(false);
-                          setActiveTask('roleplay');
-                          runAutomationPipeline('roleplay', {
-                            scenario: roleplayScenario,
-                            userRole: roleplayUserRole,
-                            aiRole: roleplayAiRole,
-                            length: roleplayLength,
-                            difficulty: roleplayDifficulty,
-                          }, false);
-                        }}
-                        className="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase border border-sky-400/80 cursor-pointer transition-all duration-150 shadow-md"
-                      >
-                        Lưu &amp; Bắt Đầu Trò Chuyện ➔
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Messenger Starter Screen if no active dialogue */}
-                <div className="p-8 rounded-xl bg-zinc-900/70 border border-zinc-800/80 text-center space-y-5 backdrop-blur-sm">
-                <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 mx-auto flex items-center justify-center">
-                  <MessageSquare className="w-6 h-6" />
-                </div>
-                <div className="max-w-md mx-auto">
-                  <h3 className="text-base font-bold text-white uppercase tracking-tight">
-                    Sẵn sàng trò chuyện phản xạ 2 chiều
-                  </h3>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    Giao diện tin nhắn Live Messenger mô phỏng trò chuyện thực tế. Bấm vào một tình huống phổ biến bên dưới hoặc bấm nút bắt đầu để AI nhập vai cùng bạn!
-                  </p>
-                </div>
-
-                {/* Quick Starter Scenario Pills */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto text-left">
-                  {[
-                    {
-                      title: '☕ Cafe & Đồ Uống',
-                      desc: 'Gọi cà phê tại quầy, yêu cầu ít đường & thêm đá',
-                      scenario: 'Ordering at a busy coffee shop with special drink customization',
-                      userRole: 'Khách hàng (Customer)',
-                      aiRole: 'Nhân viên pha chế (Barista)',
-                    },
-                    {
-                      title: '✈️ Sân Bay & Hành Lý',
-                      desc: 'Check-in tại quầy vé, xử lý hành lý quá cân 2kg',
-                      scenario: 'Airport check-in counter with 2kg overweight luggage',
-                      userRole: 'Hành khách (Passenger)',
-                      aiRole: 'Nhân viên mặt đất (Agent)',
-                    },
-                    {
-                      title: '💼 Phỏng Vấn Công Việc',
-                      desc: 'Tự giới thiệu bản thân và kinh nghiệm làm việc',
-                      scenario: 'Job interview introduction and discussing relevant experience',
-                      userRole: 'Ứng viên (Candidate)',
-                      aiRole: 'Người phỏng vấn (Interviewer)',
-                    },
-                    {
-                      title: '🍽️ Nhà Hàng & Đặt Bàn',
-                      desc: 'Hỏi thực đơn đặc biệt và đặt bàn cho 2 người',
-                      scenario: 'Booking a table for two and asking for chef specials',
-                      userRole: 'Thực khách (Diner)',
-                      aiRole: 'Quản lý nhà hàng (Host)',
-                    },
-                  ].map((pill, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      disabled={isAutomating}
-                      onClick={() => {
-                        setRoleplayScenario(pill.scenario);
-                        setRoleplayUserRole(pill.userRole);
-                        setRoleplayAiRole(pill.aiRole);
-                        setActiveTask('roleplay');
-                        runAutomationPipeline('roleplay', {
-                          scenario: pill.scenario,
-                          userRole: pill.userRole,
-                          aiRole: pill.aiRole,
-                          length: 'medium',
-                          difficulty: userLevel,
-                        }, false);
-                      }}
-                      className="p-3.5 rounded-xl bg-zinc-850/60 hover:bg-zinc-800/80 border border-zinc-800 hover:border-sky-500/50 transition-all duration-150 text-left group cursor-pointer"
-                    >
-                      <div className="text-xs font-bold text-white group-hover:text-sky-400 transition-colors">
-                        {pill.title}
-                      </div>
-                      <div className="text-[11px] text-neutral-400 mt-0.5 font-sans">
-                        {pill.desc}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isAutomating}
-                  onClick={() => {
-                    setActiveTask('roleplay');
-                    runAutomationPipeline('roleplay', {
-                      scenario: roleplayScenario,
-                      userRole: roleplayUserRole,
-                      aiRole: roleplayAiRole,
-                      length: roleplayLength,
-                      difficulty: roleplayDifficulty,
-                    }, false);
-                  }}
-                  className="px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer transition-all duration-150 border border-sky-400/80 shadow-md shadow-sky-600/20"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>{isAutomating ? 'ĐANG KẾT NỐI MESSENGER...' : 'BẮT ĐẦU TRÒ CHUYỆN NGAY ➔'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-        {/* TAB 6: Writing Assessor (Luyện Viết & Chấm Chữa) */}
-        {currentTab === 'writing' && (
-          <div className="space-y-6">
-            <div className="p-6 rounded-xl bg-zinc-900/70 border border-zinc-800/80 shadow-sm space-y-6 backdrop-blur-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800/80">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-1.5">
-                      <PenTool className="w-3.5 h-3.5 text-rose-400" />
-                      <span>✍️ CHUYÊN ĐỀ 06: LUYỆN VIẾT &amp; CHẤM CHỮA</span>
-                    </span>
-                    <span className="text-xs font-mono text-neutral-400">[ CEFR / IELTS BAND ]</span>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
-                    CHẤM BÀI LUẬN &amp; NÂNG CẤP BAND ĐIỂM TỰ ĐỘNG
-                  </h3>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    Nhập bài luận hoặc đoạn văn của bạn. AI sẽ chấm điểm theo 4 tiêu chí chuẩn quốc tế (Task Response, Coherence, Lexical Resource, Grammatical Accuracy), chỉ rõ lỗi sai và viết lại phiên bản Band cao hơn.
-                  </p>
-                </div>
-
-                {!focusMode && (
-                  <button
-                    type="button"
-                    onClick={() => setIsPromptModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-zinc-850 hover:bg-zinc-800 border border-zinc-750 text-neutral-300 hover:text-white transition-all duration-150 cursor-pointer uppercase self-start sm:self-center"
-                  >
-                    <FileCode2 className="w-3.5 h-3.5 text-sky-400" />
-                    <span>{t.inspectPrompt}</span>
-                  </button>
-                )}
-              </div>
-
-              <WritingForm
-                topic={writingTopic}
-                setTopic={setWritingTopic}
-                targetBand={writingTargetBand}
-                setTargetBand={setWritingTargetBand}
-                essay={writingEssay}
-                setEssay={setWritingEssay}
-                onLoadSample={() => {
-                  setWritingTopic('The impact of artificial intelligence on future employment');
-                  setWritingEssay(
-                    `In today's fast changing world, artificial intelligence is developing more and more faster. Many people believe that AI will replace many human jobs and make workers to lose their careers. On the other hand, others think that it will create new opportunities and make our work more easier and productive. In my personal opinion, although technology causes some short term problems, government should to invest in education and training programs so workers can adapt on this transformation. Overall, AI is a very big benefit if we use it wisely.`
-                  );
-                }}
-                disabled={isAutomating}
-                lang={lang}
-              />
-
-              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-zinc-800/80">
-                {!focusMode ? (
-                  <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
-                    <span className="w-2 h-2 rounded-full bg-sky-400" />
-                    <span>Động cơ: {provider === 'fast' ? '⚡ Siêu Tốc (0.5s)' : provider.toUpperCase()}</span>
-                  </div>
-                ) : <div />}
-
-                <button
-                  type="button"
-                  disabled={isAutomating}
-                  onClick={() => {
-                    setActiveTask('writing');
-                    handleStartAutomation();
-                  }}
-                  className="px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 border border-sky-400/80 shadow-md shadow-sky-600/20"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>{isAutomating ? 'ĐANG CHẤM BÀI...' : 'CHẤM CHỮA BÀI LUẬN NGAY ➔'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Writing Assessment Result */}
-            {result && result.type === 'writing' && result.data && (
-              <WritingResultView result={result.data} />
-            )}
-          </div>
-        )}
-
-        {/* TAB 7: Quiz Generator (Tạo đề thi trắc nghiệm từ vựng & ngữ pháp) */}
-        {currentTab === 'quiz' && (
-          <div className="space-y-6">
-            <div className="p-6 rounded-xl bg-zinc-900/70 border border-zinc-800/80 shadow-sm space-y-6 backdrop-blur-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800/80">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
-                      <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-                      <span>📝 CHUYÊN ĐỀ 07: TẠO ĐỀ THI TRẮC NGHIỆM</span>
-                    </span>
-                    <span className="text-xs font-mono text-neutral-400">[ TỪ VỰNG &amp; NGỮ PHÁP ]</span>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
-                    TẠO ĐỀ THI TRẮC NGHIỆM TỰ ĐỘNG THEO YÊU CẦU
-                  </h3>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    Tự do thiết lập số lượng câu hỏi ({quizQuestionCount} câu) và chọn phạm vi đề thi (kết hợp cả từ vựng và ngữ pháp, hoặc chuyên biệt từng phần). Có thể tạo bằng AI hoặc tạo nhanh tức thì từ Sổ Nhớ của bạn.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const instantQuestions = generateCombinedQuizQuestions({
-                        totalQuestions: quizQuestionCount,
-                        scope: quizType,
-                      });
-                      setResult({
-                        type: 'quiz',
-                        data: {
-                          topic: `Đề Luyện Tập Tổng Hợp: ${quizTopic}`,
-                          difficulty: quizDifficulty,
-                          questions: instantQuestions,
-                        },
-                      });
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 hover:text-white transition-all duration-150 cursor-pointer uppercase"
-                    title="Tạo ngay đề thi tức thì từ kho từ vựng và ngữ pháp đã học không cần chờ AI"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>⚡ Đề Tức Thì (1-Click)</span>
-                  </button>
-
-                  {!focusMode && (
-                    <button
-                      type="button"
-                      onClick={() => setIsPromptModalOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-zinc-850 hover:bg-zinc-800 border border-zinc-750 text-neutral-300 hover:text-white transition-all duration-150 cursor-pointer uppercase"
-                    >
-                      <FileCode2 className="w-3.5 h-3.5 text-sky-400" />
-                      <span>{t.inspectPrompt}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <QuizForm
-                topic={quizTopic}
-                setTopic={setQuizTopic}
-                difficulty={quizDifficulty}
-                setDifficulty={setQuizDifficulty}
-                questionCount={quizQuestionCount}
-                setQuestionCount={setQuizQuestionCount}
-                quizType={quizType}
-                setQuizType={setQuizType}
-                onSelectSample={(top, diff) => {
-                  setQuizTopic(top);
-                  setQuizDifficulty(diff);
-                }}
-                disabled={isAutomating}
-                lang={lang}
-              />
-
-              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-zinc-800/80">
-                {!focusMode ? (
-                  <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    <span>Quy mô đề thi: {quizQuestionCount} câu • {quizType === 'mixed' ? 'Từ vựng & Ngữ pháp' : quizType === 'grammar' ? 'Ngữ pháp' : 'Từ vựng'}</span>
-                  </div>
-                ) : <div />}
-
-                <button
-                  type="button"
-                  disabled={isAutomating}
-                  onClick={() => {
-                    setActiveTask('quiz');
-                    handleStartAutomation();
-                  }}
-                  className="px-6 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 border border-amber-400/80 shadow-md shadow-amber-600/20"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>{isAutomating ? 'ĐANG BIÊN SOẠN ĐỀ THI...' : 'TẠO ĐỀ THI & LÀM BÀI NGAY ➔'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quiz Result View */}
-            {result && result.type === 'quiz' && result.data && (
-              <QuizResultView result={result.data} />
-            )}
-          </div>
-        )}
+        {/* Core Studio: Reading Passage & Vocab (Left), Translation & AI Grading (Right) */}
+        <TranslationVocabStudio
+          passage={passage}
+          setPassage={setPassage}
+          title={passageTitle}
+          setTitle={setPassageTitle}
+          topic={passageTopic}
+          setTopic={setPassageTopic}
+          difficulty={passageDifficulty}
+          setDifficulty={setPassageDifficulty}
+          targetWords={targetWords}
+          setTargetWords={setTargetWords}
+          userTranslation={userTranslation}
+          setUserTranslation={setUserTranslation}
+          userVocabGuesses={userVocabGuesses}
+          setUserVocabGuesses={setUserVocabGuesses}
+          onSubmit={handleSubmitTranslationVocab}
+          isAutomating={isAutomating}
+          provider={provider}
+          setProvider={handleSelectProvider}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          steps={steps}
+          lang={lang}
+          onGeneratePassage={handleGeneratePassage}
+          isGeneratingPassage={isGeneratingPassage}
+          userLevel={userLevel}
+          setUserLevel={handleSetUserLevel}
+          referenceTranslation={referenceTranslation}
+          result={result && result.type === 'translation_vocab' ? result.data : null}
+          onPracticeAgain={() => setResult(null)}
+        />
 
         {/* Floating Focus Mode Indicator Pill */}
         {focusMode && (
@@ -1108,6 +585,12 @@ export default function App() {
         isOpen={isMobileRemoteModalOpen}
         onClose={() => setIsMobileRemoteModalOpen(false)}
         lang={lang}
+      />
+
+      {/* Memory Bank Modal */}
+      <MemoryBankModal
+        isOpen={isMemoryBankModalOpen}
+        onClose={() => setIsMemoryBankModalOpen(false)}
       />
     </div>
   );

@@ -12,6 +12,8 @@ import {
   PlaywrightConfig,
 } from '../src/types';
 import { generateRealisticFallback } from './fallbackGenerator';
+import { GeneratedPassage } from './passageGenerator';
+import { isGeminiApiAvailable, runGeminiApiEngine } from './geminiService';
 
 export interface PipelineCallbacks {
   onStep: (stepId: PipelineStepId, status: StepState, subtext?: string) => void;
@@ -49,6 +51,11 @@ const CHATGPT_INPUT_SELECTORS = [
 
 const GEMINI_SEND_SELECTORS = [
   'button[aria-label*="Send" i]',
+  'button[aria-label*="Gửi" i]',
+  'button[aria-label*="nhắc" i]',
+  'button[aria-label*="tin nhắn" i]',
+  'button[mattooltip*="Gửi" i]',
+  'button[mattooltip*="Send" i]',
   'button[data-test-id="send-button"]',
   'button.send-button',
   'button:has(mat-icon[fonticon="send"])',
@@ -90,6 +97,43 @@ const CHATGPT_RESPONSE_SELECTORS = [
   '.markdown.prose',
   'div.agent-turn',
 ];
+
+export function getSystemBrowserExecutable(): string | undefined {
+  const platform = process.platform;
+  const home = process.env.HOME || '';
+  if (platform === 'win32') {
+    const prefixes = [
+      process.env.LOCALAPPDATA,
+      process.env.PROGRAMFILES,
+      process.env['PROGRAMFILES(X86)'],
+    ].filter(Boolean) as string[];
+
+    for (const prefix of prefixes) {
+      const p = path.join(prefix, 'Google', 'Chrome', 'Application', 'chrome.exe');
+      if (fs.existsSync(p)) return p;
+      const pEdge = path.join(prefix, 'Microsoft', 'Edge', 'Application', 'msedge.exe');
+      if (fs.existsSync(pEdge)) return pEdge;
+    }
+  } else if (platform === 'darwin') {
+    const p = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if (fs.existsSync(p)) return p;
+  } else {
+    const candidates = [
+      path.join(home, '.local/bin/google-chrome'),
+      path.join(home, '.local/bin/chromium'),
+      path.join(home, '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'),
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/snap/bin/chromium',
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+  }
+  return undefined;
+}
 
 async function runAntigravityCliEngine(options: RunPipelineOptions): Promise<TaskResult> {
   const { taskType, inputData, prompt, callbacks } = options;
@@ -220,10 +264,25 @@ export async function runChatbotPipeline(options: RunPipelineOptions): Promise<T
 
     onStep('extracting_response', 'running', 'Định dạng dữ liệu giao diện...');
     const result = generateRealisticFallback(taskType, inputData);
+    if (result.type === 'translation_vocab' && result.data) {
+      result.data.evaluatedBy = '⚡ AI Siêu Tốc (Offline Pedagogical Engine)';
+      result.data.evaluatedProvider = 'fast';
+    }
     await new Promise((r) => setTimeout(r, 60));
     onStep('extracting_response', 'completed', 'Sẵn sàng');
     onStep('rendered', 'completed', 'Rendered in UI');
     return result;
+  }
+
+  if (config.provider === 'gemini' && isGeminiApiAvailable(config.geminiApiKey)) {
+    emitLog('info', 'launching_browser', 'Phát hiện cấu hình Gemini API Key - kích hoạt Google GenAI Client tốc độ cao');
+    return await runGeminiApiEngine({
+      taskType,
+      inputData,
+      prompt,
+      apiKey: config.geminiApiKey,
+      callbacks,
+    });
   }
 
   if (config.provider === 'antigravity') {
@@ -252,43 +311,6 @@ export async function runChatbotPipeline(options: RunPipelineOptions): Promise<T
     }
 
     emitLog('scraper', 'launching_browser', `Profile path: ${resolvedUserDataDir}`);
-
-function getSystemBrowserExecutable(): string | undefined {
-  const platform = process.platform;
-  const home = process.env.HOME || '';
-  if (platform === 'win32') {
-    const prefixes = [
-      process.env.LOCALAPPDATA,
-      process.env.PROGRAMFILES,
-      process.env['PROGRAMFILES(X86)'],
-    ].filter(Boolean) as string[];
-
-    for (const prefix of prefixes) {
-      const p = path.join(prefix, 'Google', 'Chrome', 'Application', 'chrome.exe');
-      if (fs.existsSync(p)) return p;
-      const pEdge = path.join(prefix, 'Microsoft', 'Edge', 'Application', 'msedge.exe');
-      if (fs.existsSync(pEdge)) return pEdge;
-    }
-  } else if (platform === 'darwin') {
-    const p = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-    if (fs.existsSync(p)) return p;
-  } else {
-    const candidates = [
-      path.join(home, '.local/bin/google-chrome'),
-      path.join(home, '.local/bin/chromium'),
-      path.join(home, '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'),
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/snap/bin/chromium',
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) return c;
-    }
-  }
-  return undefined;
-}
 
     try {
       const sysExecutable = getSystemBrowserExecutable();
@@ -332,7 +354,10 @@ function getSystemBrowserExecutable(): string | undefined {
         ? 'https://gemini.google.com/app'
         : 'https://chatgpt.com';
 
-    onStep('navigating', 'running', `Navigating to ${config.provider.toUpperCase()} Web (${targetUrl})...`);
+    const navMessage = config.provider === 'gemini'
+      ? 'Đang kết nối cổng Google Gemini Web (https://gemini.google.com/app)...'
+      : `Navigating to ${config.provider.toUpperCase()} Web (${targetUrl})...`;
+    onStep('navigating', 'running', navMessage);
     emitLog('scraper', 'navigating', `Opening target URL: ${targetUrl}`);
 
     let scrapedRawText: string | null = null;
@@ -347,7 +372,7 @@ function getSystemBrowserExecutable(): string | undefined {
       });
 
       try {
-        const navTimeout = Math.min(config.timeoutMs || 6000, 6000);
+        const navTimeout = Math.max(15000, config.timeoutMs || 25000);
         emitLog('info', 'navigating', `Connecting to ${targetUrl} (Timeout: ${navTimeout}ms)`);
         await page.goto(targetUrl, {
           waitUntil: 'domcontentloaded',
@@ -582,18 +607,36 @@ function getSystemBrowserExecutable(): string | undefined {
         if (jsonStr) {
           const parsed = JSON.parse(jsonStr);
           finalResult = { type: taskType, data: parsed } as TaskResult;
+          if (finalResult.type === 'translation_vocab' && finalResult.data) {
+            finalResult.data.evaluatedBy = config.provider === 'gemini'
+              ? '✨ Google Gemini AI (Web Playwright Live)'
+              : `🤖 ${config.provider.toUpperCase()} (Web Playwright Live)`;
+            finalResult.data.evaluatedProvider = config.provider;
+          }
           emitLog('success', 'extracting_response', 'Successfully parsed structured response from web chatbot!');
         } else {
           emitLog('warn', 'extracting_response', 'Response did not contain valid JSON codeblock. Using resilient parser fallback.');
           finalResult = generateRealisticFallback(taskType, inputData);
+          if (finalResult.type === 'translation_vocab' && finalResult.data) {
+            finalResult.data.evaluatedBy = `⚡ Fallback tự động (${config.provider.toUpperCase()} định dạng chưa chuẩn)`;
+            finalResult.data.evaluatedProvider = config.provider;
+          }
         }
       } catch (parseErr: any) {
         emitLog('warn', 'extracting_response', `JSON parse error on scraped content (${parseErr.message}). Applying formatted fallback.`);
         finalResult = generateRealisticFallback(taskType, inputData);
+        if (finalResult.type === 'translation_vocab' && finalResult.data) {
+          finalResult.data.evaluatedBy = `⚡ Fallback tự động (${config.provider.toUpperCase()} lỗi phân tích cú pháp)`;
+          finalResult.data.evaluatedProvider = config.provider;
+        }
       }
     } else {
       emitLog('info', 'extracting_response', 'Synthesizing pedagogical English evaluation via fallback pipeline');
       finalResult = generateRealisticFallback(taskType, inputData);
+      if (finalResult.type === 'translation_vocab' && finalResult.data) {
+        finalResult.data.evaluatedBy = `⚡ Fallback tự động (${config.provider.toUpperCase()} chưa đăng nhập hoặc mạng chờ)`;
+        finalResult.data.evaluatedProvider = config.provider;
+      }
     }
 
     // ----------------------------------------------------
@@ -619,3 +662,225 @@ function getSystemBrowserExecutable(): string | undefined {
     }
   }
 }
+
+export function getCefrPedagogicalGuidelines(level: string): string {
+  const norm = (level || 'B2').toUpperCase();
+  switch (norm) {
+    case 'A1':
+      return `CRITICAL CEFR A1 (BEGINNER) RULES:
+- Length: STRICTLY 50 to 80 words total (1 or 2 very short paragraphs).
+- Sentence Complexity: Short, simple sentences (5 to 9 words per sentence). Subject + Verb + Object.
+- Vocabulary: Ultra-basic everyday words (e.g. food, family, colors, time, home, routine). NO idioms, NO phrasal verbs.
+- Grammar: ONLY Present Simple and basic adjectives (e.g., "I get up at six", "The breakfast is warm", "My father drives a car"). NO subordinate clauses, NO passive voice, NO past perfect.
+- Target Words: 4 basic vocabulary words that beginner students must learn.`;
+
+    case 'A2':
+      return `CRITICAL CEFR A2 (ELEMENTARY) RULES:
+- Length: STRICTLY 80 to 120 words total (2 short paragraphs).
+- Sentence Complexity: Short sentences with basic conjunctions (and, but, because, so, when).
+- Vocabulary: Common daily topics (hobbies, shopping, simple travel, weekends, family).
+- Grammar: Past Simple (e.g., "We visited...", "I bought..."), Present Continuous, simple comparisons, basic future with "will" or "going to".
+- Target Words: 4 to 5 elementary words with clear contextual usage.`;
+
+    case 'B1':
+      return `CRITICAL CEFR B1 (INTERMEDIATE) RULES:
+- Length: STRICTLY 130 to 180 words total (2 to 3 paragraphs).
+- Sentence Complexity: Standard compound and complex sentences with relative clauses (who, which, that) and basic conditionals (if, when).
+- Vocabulary: Everyday opinions, work, study, leisure, travel, technology in daily life.
+- Grammar: Present Perfect ("has increased", "have lived"), modal verbs (should, must, can), basic passive voice, connectors (although, however, therefore).
+- Target Words: 4 to 5 intermediate vocabulary words.`;
+
+    case 'B2':
+      return `CRITICAL CEFR B2 (UPPER-INTERMEDIATE) RULES:
+- Length: STRICTLY 180 to 250 words total (3 paragraphs).
+- Sentence Complexity: Varied syntax, compound-complex sentences, diverse discourse markers (furthermore, in contrast, nevertheless, despite).
+- Vocabulary: Abstract concepts, technical/professional contexts, collocations, idiomatic expressions.
+- Grammar: Conditionals, passive reporting verbs, complex noun clauses, varied tenses.
+- Target Words: 5 to 6 upper-intermediate words or idiomatic collocations.`;
+
+    case 'C1':
+    case 'C2':
+      return `CRITICAL CEFR C1 (ADVANCED) RULES:
+- Length: STRICTLY 250 to 330 words total (3 to 4 paragraphs).
+- Sentence Complexity: Sophisticated syntax, cleft sentences, inversion for emphasis, participle clauses, high lexical density.
+- Vocabulary: Nuanced academic, analytical and literary vocabulary, precise figurative expressions, elevated register.
+- Grammar: Advanced subjunctives, nominalizations, nuanced hedging and epistemic modality.
+- Target Words: 5 to 6 advanced C1 words or academic expressions.`;
+
+    default:
+      return `Target CEFR Level: ${norm}. Ensure appropriate vocabulary, sentence length, and grammatical complexity strictly for level ${norm}.`;
+  }
+}
+
+export function buildGeminiPassagePrompt(level: string, topic?: string, customTopic?: string): string {
+  const normLevel = (level || 'B2').toUpperCase();
+  const topicName = customTopic || topic || 'General Life';
+  const guidelines = getCefrPedagogicalGuidelines(normLevel);
+
+  return `[System: Senior Bilingual English-Vietnamese Curriculum Director]
+Role: Generate an authentic, engaging English reading passage and contextual vocabulary set strictly calibrated for CEFR Level ${normLevel}.
+
+=== STRICT CEFR SPECIFICATIONS ===
+${guidelines}
+
+Parameters:
+- Target CEFR Level: ${normLevel}
+- Topic: "${topicName}"
+${customTopic ? `- Specific Custom Focus: "${customTopic}"` : ''}
+
+Output Requirements:
+1. "title": A catchy, meaningful title in English suitable for level ${normLevel}.
+2. "difficulty": Exactly "${normLevel}".
+3. "topic": "${topicName}".
+4. "passage": A cohesive English reading text STRICTLY conforming to the CEFR ${normLevel} word count, grammar, and sentence length specified above.
+5. "targetWords": An array of highlighted key vocabulary words strictly suitable for level ${normLevel}. Each item must have:
+   - "word": The vocabulary word in base form.
+   - "ipa": Accurate IPA phonetics (e.g., "/ruːˈtiːn/").
+   - "partOfSpeech": "noun" | "verb" | "adjective" | "adverb".
+   - "contextSentence": The EXACT sentence from the passage containing this word.
+   - "meaningVi": The precise Vietnamese meaning of this word in THIS context.
+6. "translationVi": A complete, natural, and accurate Vietnamese translation of the entire passage.
+7. "sentenceTranslations": An array of Vietnamese sentences corresponding 1:1 to the sentences of the passage.
+
+STRICT FORMAT: Return ONLY the JSON code block wrapped in \`\`\`json ... \`\`\`. Do not include any conversational filler outside the JSON.`;
+}
+
+export async function generatePassageWithGeminiPlaywright(params: {
+  level: string;
+  topic?: string;
+  customTopic?: string;
+  timeoutMs?: number;
+}): Promise<GeneratedPassage> {
+  const { level, topic, customTopic, timeoutMs = 40000 } = params;
+  const prompt = buildGeminiPassagePrompt(level, topic, customTopic);
+
+  const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+  if (!fs.existsSync(profileDir)) {
+    fs.mkdirSync(profileDir, { recursive: true });
+  }
+
+  const sysExecutable = getSystemBrowserExecutable();
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: sysExecutable,
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-default-browser-check',
+    ],
+    viewport: { width: 1280, height: 840 },
+    userAgent:
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  });
+
+  try {
+    const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
+
+    await page.goto('https://gemini.google.com/app', {
+      waitUntil: 'domcontentloaded',
+      timeout: 25000,
+    });
+
+    const inputSelector = 'div.ql-editor[contenteditable="true"]';
+    await page.waitForSelector(inputSelector, { timeout: 15000 });
+    await page.click(inputSelector);
+    await page.waitForTimeout(300);
+
+    try {
+      await page.keyboard.insertText(prompt);
+    } catch {
+      await page.fill(inputSelector, prompt);
+    }
+
+    await page.waitForTimeout(600);
+
+    const sendSelectors = [
+      'button[aria-label*="Send" i]',
+      'button[aria-label*="Gửi" i]',
+      'button[aria-label*="nhắc" i]',
+      'button[aria-label*="tin nhắn" i]',
+      'button[data-test-id="send-button"]',
+      'button.send-button',
+    ];
+
+    let sendClicked = false;
+    for (const sel of sendSelectors) {
+      const btn = await page.$(sel);
+      if (btn && (await btn.isVisible())) {
+        await btn.click();
+        sendClicked = true;
+        break;
+      }
+    }
+    if (!sendClicked) {
+      await page.keyboard.press('Enter');
+    }
+
+    let scrapedRawText = '';
+    const pollStart = Date.now();
+    while (Date.now() - pollStart < timeoutMs) {
+      await page.waitForTimeout(1000);
+      const nodes = await page.$$('message-content');
+      if (nodes.length > 0) {
+        const text = await nodes[nodes.length - 1].innerText();
+        if (text.includes('```json') || text.includes('"title"') || text.includes('"passage"')) {
+          scrapedRawText = text;
+          if (
+            text.endsWith('}') ||
+            text.includes('```\n') ||
+            (text.includes('```') && text.lastIndexOf('```') > text.indexOf('```'))
+          ) {
+            break;
+          }
+        }
+      }
+    }
+
+    if (!scrapedRawText) {
+      throw new Error('Gemini Playwright did not return a response within timeout.');
+    }
+
+    const jsonCodeBlockMatch = scrapedRawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    let jsonStr = '';
+    if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+      jsonStr = jsonCodeBlockMatch[1].trim();
+    } else {
+      const first = scrapedRawText.indexOf('{');
+      const last = scrapedRawText.lastIndexOf('}');
+      if (first !== -1 && last > first) {
+        jsonStr = scrapedRawText.slice(first, last + 1);
+      }
+    }
+
+    const parsed = JSON.parse(jsonStr);
+    return {
+      id: `gemini_${Date.now()}`,
+      title: parsed.title || 'Gemini Reading Passage',
+      topic: parsed.topic || topic || 'General',
+      topicCategory: topic || 'daily',
+      difficulty: (level as any) || (parsed.difficulty as any) || 'B1',
+      genre: 'Article',
+      passage: parsed.passage,
+      translationVi: parsed.translationVi || '',
+      sentenceTranslations: parsed.sentenceTranslations || [],
+      targetWords: (parsed.targetWords || []).map((w: any) => ({
+        word: w.word,
+        contextSentence: w.contextSentence || '',
+        meaningVi: w.meaningVi || '',
+        ipa: w.ipa || '',
+        partOfSpeech: w.partOfSpeech || '',
+      })),
+      generatedBy: '✨ Google Gemini AI (Web Playwright)',
+    };
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+

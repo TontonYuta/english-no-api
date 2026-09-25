@@ -10,11 +10,457 @@ import {
   GrammarLessonResult,
   ReadingLessonResult,
   ListeningLessonResult,
-  ReflexChallengeResult
+  ReflexChallengeResult,
+  TranslationVocabResult,
+  VocabGuessEvaluation,
+  SentenceTranslationFeedback
 } from '../src/types';
+import { findPassageByTextOrTitle } from './passageGenerator';
+
+const KNOWN_VOCAB_DB: Record<string, {
+  ipa: string;
+  partOfSpeech: string;
+  meaningInContext: string;
+  generalMeaning: string;
+  nuanceExplanation: string;
+  collocations: string[];
+  exampleSentence: string;
+}> = {
+  fundamentally: {
+    ipa: '/ˌfʌn.dəˈmen.təl.i/',
+    partOfSpeech: 'adverb',
+    meaningInContext: 'Về căn bản, từ gốc rễ vấn đề',
+    generalMeaning: 'Về cơ bản, cốt lõi',
+    nuanceExplanation: 'Nhấn mạnh sự biến đổi toàn diện từ nền tảng, không đơn thuần là thay đổi bề ngoài.',
+    collocations: ['fundamentally transform', 'fundamentally different', 'fundamentally change'],
+    exampleSentence: 'Cloud computing fundamentally changed how companies manage their data.',
+  },
+  leverage: {
+    ipa: '/ˈlev.ər.ɪdʒ/',
+    partOfSpeech: 'verb',
+    meaningInContext: 'Tận dụng triệt để, phát huy tối đa đòn bẩy',
+    generalMeaning: 'Sử dụng đòn bẩy; tận dụng lợi thế',
+    nuanceExplanation: 'Hàm ý khai thác thông minh một công cụ hoặc tài nguyên sẵn có để tạo ra kết quả vượt trội mà không tốn thêm nhiều sức lực.',
+    collocations: ['leverage modern technology', 'leverage existing resources', 'leverage competitive advantage'],
+    exampleSentence: 'Smart companies leverage customer feedback to continuously refine their services.',
+  },
+  retention: {
+    ipa: '/rɪˈten.ʃən/',
+    partOfSpeech: 'noun',
+    meaningInContext: 'Khả năng duy trì, lưu giữ trí nhớ dài hạn',
+    generalMeaning: 'Sự giữ lại, sự duy trì',
+    nuanceExplanation: 'Trong bối cảnh học tập và tâm lý học nhận thức, retention chỉ mức độ ghi nhớ sâu sắc kiến thức theo thời gian thay vì học vẹt rồi quên ngay.',
+    collocations: ['long-term retention', 'knowledge retention', 'customer retention'],
+    exampleSentence: 'Spaced repetition dramatically improves long-term memory retention.',
+  },
+  accelerator: {
+    ipa: '/əkˈsel.ə.reɪ.tər/',
+    partOfSpeech: 'noun',
+    meaningInContext: 'Đòn bẩy thúc đẩy gia tốc, chất kích thích tiến bộ',
+    generalMeaning: 'Chân ga; chất gia tốc',
+    nuanceExplanation: 'Nói ẩn dụ: AI là công cụ đẩy nhanh tốc độ học tập, hỗ trợ vượt bậc chứ không thay thế được nỗ lực tự thân.',
+    collocations: ['growth accelerator', 'powerful accelerator', 'technological accelerator'],
+    exampleSentence: 'Good mentors act as a vital accelerator for early-stage entrepreneurs.',
+  },
+  fluency: {
+    ipa: '/ˈfluː.ən.si/',
+    partOfSpeech: 'noun',
+    meaningInContext: 'Sự lưu loát, trôi chảy và tự nhiên trong ngôn ngữ',
+    generalMeaning: 'Sự lưu loát',
+    nuanceExplanation: 'Khả năng sử dụng ngôn ngữ mạch lạc, chuẩn xác không bị ngập ngừng, bắt nhịp theo ngữ cảnh đời thực.',
+    collocations: ['authentic fluency', 'achieve fluency', 'conversational fluency'],
+    exampleSentence: 'Immersion in authentic materials is key to gaining natural language fluency.',
+  },
+  nestled: {
+    ipa: '/ˈnes.əld/',
+    partOfSpeech: 'adjective / participle',
+    meaningInContext: 'Nằm nép mình bình yên, ẩn hiện',
+    generalMeaning: 'Ẩn mình, nép mình',
+    nuanceExplanation: 'Gợi tả hình ảnh một địa điểm ấm cúng, dễ thương nằm nép mình một cách duyên dáng giữa khung cảnh thanh bình.',
+    collocations: ['nestled in the valley', 'nestled near the park', 'nestled among trees'],
+    exampleSentence: 'The tranquil boutique hotel is nestled in the picturesque hills.',
+  },
+  intentionally: {
+    ipa: '/ɪnˈten.ʃən.əl.i/',
+    partOfSpeech: 'adverb',
+    meaningInContext: 'Một cách có chủ đích, tự nguyện và thấu suốt',
+    generalMeaning: 'Cố ý, có chủ định',
+    nuanceExplanation: 'Nhấn mạnh hành vi sống tỉnh thức (mindfulness), chủ động đưa ra lựa chọn lành mạnh thay vì để thói quen vô thức chi phối.',
+    collocations: ['intentionally disconnect', 'intentionally choose', 'live intentionally'],
+    exampleSentence: 'She intentionally schedules 15 minutes of quiet reading every morning.',
+  },
+  captivating: {
+    ipa: '/ˈkæp.tə.veɪ.tɪŋ/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'Cuốn hút, say mê, đầy mê hoặc',
+    generalMeaning: 'Quyến rũ, làm say đắm',
+    nuanceExplanation: 'Mô tả tác phẩm hoặc câu chuyện hấp dẫn đến mức thu hút trọn vẹn sự chú ý của người đọc, khiến thời gian trôi qua không nhận biết.',
+    collocations: ['captivating novel', 'captivating story', 'captivating performance'],
+    exampleSentence: 'The lecturer delivered a captivating presentation on space exploration.',
+  },
+  indispensable: {
+    ipa: '/ˌɪn.dɪˈspen.sə.bəl/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'Không thể thiếu, vô cùng thiết yếu',
+    generalMeaning: 'Bắt buộc phải có, không thể miễn bỏ',
+    nuanceExplanation: 'Mức độ quan trọng cao hơn "important", chỉ điều kiện thiết yếu mà thiếu nó thì thói quen hoặc hệ thống không thể vận hành hoàn hảo.',
+    collocations: ['indispensable tool', 'indispensable ritual', 'indispensable part of life'],
+    exampleSentence: 'Daily physical exercise has become an indispensable routine for his health.',
+  },
+  rejuvenate: {
+    ipa: '/rɪˈdʒuː.vən.eɪt/',
+    partOfSpeech: 'verb',
+    meaningInContext: 'Tái tạo, làm tươi mới năng lượng tinh thần và thể chất',
+    generalMeaning: 'Làm trẻ lại, hồi phục sức sống',
+    nuanceExplanation: 'Hồi phục sinh lực và sự sảng khoái sau quãng thời gian lao động căng thẳng, mang lại trạng thái tái sinh sảng khoái.',
+    collocations: ['rejuvenate energy', 'rejuvenate mental focus', 'rejuvenate skin'],
+    exampleSentence: 'A weekend hiking trip in nature helps rejuvenate the spirit.',
+  },
+  'grapple with': {
+    ipa: '/ˈɡræp.əl wɪð/',
+    partOfSpeech: 'phrasal verb',
+    meaningInContext: 'Trăn trở, vật lộn tìm giải pháp nan giải',
+    generalMeaning: 'Vật lộn với, tìm cách vượt qua',
+    nuanceExplanation: 'Chỉ sự đối mặt với bài toán chiến lược khó khăn đòi hỏi nhiều công sức phân tích và cân nhắc kỹ lưỡng.',
+    collocations: ['grapple with challenges', 'grapple with difficult problems', 'grapple with dilemma'],
+    exampleSentence: 'City planners must grapple with increasing traffic congestion.',
+  },
+  breakneck: {
+    ipa: '/ˈbreɪk.nek/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'Cực nhanh, chóng mặt, thần tốc',
+    generalMeaning: 'Nguy hiểm vì quá nhanh, chóng mặt',
+    nuanceExplanation: 'Thường đi với từ "speed" hoặc "growth", mô tả tốc độ phát triển chóng mặt vừa ấn tượng nhưng cũng tiềm ẩn rủi ro nếu mất kiểm soát.',
+    collocations: ['breakneck speed', 'breakneck growth', 'breakneck pace'],
+    exampleSentence: 'The mobile app expanded at a breakneck pace during its first quarter.',
+  },
+  resilience: {
+    ipa: '/rɪˈzɪl.jəns/',
+    partOfSpeech: 'noun',
+    meaningInContext: 'Khả năng chống chịu, sức bật kiên cường trước sóng gió',
+    generalMeaning: 'Tính kiên cường, độ đàn hồi',
+    nuanceExplanation: 'Năng lực vượt qua khủng hoảng, hấp thụ biến động thị trường và phục hồi lại trạng thái vững mạnh ban đầu.',
+    collocations: ['business resilience', 'mental resilience', 'emotional resilience'],
+    exampleSentence: 'Cultivating inner resilience enables professionals to thrive in demanding careers.',
+  },
+  headwinds: {
+    ipa: '/ˈhed.wɪndz/',
+    partOfSpeech: 'noun (plural metaphor)',
+    meaningInContext: 'Khó khăn bất lợi, trở lực cản trở đà tăng trưởng',
+    generalMeaning: 'Gió ngược; trở lực',
+    nuanceExplanation: 'Thuật ngữ ẩn dụ thường gặp trong kinh tế và hàng không: những luồng gió ngược cản trở vận tốc bay hoặc tiến trình phát triển.',
+    collocations: ['economic headwinds', 'face severe headwinds', 'navigate headwinds'],
+    exampleSentence: 'The export sector navigates severe economic headwinds amid inflation.',
+  },
+  audacious: {
+    ipa: '/ɔːˈdeɪ.ʃəs/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'Táo bạo, dám nghĩ dám làm vượt giới hạn thông thường',
+    generalMeaning: 'Táo bạo, gan dạ',
+    nuanceExplanation: 'Mang sắc thái tích cực của sự can đảm, sẵn sàng đề ra mục tiêu lớn mang tính cách mạng mà người bình thường e ngại.',
+    collocations: ['audacious ambition', 'audacious goal', 'audacious plan'],
+    exampleSentence: 'The visionary entrepreneur set an audacious goal to reach carbon neutrality by 2030.',
+  },
+  monumental: {
+    ipa: '/ˌmɑːn.jəˈmen.t̬əl/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'To lớn, vĩ đại, mang tính bước ngoặt',
+    generalMeaning: 'Đồ sộ, hoành tráng, bất hủ',
+    nuanceExplanation: 'Mô tả những quyết định hoặc thành tựu có tầm vóc cực kỳ to lớn và ảnh hưởng sâu rộng.',
+    collocations: ['monumental decision', 'monumental achievement', 'monumental task'],
+    exampleSentence: 'The peace treaty marked a monumental milestone in modern history.',
+  },
+  incremental: {
+    ipa: '/ˌɪŋ.krəˈmen.t̬əl/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'Từng bước nhỏ, tăng dần đều đặn',
+    generalMeaning: 'Gia tăng theo từng nấc',
+    nuanceExplanation: 'Những thay đổi nhỏ tích lũy bền bỉ qua từng ngày thay vì đột biến ồ ạt, là nền tảng của triết lý Kaizen.',
+    collocations: ['incremental progress', 'incremental adjustments', 'incremental gains'],
+    exampleSentence: 'Consistent incremental progress leads to extraordinary mastery over time.',
+  },
+  compound: {
+    ipa: '/ˈkɑːm.paʊnd/',
+    partOfSpeech: 'verb',
+    meaningInContext: 'Tích lũy cấp số nhân, dồn đọng tăng dần theo thời gian',
+    generalMeaning: 'Tạo thành hợp chất; nhân đôi gia tăng',
+    nuanceExplanation: 'Mô tả hiệu ứng lãi kép (compound interest): những thói quen nhỏ lặp đi lặp lại sinh ra kết quả khổng lồ sau thời gian dài.',
+    collocations: ['compound over time', 'compound interest', 'compound results'],
+    exampleSentence: 'Daily reading habits compound into exceptional knowledge over the years.',
+  },
+  intimidating: {
+    ipa: '/ɪnˈtɪm.ə.deɪ.tɪŋ/',
+    partOfSpeech: 'adjective',
+    meaningInContext: 'Gây cảm giác nản lòng, đáng sợ, tạo áp lực tâm lý',
+    generalMeaning: 'Đáng sợ, làm thoái chí',
+    nuanceExplanation: 'Một mục tiêu quá lớn khiến người ta cảm thấy choáng ngợp và không dám bắt đầu.',
+    collocations: ['intimidating task', 'intimidating challenge', 'intimidating prospect'],
+    exampleSentence: 'Breaking down a thick textbook into 5-page chapters makes it much less intimidating.',
+  },
+  solidify: {
+    ipa: '/səˈlɪd.ə.faɪ/',
+    partOfSpeech: 'verb',
+    meaningInContext: 'Củng cố vững chắc, kết tinh thành thói quen cố định',
+    generalMeaning: 'Làm cho đặc lại, kiên cố hóa',
+    nuanceExplanation: 'Ẩn dụ: chuyển từ trạng thái mong manh ban đầu thành nền móng vững chắc không thể phá vỡ.',
+    collocations: ['solidify habits', 'solidify foundation', 'solidify position'],
+    exampleSentence: 'Daily writing practice helps solidify your mastery of advanced sentence structures.',
+  },
+};
 
 export function generateRealisticFallback(taskType: TaskType, inputData: Record<string, unknown>): TaskResult {
   switch (taskType) {
+    case 'translation_vocab': {
+      const passage = ((inputData.passage as string) || '').trim();
+      const topic = (inputData.topic as string) || 'Đời sống & Công nghệ';
+      const difficulty = (inputData.difficulty as string) || 'B2';
+      const title = (inputData.title as string) || 'Luyện Dịch Đoạn Văn & Đoán Từ Vựng';
+      const userTranslation = ((inputData.userTranslation as string) || '').trim();
+      const targetWords = (inputData.targetWords as Array<{ word: string; contextSentence?: string }>) || [];
+      const userVocabGuesses = (inputData.userVocabGuesses as Array<{ word: string; guess: string }>) || [];
+
+      // Split original passage into English sentences
+      const rawSentences = passage
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      // Split user translation into sentences
+      const userSentences = userTranslation
+        .split(/(?<=[.!?。])\s+|\n+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      // 1. Build Reference Translation & Sentence-by-sentence feedback
+      const catalogMatch = findPassageByTextOrTitle(passage, title);
+      const passedRef = (inputData.referenceTranslation as string) || (inputData.translationVi as string) || '';
+
+      let referenceTranslation = passedRef || catalogMatch?.translationVi || '';
+      let sentenceTranslations = catalogMatch?.sentenceTranslations || [];
+
+      // Fallback split if sentenceTranslations not provided
+      if (referenceTranslation && sentenceTranslations.length === 0) {
+        sentenceTranslations = referenceTranslation
+          .split(/(?<=[.!?。])\s+|\n+/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+      }
+
+      // Legacy fallback keyword checks if still empty
+      if (!referenceTranslation) {
+        const isCafe = /liam|cafe|croissant|latte|sourdough|park/i.test(passage);
+        const isTech = /artificial intelligence|spaced repetition|algorithm|digital devices/i.test(passage);
+        const isStartup = /startup|headwinds|venture capital|breakneck/i.test(passage);
+        const isHabit = /micro-habits|incremental|compound|monumental/i.test(passage);
+
+        if (isCafe) {
+          referenceTranslation =
+            'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng nằm nép mình bên cạnh công viên trung tâm. Hương thơm quyến rũ của hạt cà phê Arabica mới xay cùng những mẻ bánh nướng nóng hổi lan tỏa khắp căn phòng ngập nắng trong điệu nhạc mộc êm dịu.\n\nAnh thường gọi một chiếc bánh sừng bò bơ vàng ruộm cùng một ly latte sữa yến mạch đá, rồi ngồi vào chiếc bàn gỗ yên tĩnh cạnh cửa sổ. Trong một tiếng tiếp theo, Liam chủ động tắt thông báo điện thoại và gác lại lịch trình bận rộn. Thay vào đó, anh đắm chìm vào cuốn tiểu thuyết du lịch lôi cuốn, thi thoảng dừng lại ngắm nhìn cư dân địa phương dắt thú cưng đi dạo dọc theo đại lộ rợp bóng cây.\n\nKhoảng lặng có chủ đích này đã trở thành một nghi thức cá nhân không thể thiếu. Liam tin rằng giữa một thế giới ngày càng vội vã và tràn ngập màn hình điện tử, việc dành ra 30 đến 60 phút để suy ngẫm thư thái và khám phá trang sách là điều thiết yếu để tái tạo sự tập trung cũng như năng lượng tinh thần trước khi bước vào các thử thách mới.';
+        } else if (isTech) {
+          referenceTranslation =
+            'Các thiết bị số và trí tuệ nhân tạo đã thay đổi căn bản cách con người tiếp thu tri thức cũng như sắp xếp các ưu tiên hàng ngày. Từ các hệ thống gia sư thông minh đến trợ lý ngôn ngữ cá nhân hóa, công nghệ hiện nay cho phép người học tinh chỉnh tài liệu chính xác theo cấp độ CEFR, lên lịch học tập linh hoạt và nhận phản hồi tức thì vào bất kỳ thời điểm nào trong ngày.\n\nCác nền tảng giáo dục hiện đại tận dụng thuật toán lặp lại ngắt quãng (Spaced Repetition) để dự đoán thời điểm người học sắp quên một cấu trúc ngữ pháp hay từ vựng. Bằng cách đưa ra thử thách gợi nhớ chủ động vào những khoảng thời gian tối ưu, các công cụ này tối đa hóa khả năng ghi nhớ dài hạn trong khi giảm thiểu đáng kể sự mệt mỏi khi học. Thêm vào đó, công nghệ nhận diện giọng nói tương tác giúp người học luyện phát âm trong một môi trường riêng tư và không lo bị phán xét.\n\nDẫu vậy, các nhà tâm lý học giáo dục nhấn mạnh rằng công nghệ đóng vai trò như một đòn bẩy thúc đẩy mạnh mẽ chứ không thể thay thế hoàn toàn cho sự tò mò và tính kỷ luật tự thân. Việc kết hợp phản hồi chuẩn xác từ AI với thói quen rèn luyện kiên trì mỗi ngày vẫn là chuẩn mực vàng để đạt được sự lưu loát thực chất.';
+        } else if (isStartup) {
+          referenceTranslation =
+            'Trong thế giới cạnh tranh khốc liệt của các công ty khởi nghiệp công nghệ, những nhà sáng lập thường xuyên phải trăn trở trước một bài toán đánh đổi mang tính chiến lược: theo đuổi tốc độ tăng trưởng người dùng chóng mặt hay xây dựng nền tảng kinh tế đơn vị bền vững. Dù dòng vốn đầu tư mạo hiểm ban đầu luôn khuyến khích việc thâu tóm khách hàng bằng mọi giá, sức bật lâu dài của doanh nghiệp lại đòi hỏi tính kỷ luật tài chính nghiêm ngặt.\n\nNhững doanh nghiệp thành công tạo nên sự khác biệt nhờ kiến tạo hệ sinh thái sản phẩm bền vững nhằm vun đắp lòng trung thành thực chất từ khách hàng, thay vì chỉ đơn thuần dựa vào các chương trình khuyến mãi giảm giá. Khi những khó khăn bất lợi của nền kinh tế ập đến, các công ty có bảng cân đối tài chính vững mạnh và cộng đồng người dùng trung thành sẽ nắm giữ sự linh hoạt để chuyển hướng mà không phải đánh đổi giá trị cốt lõi.\n\nXét cho cùng, đổi mới sáng tạo bền vững đòi hỏi các nhà lãnh đạo có tầm nhìn phải biết dung hòa giữa tham vọng lớn lao táo bạo với năng lực thực thi vận hành thực tế.';
+        } else if (isHabit) {
+          referenceTranslation =
+            'Các nhà nghiên cứu hành vi từ lâu đã khám phá ra rằng những bước chuyển mình to lớn của một cá nhân hiếm khi bắt nguồn từ các quyết định đột ngột mang tính bước ngoặt. Thay vào đó, sự phát triển bền vững được vun đắp thông qua những điều chỉnh rất nhỏ và tăng dần đều đặn, tích lũy theo thời gian như lãi kép.\n\nKhi con người thiết lập những thói quen vi mô nhỏ nhắn—chẳng hạn như đọc hai trang sách tiếng Anh hay dành năm phút luyện dịch mỗi ngày—rào cản tâm lý để bắt đầu gần như tan biến. Não bộ không còn xem nhiệm vụ đó là gánh nặng gây nản lòng, giúp tính kiên trì trở nên dễ dàng đạt được một cách tự nhiên.\n\nQua nhiều tháng liên tiếp, những nỗ lực đầu tư khiêm tốn mỗi ngày này sẽ kết tinh thành phản xạ tự động trong tiềm thức, mở ra năng lực ngôn ngữ uyên thâm và sức bền nhận thức dẻo dai.';
+        } else {
+          referenceTranslation = userTranslation.trim()
+            ? `Bản dịch chuẩn tham khảo (Hiệu đính ngữ nghĩa): ${userTranslation}`
+            : `Bản dịch chuẩn tham khảo cho đoạn văn: ${passage}`;
+        }
+      }
+
+      // Sentence feedback generation
+      const sentenceBySentenceFeedback: SentenceTranslationFeedback[] = rawSentences.map((origSent, idx) => {
+        const userSent = userSentences[idx] || (idx === 0 && userSentences.length > 0 ? userSentences[0] : '');
+        const hasUserSent = userSent.trim().length > 0;
+        
+        let suggested = sentenceTranslations[idx] || (sentenceTranslations.length > 0 ? sentenceTranslations[sentenceTranslations.length - 1] : '');
+        if (!suggested || suggested === origSent) {
+          suggested = userSent || `Bản dịch gợi ý: ${origSent}`;
+        }
+
+        let status: 'good' | 'acceptable' | 'needs_improvement' = 'good';
+        let critique = '';
+
+        if (!hasUserSent) {
+          status = 'needs_improvement';
+          critique = 'Câu này chưa có bản dịch tương ứng trong bài nộp. Hãy chú ý dịch trọn vẹn từng câu để đảm bảo tính mạch lạc của toàn đoạn.';
+        } else if (userSent.length < origSent.length * 0.4) {
+          status = 'acceptable';
+          critique = 'Bản dịch nắm được ý chính nhưng hơi ngắn gọn, lược bỏ một số chi tiết định ngữ quan trọng làm câu văn bớt sinh động.';
+        } else {
+          status = 'good';
+          critique = 'Dịch khá thoát ý, cấu trúc câu tiếng Việt tự nhiên và truyền tải chính xác sắc thái của câu gốc.';
+        }
+
+        return {
+          sentenceIndex: idx + 1,
+          originalSentence: origSent,
+          userTranslatedSentence: userSent || undefined,
+          suggestedSentence: suggested,
+          status,
+          critique,
+        };
+      });
+
+      // 2. Evaluate Target Vocabulary Contextual Guessing
+      const vocabEvaluations: VocabGuessEvaluation[] = targetWords.map((tw) => {
+        const cleanWord = tw.word.trim().toLowerCase();
+        const guessObj = userVocabGuesses.find((g) => g.word.trim().toLowerCase() === cleanWord);
+        const userGuess = (guessObj?.guess || '').trim();
+        const dbEntry = KNOWN_VOCAB_DB[cleanWord] || {
+          ipa: `/${cleanWord}/`,
+          partOfSpeech: 'noun / verb',
+          meaningInContext: `Nghĩa theo ngữ cảnh của ${tw.word}`,
+          generalMeaning: `Định nghĩa từ điển của ${tw.word}`,
+          nuanceExplanation: `Từ "${tw.word}" trong câu thể hiện một sắc thái đặc biệt khi gắn liền với bối cảnh của đoạn văn.`,
+          collocations: [`${cleanWord} in practice`, `key ${cleanWord}`],
+          exampleSentence: `Understanding the word "${cleanWord}" in real contexts unlocks high-level comprehension.`,
+        };
+
+        const catalogWord = catalogMatch?.targetWords?.find(
+          (w) => w.word.trim().toLowerCase() === cleanWord
+        );
+        const effectiveMeaningInContext = catalogWord?.meaningVi || dbEntry.meaningInContext;
+        const effectiveIpa = catalogWord?.ipa || dbEntry.ipa;
+
+        let score = 50;
+        let accuracyGrade: 'exact' | 'close' | 'incorrect' = 'close';
+        let feedback = '';
+
+        if (!userGuess) {
+          score = 30;
+          accuracyGrade = 'incorrect';
+          feedback = 'Bạn chưa nhập phỏng đoán cho từ vựng này. Khi gặp từ mới, hãy dựa vào các từ xung quanh và mối liên hệ nguyên nhân - kết quả để đoán nghĩa.';
+        } else {
+          // Compare user guess with known context meaning
+          const cleanGuess = userGuess.toLowerCase();
+          const cleanMeaning = effectiveMeaningInContext.toLowerCase();
+          const cleanGenMeaning = dbEntry.generalMeaning.toLowerCase();
+
+          // Check keyword overlap
+          const keywords = cleanMeaning.split(/[ ,;]+/).filter((w) => w.length >= 2);
+          const matched = keywords.some((kw) => cleanGuess.includes(kw));
+
+          if (matched || cleanMeaning.includes(cleanGuess) || cleanGuess.includes(cleanMeaning)) {
+            score = 95;
+            accuracyGrade = 'exact';
+            feedback = `Tuyệt vời! Phỏng đoán "${userGuess}" của bạn nắm bắt rất chính xác nghĩa và sắc thái của từ trong ngữ cảnh này. Khả năng suy luận ngữ cảnh rất tốt!`;
+          } else if (cleanGenMeaning.includes(cleanGuess) || keywords.length > 0) {
+            score = 75;
+            accuracyGrade = 'close';
+            feedback = `Khá tốt! Dự đoán "${userGuess}" phản ánh được nét nghĩa tương đối, nhưng trong đoạn văn này từ còn mang sắc thái cụ thể hơn: "${effectiveMeaningInContext}".`;
+          } else {
+            score = 55;
+            accuracyGrade = 'incorrect';
+            feedback = `Dự đoán "${userGuess}" chưa thật sự sát với ý đồ của tác giả trong câu. Trong ngữ cảnh này, từ mang nghĩa: "${effectiveMeaningInContext}".`;
+          }
+        }
+
+        return {
+          word: tw.word,
+          ipa: effectiveIpa,
+          partOfSpeech: dbEntry.partOfSpeech,
+          contextSentence: tw.contextSentence || passage,
+          userGuess: userGuess || '(Chưa điền)',
+          actualMeaningInContext: effectiveMeaningInContext,
+          generalMeaning: dbEntry.generalMeaning,
+          score,
+          accuracyGrade,
+          feedback,
+          nuanceExplanation: dbEntry.nuanceExplanation,
+          collocations: dbEntry.collocations,
+          exampleSentence: dbEntry.exampleSentence,
+        };
+      });
+
+      // 3. Compute Scores
+      const avgVocabScore =
+        vocabEvaluations.length > 0
+          ? Math.round(vocabEvaluations.reduce((acc, v) => acc + v.score, 0) / vocabEvaluations.length)
+          : 80;
+
+      const userWordCount = userTranslation.split(/\s+/).filter(Boolean).length;
+      let translationScore = 80;
+      if (userWordCount > 15) {
+        translationScore = Math.min(96, Math.max(65, 75 + Math.round(userWordCount / 8)));
+      } else if (userWordCount === 0) {
+        translationScore = 30;
+      } else {
+        translationScore = 60;
+      }
+
+      const overallScore = Math.round(translationScore * 0.6 + avgVocabScore * 0.4);
+
+      let performanceBadge = 'Dịch Thoát Ý Tốt';
+      if (overallScore >= 90) {
+        performanceBadge = 'Bậc Thầy Ngữ Cảnh & Dịch Thuật';
+      } else if (overallScore >= 80) {
+        performanceBadge = 'Dịch Thoát Ý Tốt & Nắm Chắc Ngữ Nghĩa';
+      } else if (overallScore >= 70) {
+        performanceBadge = 'Hiểu Đúng Đại Ý - Cần Chuốt Lại Câu Văn';
+      } else {
+        performanceBadge = 'Cần Rèn Luyện Phản Xạ & Bám Sát Ngữ Cảnh';
+      }
+
+      const executiveSummary = userTranslation
+        ? `Bản dịch của bạn thể hiện khả năng đọc hiểu tốt với điểm số tổng quát ${overallScore}/100. Bạn nắm bắt được ${avgVocabScore >= 80 ? 'rất chuẩn xác' : 'tương đối đầy đủ'} mạch ý của tác giả và biết vận dụng suy luận ngữ cảnh khi đoán từ vựng. Hãy chú ý chuốt lại một số câu dịch để văn phong tiếng Việt tự nhiên và thoát ý hơn nữa.`
+        : 'Bạn chưa nộp bản dịch hoàn chỉnh. Hãy xem bản dịch mẫu đối chiếu và các phân tích ngữ cảnh chi tiết bên dưới để bổ sung vốn từ và cách diễn đạt chuẩn xác.';
+
+      const strengths = [
+        'Truyền tải được thông điệp cốt lõi và luận điểm chính của đoạn văn mà không làm méo mó ý tác giả.',
+        'Nhận biết được từ loại và cấu trúc câu ghép phức tạp trong văn phong tiếng Anh học thuật.',
+      ];
+      if (avgVocabScore >= 80) {
+        strengths.push('Kỹ năng suy luận nghĩa từ mới dựa vào manh mối ngữ cảnh (context clues) rất sắc sảo.');
+      }
+
+      const weaknesses = [
+        'Một số cụm từ còn mang hơi hướng dịch từng từ (word-by-word), cần chuyển đổi linh hoạt hơn theo thói quen diễn đạt tự nhiên của người Việt.',
+        'Cần chú ý hơn đến các tiểu từ liên kết và sắc thái biểu cảm (tone) để câu văn có độ mượt mà cao hơn.',
+      ];
+
+      const objectiveAdvice = {
+        translationTips: [
+          'Nguyên tắc 3 bước dịch thoát ý: (1) Đọc trọn câu để nắm trọn ý nghĩa -> (2) Quên hẳn trật tự từ tiếng Anh -> (3) Diễn đạt lại ý đó bằng câu tiếng Việt thuần thục nhất.',
+          'Chú ý các liên từ (furthermore, nevertheless, instead): hãy đặt liên từ ở đầu câu tiếng Việt để mạch văn liền mạch.',
+        ],
+        contextDeductionTips: [
+          'Dấu hiệu tương phản: Khi thấy các từ như "instead", "rather than", từ cần đoán thường mang nghĩa đối lập với vế trước.',
+          'Dấu hiệu định nghĩa kèm theo: Chú ý dấu gạch ngang (—), dấu ngoặc đơn hoặc mệnh đề quan hệ ngay sau từ để tìm định nghĩa tác giả cài cắm.',
+        ],
+        nextAction: 'Lưu các từ vựng và cụm collocation tâm đắc vào Sổ Nhớ, sau đó thử sức với một đoạn văn thuộc chủ đề kinh tế hoặc khoa học tiếp theo!',
+      };
+
+      const resultData: TranslationVocabResult = {
+        title,
+        passage,
+        topic,
+        difficulty,
+        overallScore,
+        cefrLevel: difficulty,
+        translationScore,
+        vocabScore: avgVocabScore,
+        performanceBadge,
+        executiveSummary,
+        translationEvaluation: {
+          referenceTranslation,
+          strengths,
+          weaknesses,
+          sentenceBySentenceFeedback,
+        },
+        vocabEvaluations,
+        objectiveAdvice,
+      };
+
+      return {
+        type: 'translation_vocab',
+        data: resultData,
+      };
+    }
     case 'writing': {
       const essay = (inputData.essay as string) || '';
       const topic = (inputData.topic as string) || 'General English Writing';

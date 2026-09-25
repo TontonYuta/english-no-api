@@ -1,4 +1,5 @@
 export type TaskType =
+  | 'translation_vocab'
   | 'writing'
   | 'vocab'
   | 'roleplay'
@@ -9,7 +10,8 @@ export type TaskType =
   | 'listening_lesson'
   | 'reflex_challenge';
 export type RoleplayLength = 'short' | 'medium' | 'long';
-export type DialogueDifficulty = 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type DialogueDifficulty = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 export type Language = 'vi' | 'en';
 
 export type ChatbotProvider = 'fast' | 'gemini' | 'chatgpt' | 'antigravity';
@@ -61,6 +63,7 @@ export interface PlaywrightConfig {
   userDataDir: string;
   timeoutMs: number;
   simulateIfBlocked: boolean;
+  geminiApiKey?: string;
 }
 
 export interface WritingCorrection {
@@ -178,7 +181,7 @@ export interface AppSettings {
   defaultUserRole: string;
   defaultAiRole: string;
   simulateIfBlocked: boolean;
-  userLevel?: 'A1' | 'A2' | 'B1' | 'B2';
+  userLevel?: CEFRLevel;
   dailyVocabCount?: number; // 3, 5, 8, 10
   quizQuestionCount?: number; // 5, 10, 15, 20
   quizIncludeVocab?: boolean;
@@ -187,6 +190,7 @@ export interface AppSettings {
   customTopic?: string;
   grammarFocus?: GrammarFocus;
   focusMode?: boolean;
+  geminiApiKey?: string;
 }
 
 export interface QuizQuestion {
@@ -433,7 +437,66 @@ export interface ListeningLessonResult {
   };
 }
 
+export interface VocabGuessItem {
+  word: string;
+  contextSentence?: string;
+  userGuess: string;
+}
+
+export interface VocabGuessEvaluation {
+  word: string;
+  ipa?: string;
+  partOfSpeech?: string;
+  contextSentence: string;
+  userGuess: string;
+  actualMeaningInContext: string;
+  generalMeaning: string;
+  score: number;
+  accuracyGrade: 'exact' | 'close' | 'incorrect';
+  feedback: string;
+  nuanceExplanation: string;
+  collocations?: string[];
+  exampleSentence?: string;
+}
+
+export interface SentenceTranslationFeedback {
+  sentenceIndex: number;
+  originalSentence: string;
+  userTranslatedSentence?: string;
+  suggestedSentence: string;
+  status: 'good' | 'acceptable' | 'needs_improvement';
+  critique: string;
+}
+
+export interface TranslationVocabResult {
+  title?: string;
+  passage: string;
+  topic?: string;
+  difficulty?: string;
+  evaluatedBy?: string;
+  evaluatedProvider?: ChatbotProvider;
+  overallScore: number;
+  cefrLevel: string;
+  translationScore: number;
+  vocabScore: number;
+  performanceBadge: string;
+  executiveSummary: string;
+  translationEvaluation: {
+    referenceTranslation: string;
+    strengths: string[];
+    weaknesses: string[];
+    sentenceBySentenceFeedback: SentenceTranslationFeedback[];
+  };
+  vocabEvaluations: VocabGuessEvaluation[];
+  objectiveAdvice: {
+    translationTips: string[];
+    contextDeductionTips: string[];
+    nextAction: string;
+  };
+}
+
 export type TaskResult =
+  | { type: 'translation_vocab'; data: TranslationVocabResult }
   | { type: 'writing'; data: WritingResult }
   | { type: 'vocab'; data: VocabResult }
   | { type: 'roleplay'; data: RoleplayResult }

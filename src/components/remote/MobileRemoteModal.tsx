@@ -51,7 +51,6 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
   const [lanQrDataUrl, setLanQrDataUrl] = useState<string | null>(null);
   const [tunnelQrDataUrl, setTunnelQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [openTarget, setOpenTarget] = useState<'remote' | 'full'>('remote');
 
   const fetchNetworkInfo = async () => {
     try {
@@ -76,11 +75,9 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
 
   // Generate QR for LAN
   useEffect(() => {
-    if (!networkInfo) return;
-    const targetUrl = openTarget === 'remote' ? networkInfo.remoteLanUrl : networkInfo.lanUrl;
-    if (!targetUrl) return;
+    if (!networkInfo || !networkInfo.lanUrl) return;
 
-    QRCode.toDataURL(targetUrl, {
+    QRCode.toDataURL(networkInfo.lanUrl, {
       width: 280,
       margin: 2,
       color: {
@@ -90,7 +87,7 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
     })
       .then((url) => setLanQrDataUrl(url))
       .catch((err) => console.error('Failed to generate LAN QR:', err));
-  }, [networkInfo, openTarget]);
+  }, [networkInfo]);
 
   // Generate QR for Cloudflare Tunnel
   useEffect(() => {
@@ -98,12 +95,8 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
       setTunnelQrDataUrl(null);
       return;
     }
-    const targetUrl =
-      openTarget === 'remote'
-        ? `${networkInfo.tunnel.url}/remote`
-        : networkInfo.tunnel.url;
 
-    QRCode.toDataURL(targetUrl, {
+    QRCode.toDataURL(networkInfo.tunnel.url, {
       width: 280,
       margin: 2,
       color: {
@@ -113,7 +106,7 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
     })
       .then((url) => setTunnelQrDataUrl(url))
       .catch((err) => console.error('Failed to generate Tunnel QR:', err));
-  }, [networkInfo?.tunnel?.url, openTarget]);
+  }, [networkInfo?.tunnel?.url]);
 
   const handleStartTunnel = async () => {
     try {
@@ -152,17 +145,8 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentLanUrl = networkInfo
-    ? openTarget === 'remote'
-      ? networkInfo.remoteLanUrl
-      : networkInfo.lanUrl
-    : '';
-
-  const currentTunnelUrl = networkInfo?.tunnel?.url
-    ? openTarget === 'remote'
-      ? `${networkInfo.tunnel.url}/remote`
-      : networkInfo.tunnel.url
-    : '';
+  const currentLanUrl = networkInfo?.lanUrl || '';
+  const currentTunnelUrl = networkInfo?.tunnel?.url || '';
 
   const isTunnelActive = Boolean(networkInfo?.tunnel?.active && networkInfo?.tunnel?.url);
 
@@ -481,38 +465,6 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
             </div>
           )}
 
-          {/* Destination Interface Mode Picker */}
-          <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-850 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-zinc-300 font-medium">
-              <Sparkles className="w-4 h-4 text-sky-400" />
-              <span>Giao diện khi quét:</span>
-            </div>
-
-            <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800 font-mono text-[11px]">
-              <button
-                type="button"
-                onClick={() => setOpenTarget('remote')}
-                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                  openTarget === 'remote'
-                    ? 'bg-sky-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                📱 Bản Mobile Gọn
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpenTarget('full')}
-                className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                  openTarget === 'full'
-                    ? 'bg-sky-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                💻 Toàn Bộ App
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -524,12 +476,12 @@ export const MobileRemoteModal: React.FC<MobileRemoteModalProps> = ({
 
           <div className="flex items-center gap-2">
             <a
-              href="/remote"
+              href="/"
               target="_blank"
               rel="noreferrer"
               className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-750 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <span>Xem thử Remote</span>
+              <span>Mở Web App</span>
               <ArrowRight className="w-3 h-3" />
             </a>
 

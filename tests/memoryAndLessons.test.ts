@@ -53,6 +53,7 @@ import {
 
 import { buildChatbotPrompt } from '../server/promptBuilders';
 import { generateRealisticFallback } from '../server/fallbackGenerator';
+import { isGeminiApiAvailable, getEffectiveGeminiApiKey } from '../server/geminiService';
 import {
   evaluatePronunciationLocally,
   getUserAudioSettings,
@@ -68,6 +69,7 @@ import {
   POPULAR_CHAT_SCENARIOS,
 } from '../src/utils/chatUtils';
 import { chunkTextForTTS } from '../server/ttsService';
+import { generateFreshPassage, findPassageByTextOrTitle } from '../server/passageGenerator';
 
 test('learningMemory: Word storage and anti-repetition', () => {
   localStorage.clear();
@@ -1273,6 +1275,138 @@ test('readingConfig: setup word count, min/max limits and reading difficulty lev
   assert.ok(readingFallback.data.comprehensionQuiz.question.length > 0);
   assert.equal(readingFallback.data.comprehensionQuiz.options.length, 4);
 });
+
+test('translation_vocab: promptBuilders generates bilingual professor evaluation prompt', () => {
+  const prompt = buildChatbotPrompt('translation_vocab', {
+    passage: 'Digital devices and artificial intelligence have fundamentally transformed how people acquire knowledge.',
+    title: 'How Generative AI Is Reshaping Learning',
+    topic: 'Công Nghệ & AI',
+    difficulty: 'B2',
+    userTranslation: 'Các thiết bị số và trí tuệ nhân tạo đã thay đổi căn bản cách con người tiếp thu tri thức.',
+    targetWords: [
+      { word: 'fundamentally', contextSentence: 'have fundamentally transformed how people acquire knowledge' },
+    ],
+    userVocabGuesses: [{ word: 'fundamentally', guess: 'về cơ bản, từ gốc rễ' }],
+  });
+
+  assert.ok(prompt.systemInstruction.includes('bilingual English-Vietnamese translator'));
+  assert.ok(prompt.userPrompt.includes('How Generative AI Is Reshaping Learning'));
+  assert.ok(prompt.userPrompt.includes('fundamentally'));
+  assert.ok(prompt.userPrompt.includes('về cơ bản, từ gốc rễ'));
+  assert.ok(prompt.userPrompt.includes('sentenceBySentenceFeedback'));
+});
+
+test('translation_vocab: fallbackGenerator scores translation and vocab guesses objectively', () => {
+  const fallback = generateRealisticFallback('translation_vocab', {
+    passage: 'Every Saturday morning, Liam visits a cozy neighborhood cafe nestled near the central park. The inviting aroma of freshly ground Arabica coffee fills the sunlit room.',
+    title: 'Mindful Mornings',
+    topic: 'Đời Sống & Cà Phê',
+    difficulty: 'B1',
+    userTranslation: 'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng nằm nép mình bên cạnh công viên trung tâm. Hương thơm quyến rũ của hạt cà phê Arabica mới xay lan tỏa khắp căn phòng ngập nắng.',
+    targetWords: [
+      { word: 'nestled', contextSentence: 'nestled near the central park' },
+    ],
+    userVocabGuesses: [{ word: 'nestled', guess: 'nằm nép mình bình yên' }],
+  });
+
+  assert.equal(fallback.type, 'translation_vocab');
+  const data = fallback.data as any;
+  assert.ok(data.overallScore >= 70, 'Overall score should reflect good translation');
+  assert.ok(data.translationScore >= 70);
+  assert.ok(data.vocabScore >= 70);
+  assert.ok(data.performanceBadge.length > 0);
+  assert.ok(data.executiveSummary.length > 0);
+  assert.ok(data.translationEvaluation.referenceTranslation.length > 0);
+  assert.ok(data.translationEvaluation.sentenceBySentenceFeedback.length >= 2);
+  assert.equal(data.vocabEvaluations.length, 1);
+  assert.equal(data.vocabEvaluations[0].word, 'nestled');
+  assert.equal(data.vocabEvaluations[0].accuracyGrade, 'exact');
+  assert.ok(data.objectiveAdvice.translationTips.length >= 1);
+  assert.ok(data.objectiveAdvice.contextDeductionTips.length >= 1);
+});
+
+test('passageGenerator: generateFreshPassage filters by level, topic, and synthesizes custom topics', () => {
+  // 1. Level A1 with food topic
+  const a1Food = generateFreshPassage('A1', 'food');
+  assert.equal(a1Food.difficulty, 'A1');
+  assert.ok(a1Food.translationVi.length > 50, 'A1 food must have Vietnamese translation');
+  assert.ok(a1Food.targetWords.length >= 3);
+  assert.ok(a1Food.sentenceTranslations.length >= 3);
+
+  // 2. Level C1 with business topic
+  const c1Biz = generateFreshPassage('C1', 'business');
+  assert.equal(c1Biz.difficulty, 'C1');
+  assert.ok(c1Biz.passage.includes('startup') || c1Biz.passage.includes('Strategic'));
+  assert.ok(c1Biz.translationVi.includes('khởi nghiệp') || c1Biz.translationVi.includes('chiến lược'));
+
+  // 3. Custom Topic synthesis
+  const custom = generateFreshPassage('B1', undefined, 'Khám phá biển sâu');
+  assert.equal(custom.difficulty, 'B1');
+  assert.ok(custom.title.includes('Khám phá biển sâu'));
+  assert.ok(custom.translationVi.includes('Khám phá biển sâu'));
+  assert.ok(custom.sentenceTranslations.length >= 3);
+
+  // 4. Fallback generator matches catalog passage and provides authentic Vietnamese reference translation
+  const fallback = generateRealisticFallback('translation_vocab', {
+    passage: a1Food.passage,
+    title: a1Food.title,
+    topic: a1Food.topic,
+    difficulty: a1Food.difficulty,
+    userTranslation: a1Food.sentenceTranslations[0] || 'Tự nấu bữa sáng tại nhà.',
+    targetWords: a1Food.targetWords,
+    userVocabGuesses: [{ word: a1Food.targetWords[0].word, guess: a1Food.targetWords[0].meaningVi }],
+  });
+
+  const fbData = fallback.data as any;
+  assert.equal(fbData.translationEvaluation.referenceTranslation, a1Food.translationVi);
+  assert.ok(fbData.translationEvaluation.sentenceBySentenceFeedback[0].suggestedSentence.length > 0);
+  assert.notEqual(fbData.translationEvaluation.sentenceBySentenceFeedback[0].suggestedSentence, a1Food.passage);
+});
+
+test('geminiService & engine tagging: verifies Gemini API key detection and result metadata', () => {
+  // Key detection
+  assert.equal(isGeminiApiAvailable(''), false);
+  assert.equal(isGeminiApiAvailable('invalid_key'), false);
+  assert.equal(isGeminiApiAvailable('AIzaSyDummyKeyForTestingGoogleGenAI12345'), true);
+  assert.equal(getEffectiveGeminiApiKey('AIzaSyCustomKey987'), 'AIzaSyCustomKey987');
+
+  // Fast engine result tagging
+  const fastFallback = generateRealisticFallback('translation_vocab', {
+    passage: 'Learning English requires daily consistency.',
+    title: 'Consistency',
+    topic: 'Education',
+    difficulty: 'B1',
+    userTranslation: 'Học tiếng Anh đòi hỏi sự kiên trì hàng ngày.',
+    targetWords: [{ word: 'consistency', contextSentence: 'Learning English requires daily consistency.' }],
+    userVocabGuesses: [{ word: 'consistency', guess: 'kiên trì' }],
+  });
+
+  const fbData = fastFallback.data as any;
+  assert.ok(fbData.overallScore > 0);
+  assert.ok(fbData.translationEvaluation.referenceTranslation.length > 0);
+  assert.ok(fbData.vocabEvaluations.length > 0);
+});
+
+test('passageGenerator & geminiService: catalog topics, CEFR spectrum and unified passage interface', async () => {
+  const { TOPIC_OPTIONS } = await import('../server/passageGenerator');
+  assert.ok(TOPIC_OPTIONS.length >= 7);
+  assert.ok(TOPIC_OPTIONS.some((t) => t.id === 'tech'));
+  assert.ok(TOPIC_OPTIONS.some((t) => t.id === 'business'));
+  assert.ok(TOPIC_OPTIONS.some((t) => t.id === 'daily'));
+
+  // Test all CEFR levels generate valid passages with targetWords and translationVi
+  const levels = ['A1', 'A2', 'B1', 'B2', 'C1'] as const;
+  for (const lvl of levels) {
+    const p = generateFreshPassage(lvl, 'daily');
+    assert.equal(p.difficulty, lvl);
+    assert.ok(p.passage.length > 50, `Level ${lvl} passage length`);
+    assert.ok(p.translationVi.length > 30, `Level ${lvl} translationVi length`);
+    assert.ok(p.targetWords.length >= 3, `Level ${lvl} targetWords length`);
+    assert.ok(p.sentenceTranslations.length >= 3, `Level ${lvl} sentenceTranslations length`);
+  }
+});
+
+
 
 
 

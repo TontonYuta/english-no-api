@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   Volume2,
-  Users,
   Check,
   RotateCcw,
   ShieldCheck,
@@ -20,8 +19,10 @@ import {
   Sparkles,
   Trash2,
   AlertTriangle,
+  Key,
+  ExternalLink,
 } from 'lucide-react';
-import { AppSettings, ChatbotProvider, DialogueDifficulty, RoleplayLength, Language } from '../types';
+import { AppSettings, ChatbotProvider, Language } from '../types';
 import { translations } from '../translations';
 import { playAudioPronunciation } from '../utils/speechUtils';
 import { resetAllAppData } from '../utils/learningMemory';
@@ -46,6 +47,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetSuccessMessage, setResetSuccessMessage] = useState(false);
+  const [isOpeningBrowser, setIsOpeningBrowser] = useState(false);
+  const [loginStatusMessage, setLoginStatusMessage] = useState<string | null>(null);
+
+  const handleOpenLogin = async (targetProvider: 'gemini' | 'chatgpt' = 'gemini') => {
+    setIsOpeningBrowser(true);
+    setLoginStatusMessage(null);
+    try {
+      const res = await fetch('/api/playwright/open-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: targetProvider }),
+      });
+      const data = await res.json();
+      if (data.message) {
+        setLoginStatusMessage(data.message);
+      }
+    } catch (err: any) {
+      setLoginStatusMessage('Lỗi mở trình duyệt: ' + err.message);
+    } finally {
+      setIsOpeningBrowser(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -301,6 +324,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Gemini AI Detailed Configuration Card */}
+          <div className="p-4 rounded-xl bg-sky-950/20 border border-sky-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-sky-300 flex items-center gap-2 font-mono">
+                <Sparkles className="w-4 h-4 text-sky-400" />
+                <span>Cấu hình Google Gemini AI (Miễn phí & Tốc độ cao)</span>
+              </label>
+              <span className="text-[10px] font-mono text-sky-400 bg-sky-900/40 px-2 py-0.5 rounded border border-sky-800">
+                PlayEng AI
+              </span>
+            </div>
+
+            <p className="text-[11px] text-zinc-300 leading-relaxed">
+              PlayEng hỗ trợ 2 chế độ Google Gemini để chấm điểm khách quan và phân tích bài học:
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-mono font-bold text-zinc-300 mb-1">
+                  Cách 1: Google Gemini API Key (Tùy chọn - Phản hồi 1.5s tức thì)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Key className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      placeholder="AIzaSy... (Lấy miễn phí tại aistudio.google.com)"
+                      value={localSettings.geminiApiKey || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, geminiApiKey: e.target.value })}
+                      className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  {localSettings.geminiApiKey && (
+                    <button
+                      type="button"
+                      onClick={() => setLocalSettings({ ...localSettings, geminiApiKey: '' })}
+                      className="px-2.5 py-2 text-xs font-mono text-zinc-400 hover:text-red-400 bg-zinc-900 border border-zinc-800 rounded-lg cursor-pointer"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </div>
+                <span className="text-[10px] text-zinc-500 font-mono mt-1 block">
+                  * Nếu không có API Key, hãy để trống. Hệ thống sẽ tự động dùng Gemini Web miễn phí bên dưới.
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-zinc-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                <div>
+                  <span className="block text-[11px] font-mono font-bold text-zinc-300">
+                    Cách 2: Gemini Web Playwright (Miễn phí 100%, không cần API Key)
+                  </span>
+                  <span className="text-[10px] text-zinc-400">
+                    Tự động hóa qua Playwright. Bấm nút để đăng nhập tài khoản Google của bạn một lần duy nhất:
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isOpeningBrowser}
+                  onClick={() => handleOpenLogin('gemini')}
+                  className="px-3 py-1.5 rounded-lg bg-sky-900/60 hover:bg-sky-850 border border-sky-600/50 text-sky-200 text-xs font-mono font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                  <span>{isOpeningBrowser ? 'Đang mở...' : '🔑 Mở Trình Duyệt Đăng Nhập'}</span>
+                </button>
+              </div>
+
+              {loginStatusMessage && (
+                <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 font-mono">
+                  {loginStatusMessage}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* CEFR English Proficiency Level Selection */}
           <div className="space-y-2 pb-4 border-b border-neutral-800">
             <div className="flex items-center justify-between flex-wrap gap-1">
@@ -413,106 +512,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Quiz Question Count & Scope Configuration */}
-          <div className="space-y-3 pb-4 border-b border-zinc-800">
-            <div className="flex items-center justify-between flex-wrap gap-1">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2 font-mono">
-                <Target className="w-4 h-4 text-sky-400" />
-                <span>{t.settingQuizQuestionCountLabel}</span>
-              </label>
-              <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded-md border border-sky-800">
-                [ {localSettings.quizQuestionCount || 5} CÂU / ĐỀ THI ]
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-400">{t.settingQuizQuestionCountDesc}</p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { count: 5, label: '⚡ 5 Câu / Đề', sub: 'Khởi động (3-5 phút)' },
-                { count: 10, label: '🎯 10 Câu / Đề', sub: 'Chuẩn mực (6-8 phút)' },
-                { count: 15, label: '🔥 15 Câu / Đề', sub: 'Nâng cao (10-12 phút)' },
-                { count: 20, label: '🏆 20 Câu / Đề', sub: 'Tổng ôn chuyên sâu (15 phút)' },
-              ].map((opt) => {
-                const isSelected = (localSettings.quizQuestionCount || 5) === opt.count;
-                return (
-                  <button
-                    key={opt.count}
-                    type="button"
-                    onClick={() =>
-                      setLocalSettings({ ...localSettings, quizQuestionCount: opt.count })
-                    }
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-l-4 border-l-sky-500 bg-sky-950/40 border-zinc-700 text-white shadow-sm'
-                        : 'border-l-2 border-l-zinc-700 bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    <span className="text-xs font-bold block">{opt.label}</span>
-                    <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">{opt.sub}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quiz Composition: Both Vocab & Grammar */}
-            <div className="pt-2">
-              <span className="text-xs font-mono font-bold text-zinc-300 uppercase block mb-1.5 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>{t.settingQuizMixModeLabel}:</span>
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  {
-                    id: 'mixed',
-                    label: '🌟 Kết Hợp Cả Hai',
-                    desc: 'Bao gồm cả Từ vựng & Ngữ pháp (Khuyên dùng)',
-                    incVocab: true,
-                    incGrammar: true,
-                  },
-                  {
-                    id: 'vocab',
-                    label: '📖 Chuyên Từ Vựng',
-                    desc: 'Tập trung từ loại, thành ngữ & collocations',
-                    incVocab: true,
-                    incGrammar: false,
-                  },
-                  {
-                    id: 'grammar',
-                    label: '📐 Chuyên Ngữ Pháp',
-                    desc: 'Tập trung công thức, thì & cấu trúc câu',
-                    incVocab: false,
-                    incGrammar: true,
-                  },
-                ].map((qm) => {
-                  const isCur =
-                    (localSettings.quizIncludeVocab ?? true) === qm.incVocab &&
-                    (localSettings.quizIncludeGrammar ?? true) === qm.incGrammar;
-                  return (
-                    <button
-                      key={qm.id}
-                      type="button"
-                      onClick={() =>
-                        setLocalSettings({
-                          ...localSettings,
-                          quizIncludeVocab: qm.incVocab,
-                          quizIncludeGrammar: qm.incGrammar,
-                        })
-                      }
-                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        isCur
-                          ? 'border-l-4 border-l-amber-500 bg-amber-950/30 border-zinc-700 text-white shadow-sm'
-                          : 'border-l-2 border-l-zinc-700 bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      <span className="text-xs font-bold block">{qm.label}</span>
-                      <span className="text-[10px] text-zinc-500 block mt-0.5">{qm.desc}</span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </div>
 
@@ -678,92 +677,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {localSettings.language === 'vi' ? 'Hiện cửa sổ Chrome' : 'Visible Chromium Window'}
                 </span>
               </button>
-            </div>
-          </div>
-
-          {/* Dialogue 2-Party Defaults */}
-          <div className="space-y-3 pb-4 border-b border-zinc-800">
-            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-              <Users className="w-4 h-4 text-purple-400" />
-              <span>{t.settingDefaultRolesTitle}</span>
-            </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">
-                  {t.settingDefaultUserRole}
-                </span>
-                <input
-                  type="text"
-                  value={localSettings.defaultUserRole}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, defaultUserRole: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">
-                  {t.settingDefaultAiRole}
-                </span>
-                <input
-                  type="text"
-                  value={localSettings.defaultAiRole}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, defaultAiRole: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">
-                  {t.settingDefaultLength}
-                </span>
-                <div className="grid grid-cols-3 gap-1">
-                  {(['short', 'medium', 'long'] as RoleplayLength[]).map((len) => (
-                    <button
-                      key={len}
-                      type="button"
-                      onClick={() => setLocalSettings({ ...localSettings, defaultRoleplayLength: len })}
-                      className={`py-1.5 px-2 rounded-md text-[11px] border capitalize font-mono ${
-                        localSettings.defaultRoleplayLength === len
-                          ? 'bg-amber-950/60 border-amber-500 text-amber-300 font-bold'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      {len}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[11px] text-zinc-400 block mb-1">
-                  {t.settingDefaultDifficulty}
-                </span>
-                <div className="grid grid-cols-5 gap-1">
-                  {(['A2', 'B1', 'B2', 'C1', 'C2'] as DialogueDifficulty[]).map((diff) => (
-                    <button
-                      key={diff}
-                      type="button"
-                      onClick={() =>
-                        setLocalSettings({ ...localSettings, defaultRoleplayDifficulty: diff })
-                      }
-                      className={`py-1.5 rounded-md text-[11px] font-mono font-bold border ${
-                        localSettings.defaultRoleplayDifficulty === diff
-                          ? 'bg-sky-950/60 border-sky-500 text-sky-300'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      {diff}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
 

@@ -5,13 +5,42 @@
 
 set -e
 
-APP_DIR="/home/tontonyuta/english-no-api"
+if [ -n "$PLAYENG_APP_DIR" ] && [ -d "$PLAYENG_APP_DIR" ]; then
+    APP_DIR="$PLAYENG_APP_DIR"
+elif [ -d "/opt/playeng-studio" ] && [ -f "/opt/playeng-studio/dist/server.cjs" ]; then
+    APP_DIR="/opt/playeng-studio"
+else
+    SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+    if [ -f "$SCRIPT_DIR/../dist/server.cjs" ]; then
+        APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+    elif [ -d "/home/tontonyuta/english-no-api" ]; then
+        APP_DIR="/home/tontonyuta/english-no-api"
+    else
+        APP_DIR="$SCRIPT_DIR"
+    fi
+fi
+
 PORT=3000
 STATE_DIR="$HOME/.local/state/playeng-studio"
 CONFIG_DIR="$HOME/.config/playeng-studio"
 PID_FILE="$STATE_DIR/server.pid"
 LOG_FILE="$STATE_DIR/server.log"
-ICON_FILE="$HOME/.local/share/icons/playeng-studio.png"
+
+if [ -f "$HOME/.local/share/icons/playeng-studio.png" ]; then
+    ICON_FILE="$HOME/.local/share/icons/playeng-studio.png"
+elif [ -f "/usr/share/icons/hicolor/512x512/apps/playeng-studio.png" ]; then
+    ICON_FILE="/usr/share/icons/hicolor/512x512/apps/playeng-studio.png"
+elif [ -f "$APP_DIR/public/playeng-studio.png" ]; then
+    ICON_FILE="$APP_DIR/public/playeng-studio.png"
+elif [ -f "$HOME/.local/share/icons/playeng-studio.svg" ]; then
+    ICON_FILE="$HOME/.local/share/icons/playeng-studio.svg"
+elif [ -f "/usr/share/icons/hicolor/scalable/apps/playeng-studio.svg" ]; then
+    ICON_FILE="/usr/share/icons/hicolor/scalable/apps/playeng-studio.svg"
+else
+    ICON_FILE=""
+fi
+
 WAS_REBUILT=0
 
 mkdir -p "$STATE_DIR" "$CONFIG_DIR"
@@ -32,6 +61,11 @@ is_server_running() {
 }
 
 needs_build() {
+    # If app directory is packaged or read-only, never rebuild
+    if [ ! -d "$APP_DIR/src" ] || [ ! -w "$APP_DIR" ]; then
+        return 1
+    fi
+
     if [ ! -f "$APP_DIR/dist/server.cjs" ] || [ ! -f "$APP_DIR/dist/index.html" ]; then
         return 0
     fi
@@ -53,6 +87,10 @@ needs_build() {
 }
 
 build_bundle() {
+    if [ ! -w "$APP_DIR" ] || [ ! -d "$APP_DIR/src" ]; then
+        echo "[PlayEng Studio] Packaged installation is read-only; skipping rebuild."
+        return 0
+    fi
     echo "[PlayEng Studio] Building production bundle..."
     cd "$APP_DIR"
     if ! npm run build >> "$LOG_FILE" 2>&1; then
@@ -173,13 +211,14 @@ open_window() {
 
     # Check for Chrome / Chromium binaries to launch in dedicated standalone app window
     local chrome_candidates=(
-        "/home/tontonyuta/.local/bin/google-chrome"
-        "/home/tontonyuta/.local/bin/google-chrome-stable"
-        "/home/tontonyuta/.local/bin/chromium"
+        "$HOME/.local/bin/google-chrome"
+        "$HOME/.local/bin/google-chrome-stable"
+        "$HOME/.local/bin/chromium"
         "/usr/bin/google-chrome"
         "/usr/bin/google-chrome-stable"
         "/usr/bin/chromium-browser"
         "/usr/bin/chromium"
+        "/snap/bin/chromium"
     )
 
     local found_browser=""
@@ -278,6 +317,9 @@ case "$1" in
         ;;
     stop)
         stop_all
+        ;;
+    start-server)
+        start_server
         ;;
     stop-server)
         stop_server

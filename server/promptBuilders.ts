@@ -5,6 +5,105 @@ export function buildChatbotPrompt(
   inputData: Record<string, unknown>
 ): { systemInstruction: string; userPrompt: string } {
   switch (taskType) {
+    case 'translation_vocab': {
+      const passage = (inputData.passage as string) || '';
+      const topic = (inputData.topic as string) || 'English Context Translation';
+      const difficulty = (inputData.difficulty as string) || 'B2';
+      const title = (inputData.title as string) || 'Reading & Translation Practice';
+      const userTranslation = (inputData.userTranslation as string) || '';
+      const targetWords = (inputData.targetWords as Array<{ word: string; contextSentence?: string }>) || [];
+      const userVocabGuesses = (inputData.userVocabGuesses as Array<{ word: string; guess: string }>) || [];
+
+      const targetWordsStr = targetWords
+        .map((tw) => {
+          const guessObj = userVocabGuesses.find(
+            (g) => g.word.toLowerCase() === tw.word.toLowerCase()
+          );
+          const guess = guessObj ? guessObj.guess : '(Chưa điền dự đoán)';
+          return `- Word: "${tw.word}" | Context: "${tw.contextSentence || ''}" | Learner's Guess: "${guess}"`;
+        })
+        .join('\n');
+
+      const userPrompt = `You are a Senior Bilingual English-Vietnamese Translation Professor and Lexicographer.
+An English learner has practiced translating an English passage and guessing target vocabulary words based on context clues.
+Evaluate the learner's work objectively, rigorously, and pedagogically.
+
+Passage Details:
+- Title / Topic: "${title}" (${topic})
+- Difficulty Level: ${difficulty}
+- Original English Passage:
+"""
+${passage}
+"""
+
+Learner's Submitted Vietnamese Translation:
+"""
+${userTranslation}
+"""
+
+Target Vocabulary Context Guessing Challenge:
+${targetWordsStr}
+
+You MUST return your response as a valid JSON object wrapped in \`\`\`json and \`\`\`.
+Do not include any conversational filler outside the JSON code block.
+
+Required JSON Structure:
+{
+  "title": "${title}",
+  "passage": ${JSON.stringify(passage)},
+  "topic": "${topic}",
+  "difficulty": "${difficulty}",
+  "overallScore": 85,
+  "cefrLevel": "${difficulty}",
+  "translationScore": 84,
+  "vocabScore": 86,
+  "performanceBadge": "Dịch Thoát Ý Tốt",
+  "executiveSummary": "Đánh giá tổng quát 2-3 câu bằng tiếng Việt về độ chính xác, độ tự nhiên và khả năng suy luận ngữ cảnh của người học.",
+  "translationEvaluation": {
+    "referenceTranslation": "Bản dịch mẫu tự nhiên, mượt mà chuẩn người bản ngữ",
+    "strengths": ["Điểm sáng trong bản dịch của học viên 1", "Điểm sáng 2"],
+    "weaknesses": ["Điểm cần sửa, lỗi word-by-word hoặc dịch gượng gạo 1", "Điểm cần sửa 2"],
+    "sentenceBySentenceFeedback": [
+      {
+        "sentenceIndex": 1,
+        "originalSentence": "Original sentence 1 in English",
+        "userTranslatedSentence": "Câu người học đã dịch",
+        "suggestedSentence": "Câu gợi ý dịch mượt mà tự nhiên hơn",
+        "status": "good | acceptable | needs_improvement",
+        "critique": "Nhận xét khách quan bằng tiếng Việt phân tích chi tiết vì sao dịch tốt hoặc cách cải thiện"
+      }
+    ]
+  },
+  "vocabEvaluations": [
+    {
+      "word": "target word",
+      "ipa": "/.../",
+      "partOfSpeech": "verb | noun | adjective | adverb",
+      "contextSentence": "Câu chứa từ vựng trong bài",
+      "userGuess": "Dự đoán của người học",
+      "actualMeaningInContext": "Nghĩa chính xác trong ngữ cảnh này",
+      "generalMeaning": "Nghĩa từ điển thông dụng",
+      "score": 85,
+      "accuracyGrade": "exact | close | incorrect",
+      "feedback": "Nhận xét chi tiết bằng tiếng Việt về độ chính xác của dự đoán",
+      "nuanceExplanation": "Bóc tách sắc thái ngữ cảnh và manh mối giúp suy luận từ này",
+      "collocations": ["cụm từ hay gặp 1", "cụm từ 2"],
+      "exampleSentence": "Ví dụ thực tế"
+    }
+  ],
+  "objectiveAdvice": {
+    "translationTips": ["Mẹo nâng cao kỹ năng dịch thoát ý 1", "Mẹo 2"],
+    "contextDeductionTips": ["Cách suy luận nghĩa từ qua manh mối ngữ cảnh 1", "Mẹo 2"],
+    "nextAction": "Hành động đề xuất cho buổi học tiếp theo"
+  }
+}`;
+
+      return {
+        systemInstruction:
+          'You are an expert bilingual English-Vietnamese translator and linguistics evaluator. Output strict JSON in ```json ``` blocks only.',
+        userPrompt,
+      };
+    }
     case 'writing': {
       const essay = (inputData.essay as string) || '';
       const topic = (inputData.topic as string) || 'General English Writing';

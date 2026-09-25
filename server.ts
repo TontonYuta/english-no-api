@@ -1,11 +1,15 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
+import { chromium } from 'playwright-core';
 import { createServer as createViteServer } from 'vite';
 import { runChatbotPipeline } from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
 import { generateContextualReply } from './src/utils/chatUtils';
 import { getTTSAudioBuffer } from './server/ttsService';
+import { generateFreshPassage } from './server/passageGenerator';
+import { generatePassageWithGeminiUnified } from './server/geminiService';
 import {
   getLocalIpAddresses,
   startCloudflareTunnel,
@@ -46,6 +50,82 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// Fresh Reading Passage Generator endpoint (Supports Gemini AI & Fast mode)
+app.post('/api/passage/generate', async (req: Request, res: Response) => {
+  try {
+    const { level = 'B2', topic = 'tech', customTopic, provider = 'gemini', geminiApiKey } = req.body || {};
+    console.log(`[Passage Generator] Generating reading passage (level=${level}, topic=${topic}, provider=${provider})`);
+
+    if (provider === 'gemini') {
+      try {
+        const passage = await generatePassageWithGeminiUnified({
+          level,
+          topic,
+          customTopic,
+          geminiApiKey,
+        });
+        console.log(`[Passage Generator] Successfully generated passage via ${passage.generatedBy}`);
+        return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
+      } catch (geminiErr: any) {
+        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message}), using pedagogical fallback`);
+        const fallbackPassage = generateFreshPassage(level, topic, customTopic);
+        return res.json({
+          success: true,
+          passage: {
+            ...fallbackPassage,
+            generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+          },
+          source: 'fallback',
+          fallbackReason: geminiErr.message,
+        });
+      }
+    }
+
+    const passage = generateFreshPassage(level, topic, customTopic);
+    res.json({ success: true, passage, source: 'fast' });
+  } catch (err: any) {
+    console.error('[Passage Generator Error]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/passage/generate', async (req: Request, res: Response) => {
+  try {
+    const level = (req.query.level as string) || 'B2';
+    const topic = req.query.topic as string | undefined;
+    const customTopic = req.query.customTopic as string | undefined;
+    const provider = (req.query.provider as string) || 'fast';
+    const geminiApiKey = req.query.geminiApiKey as string | undefined;
+
+    if (provider === 'gemini') {
+      try {
+        const passage = await generatePassageWithGeminiUnified({
+          level,
+          topic,
+          customTopic,
+          geminiApiKey,
+        });
+        return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
+      } catch (geminiErr: any) {
+        const fallbackPassage = generateFreshPassage(level, topic, customTopic);
+        return res.json({
+          success: true,
+          passage: {
+            ...fallbackPassage,
+            generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+          },
+          source: 'fallback',
+        });
+      }
+    }
+
+    const passage = generateFreshPassage(level, topic, customTopic);
+    res.json({ success: true, passage, source: 'fast' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Playwright Engine Status endpoint
 app.get('/api/playwright/status', (req: Request, res: Response) => {
   const profileDir = path.resolve(process.cwd(), '.playwright-profile');
@@ -63,6 +143,35 @@ app.get('/api/playwright/status', (req: Request, res: Response) => {
       'Pedagogical fallback generator for cloud sandboxes',
     ],
   });
+});
+
+// Interactive Google/ChatGPT Login helper endpoint
+app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
+  try {
+    const provider = req.body?.provider || 'gemini';
+    const targetUrl = provider === 'chatgpt' ? 'https://chatgpt.com' : 'https://gemini.google.com/app';
+    const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+    if (!fs.existsSync(profileDir)) {
+      fs.mkdirSync(profileDir, { recursive: true });
+    }
+
+    console.log(`[PlayEng Login] Launching interactive browser for ${provider} at ${targetUrl}`);
+    const context = await chromium.launchPersistentContext(profileDir, {
+      headless: false,
+      args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+    });
+
+    const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    page.goto(targetUrl).catch(() => {});
+
+    res.json({
+      success: true,
+      message: `Đã mở cửa sổ trình duyệt đăng nhập ${provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'}. Đăng nhập xong bạn có thể đóng cửa sổ lại, phiên đăng nhập sẽ được lưu trữ tự động.`,
+    });
+  } catch (err: any) {
+    console.error('[PlayEng Login Error]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Network & Mobile Remote Info endpoint (Local LAN + Cloudflare Tunnel)
@@ -325,8 +434,9 @@ app.get('/api/playwright/stream', async (req: Request, res: Response) => {
       provider,
       headless,
       userDataDir,
-      timeoutMs: 8000,
+      timeoutMs: params.timeoutMs ? Number(params.timeoutMs) : 35000,
       simulateIfBlocked,
+      geminiApiKey: params.geminiApiKey || params.inputData?.geminiApiKey || process.env.GEMINI_API_KEY,
     };
 
     const inputData = params.inputData || params;
@@ -346,8 +456,9 @@ app.post('/api/playwright/run', async (req: Request, res: Response) => {
       provider: config.provider || 'gemini',
       headless: config.headless !== false,
       userDataDir: config.userDataDir || '.playwright-profile',
-      timeoutMs: config.timeoutMs || 30000,
+      timeoutMs: config.timeoutMs || 35000,
       simulateIfBlocked: config.simulateIfBlocked !== false,
+      geminiApiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,
     };
 
     await handlePipelineExecution(req, res, taskType, inputData, fullConfig);
@@ -368,7 +479,12 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+    const distPath = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'))
+      ? path.join(process.cwd(), 'dist')
+      : fs.existsSync(path.join(currentDir, 'index.html'))
+        ? currentDir
+        : path.join(currentDir, 'dist');
     app.use(express.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html')) {

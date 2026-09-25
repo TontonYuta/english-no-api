@@ -92,6 +92,9 @@ export function evaluateSpeechLocally(params: EvaluateSpeechParams): UserSpeechE
   const isVi = lang === 'vi';
 
   const levelDescriptions: Record<DialogueDifficulty, string> = {
+    A1: isVi
+      ? 'Cấp độ A1 (Khởi đầu): Câu nói rất ngắn, sử dụng từ ngữ cơ bản nhất để chào hỏi hoặc biểu đạt nhu cầu đơn giản.'
+      : 'CEFR A1 (Beginner): Very simple sentences, using basic words for greetings and simple immediate needs.',
     A2: isVi
       ? 'Cấp độ A2 (Cơ bản): Câu nói ngắn gọn, truyền đạt được ý chính nhưng cấu trúc còn đơn giản và phụ thuộc vào từ đơn lẻ.'
       : 'CEFR A2 (Elementary): Concise utterance that conveys basic meaning but relies on simple word sequences.',

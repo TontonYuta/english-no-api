@@ -1,29 +1,21 @@
 import React, { useState } from 'react';
-import { MainTabType, ChatbotProvider, Language } from '../types';
+import { ChatbotProvider, Language, CEFRLevel } from '../types';
 import {
   Bot,
   Settings,
   Flame,
-  BookOpen,
-  Layers,
-  Headphones,
-  MessageSquare,
-  PenTool,
-  Brain,
-  HelpCircle,
   ChevronDown,
   Zap,
   Target,
-  Smartphone,
   QrCode,
+  Brain,
+  Sparkles,
 } from 'lucide-react';
 import { translations } from '../translations';
 
 interface NavbarProps {
-  currentTab: MainTabType;
-  setCurrentTab: (tab: MainTabType) => void;
-  userLevel: 'A1' | 'A2' | 'B1' | 'B2';
-  setUserLevel: (lvl: 'A1' | 'A2' | 'B1' | 'B2') => void;
+  userLevel: CEFRLevel;
+  setUserLevel: (lvl: CEFRLevel) => void;
   streak: number;
   provider: ChatbotProvider;
   setProvider: (provider: ChatbotProvider) => void;
@@ -32,13 +24,14 @@ interface NavbarProps {
   onToggleLang: () => void;
   onOpenSettings: () => void;
   onOpenMobileRemote?: () => void;
+  onOpenMemoryBank?: () => void;
   focusMode?: boolean;
   onToggleFocusMode?: () => void;
+  onGeneratePassage?: () => void;
+  isGeneratingPassage?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentTab,
-  setCurrentTab,
   userLevel,
   setUserLevel,
   streak,
@@ -49,77 +42,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleLang,
   onOpenSettings,
   onOpenMobileRemote,
+  onOpenMemoryBank,
   focusMode = false,
   onToggleFocusMode,
+  onGeneratePassage,
+  isGeneratingPassage = false,
 }) => {
   const t = translations[lang];
   const [isLevelDropdownOpen, setIsLevelDropdownOpen] = useState(false);
-
-  const TABS: {
-    id: MainTabType;
-    icon: React.ReactNode;
-    labelVi: string;
-    labelEn: string;
-    badge?: string;
-  }[] = [
-    {
-      id: 'today',
-      icon: <Flame className="w-4 h-4 text-amber-400" />,
-      labelVi: 'Hôm Nay',
-      labelEn: 'Today',
-      badge: '1-Click',
-    },
-    {
-      id: 'vocab',
-      icon: <BookOpen className="w-4 h-4 text-sky-400" />,
-      labelVi: 'Từ Vựng & Wordform',
-      labelEn: 'Vocabulary',
-    },
-    {
-      id: 'grammar',
-      icon: <Layers className="w-4 h-4 text-indigo-400" />,
-      labelVi: 'Ngữ Pháp TOEIC',
-      labelEn: 'Grammar',
-    },
-    {
-      id: 'read_listen',
-      icon: <Headphones className="w-4 h-4 text-emerald-400" />,
-      labelVi: 'Đọc & Nghe',
-      labelEn: 'Read & Listen',
-    },
-    {
-      id: 'chat',
-      icon: <MessageSquare className="w-4 h-4 text-sky-400" />,
-      labelVi: 'Nhắn Tin (Chat)',
-      labelEn: 'Messenger',
-      badge: 'Live',
-    },
-    {
-      id: 'writing',
-      icon: <PenTool className="w-4 h-4 text-rose-400" />,
-      labelVi: 'Luyện Viết',
-      labelEn: 'Writing',
-    },
-    {
-      id: 'quiz',
-      icon: <HelpCircle className="w-4 h-4 text-amber-400" />,
-      labelVi: 'Đề Thi (Quiz)',
-      labelEn: 'Quiz & Test',
-      badge: 'Custom',
-    },
-    {
-      id: 'memory',
-      icon: <Brain className="w-4 h-4 text-purple-400" />,
-      labelVi: 'Sổ Nhớ & Ôn Tập',
-      labelEn: 'Memory Bank',
-    },
-  ];
-
-  const levelLabels: Record<'A1' | 'A2' | 'B1' | 'B2', string> = {
+  const levelLabels: Record<CEFRLevel, string> = {
     A1: 'A1 (Khởi Đầu)',
     A2: 'A2 (Cơ Bản)',
     B1: 'B1 (Trung Cấp)',
     B2: 'B2 (Nâng Cao)',
+    C1: 'C1 (Thành Thạo)',
   };
 
   return (
@@ -156,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => setIsLevelDropdownOpen(false)}
                   />
                   <div className="absolute left-0 mt-1 w-44 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-40 py-1 font-mono text-xs overflow-hidden">
-                    {(['A1', 'A2', 'B1', 'B2'] as const).map((lvl) => (
+                    {(['A1', 'A2', 'B1', 'B2', 'C1'] as const).map((lvl) => (
                       <button
                         key={lvl}
                         type="button"
@@ -176,6 +112,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </>
               )}
             </div>
+            {/* Quick Generate Passage Button */}
+            {onGeneratePassage && (
+              <button
+                type="button"
+                onClick={onGeneratePassage}
+                disabled={isGeneratingPassage || isAutomating}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-mono font-bold transition-all shadow-sm cursor-pointer ml-1"
+                title="Tạo bài đọc mới ngẫu nhiên"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
+                <span>{isGeneratingPassage ? 'Đang tạo...' : 'Tạo bài đọc'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -214,25 +163,51 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* Engine Status Badge (Hidden in Focus Mode) */}
+          {/* Quick Engine Switcher (Hidden in Focus Mode) */}
           {!focusMode && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800 text-xs font-mono text-zinc-300 hover:text-white transition-colors cursor-pointer"
-              title="Đổi bộ máy AI (Cài đặt)"
-            >
-              <Zap className="w-3 h-3 text-sky-400" />
-              <span className="uppercase">
-                {provider === 'fast'
-                  ? '⚡ Siêu Tốc'
-                  : provider === 'gemini'
-                  ? 'Gemini'
-                  : provider === 'chatgpt'
-                  ? 'ChatGPT'
-                  : 'agy'}
-              </span>
-            </button>
+            <div className="hidden sm:flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono">
+              <button
+                type="button"
+                onClick={() => setProvider('gemini')}
+                className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                  provider === 'gemini'
+                    ? 'bg-sky-500/25 text-sky-300 font-bold border border-sky-400/40 shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="Chuyển sang ✨ Google Gemini AI"
+              >
+                <Sparkles className="w-3 h-3 text-sky-400" />
+                <span>✨ Gemini</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProvider('fast')}
+                className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                  provider === 'fast'
+                    ? 'bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-400/40 shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="Chuyển sang ⚡ AI Siêu Tốc (Offline)"
+              >
+                <Zap className="w-3 h-3 text-emerald-400" />
+                <span>⚡ Siêu Tốc</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProvider('chatgpt')}
+                className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                  provider === 'chatgpt'
+                    ? 'bg-green-500/25 text-green-300 font-bold border border-green-400/40 shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="Chuyển sang 🤖 ChatGPT Web"
+              >
+                <Bot className="w-3 h-3 text-green-400" />
+                <span>ChatGPT</span>
+              </button>
+            </div>
           )}
 
           {/* Language Toggle */}
@@ -246,6 +221,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>{lang === 'vi' ? '🇻🇳' : '🇬🇧'}</span>
             <span className="font-bold">{lang === 'vi' ? 'VI' : 'EN'}</span>
           </button>
+
+          {/* Memory Bank Button */}
+          {onOpenMemoryBank && (
+            <button
+              id="navbar-memory-bank-btn"
+              type="button"
+              onClick={onOpenMemoryBank}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-xs font-mono font-bold text-purple-300 hover:text-purple-200 transition-all cursor-pointer shadow-xs"
+              title="Mở Sổ Từ Vựng & Lịch Sử Ôn Tập"
+            >
+              <Brain className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Sổ Nhớ</span>
+            </button>
+          )}
 
           {/* Mobile Remote QR Button */}
           {onOpenMobileRemote && (
@@ -274,41 +263,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Main Tab Navigation Bar */}
-      <nav className="border-t border-zinc-850 bg-zinc-950/80 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto flex items-center gap-1 overflow-x-auto scrollbar-none py-1.5">
-          {TABS.map((tab) => {
-            const isActive = currentTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setCurrentTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'bg-zinc-850 text-white font-semibold shadow-sm border border-zinc-700/60'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 border border-transparent'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{lang === 'vi' ? tab.labelVi : tab.labelEn}</span>
-                {tab.badge && (
-                  <span
-                    className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded-full border ${
-                      isActive
-                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
     </header>
   );
 };

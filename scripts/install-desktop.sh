@@ -19,12 +19,15 @@ cp "$SCRIPT_DIR/playeng-studio" "$BIN_DIR/playeng-studio"
 chmod +x "$BIN_DIR/playeng-studio"
 
 # Copy app icon if available
-if [ -f "$REPO_DIR/public/favicon.svg" ] && [ ! -f "$ICON_DIR/playeng-studio.png" ]; then
+if [ -f "$REPO_DIR/public/playeng-studio.png" ]; then
+    cp "$REPO_DIR/public/playeng-studio.png" "$ICON_DIR/playeng-studio.png"
+fi
+if [ -f "$REPO_DIR/public/favicon.svg" ]; then
     cp "$REPO_DIR/public/favicon.svg" "$ICON_DIR/playeng-studio.svg"
 fi
 
 echo "[PlayEng Studio] Installing desktop entry..."
-sed "s|/home/tontonyuta/english-no-api|$REPO_DIR|g" "$SCRIPT_DIR/playeng-studio.desktop" > "$DESKTOP_DIR/playeng-studio.desktop"
+cp "$SCRIPT_DIR/playeng-studio.desktop" "$DESKTOP_DIR/playeng-studio.desktop"
 
 if which update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$DESKTOP_DIR" || true
