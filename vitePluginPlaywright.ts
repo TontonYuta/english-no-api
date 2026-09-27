@@ -1,10 +1,13 @@
 import type { Plugin, ViteDevServer } from 'vite';
 import path from 'path';
-import { runChatbotPipeline } from './server/playwrightEngine';
+import { chromium } from 'playwright-core';
+import { runChatbotPipeline, ensurePlaywrightProfileClean } from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
 import { generateContextualReply } from './src/utils/chatUtils';
 import { getTTSAudioBuffer } from './server/ttsService';
+import { generateFreshPassage, sanitizePassageDirection } from './server/passageGenerator';
+import { generatePassageWithGeminiUnified } from './server/geminiService';
 import {
   TaskType,
   ChatbotProvider,
@@ -108,6 +111,120 @@ export function vitePluginPlaywright(): Plugin {
           return;
         }
 
+        // Handle /api/passage/generate (POST and GET)
+        if (req.url?.startsWith('/api/passage/generate')) {
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk) => {
+              body += chunk;
+            });
+            req.on('end', async () => {
+              try {
+                const data = JSON.parse(body || '{}');
+                const {
+                  level = 'B2',
+                  topic = 'tech',
+                  customTopic,
+                  provider = 'gemini',
+                  geminiApiKey,
+                  direction = 'en_vi',
+                } = data;
+
+                if (provider === 'gemini') {
+                  try {
+                    const rawPassage = await generatePassageWithGeminiUnified({
+                      level,
+                      topic,
+                      customTopic,
+                      direction,
+                      geminiApiKey,
+                    });
+                    const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true, passage, source: passage.generatedBy || 'gemini' }));
+                    return;
+                  } catch (geminiErr: any) {
+                    const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
+                    const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(
+                      JSON.stringify({
+                        success: true,
+                        passage: {
+                          ...fallbackPassage,
+                          generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+                        },
+                        source: 'fallback',
+                        fallbackReason: geminiErr.message,
+                      })
+                    );
+                    return;
+                  }
+                }
+
+                const rawPassage = generateFreshPassage(level, topic, customTopic, direction);
+                const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, passage, source: 'fast' }));
+              } catch (err: any) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: err.message }));
+              }
+            });
+            return;
+          } else if (req.method === 'GET') {
+            try {
+              const urlObj = new URL(req.url, 'http://localhost:3000');
+              const level = urlObj.searchParams.get('level') || 'B2';
+              const topic = urlObj.searchParams.get('topic') || undefined;
+              const customTopic = urlObj.searchParams.get('customTopic') || undefined;
+              const provider = urlObj.searchParams.get('provider') || 'fast';
+              const direction = (urlObj.searchParams.get('direction') as any) || 'en_vi';
+              const geminiApiKey = urlObj.searchParams.get('geminiApiKey') || undefined;
+
+              if (provider === 'gemini') {
+                try {
+                  const rawPassage = await generatePassageWithGeminiUnified({
+                    level,
+                    topic,
+                    customTopic,
+                    direction,
+                    geminiApiKey,
+                  });
+                  const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ success: true, passage, source: passage.generatedBy || 'gemini' }));
+                  return;
+                } catch (geminiErr: any) {
+                  const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
+                  const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(
+                    JSON.stringify({
+                      success: true,
+                      passage: {
+                        ...fallbackPassage,
+                        generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+                      },
+                      source: 'fallback',
+                    })
+                  );
+                  return;
+                }
+              }
+
+              const rawPassage = generateFreshPassage(level, topic, customTopic, direction);
+              const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, passage, source: 'fast' }));
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+            return;
+          }
+        }
+
         // Handle /api/playwright/status
         if (req.url === '/api/playwright/status') {
           const profileDir = path.resolve(process.cwd(), '.playwright-profile');
@@ -121,6 +238,85 @@ export function vitePluginPlaywright(): Plugin {
               headlessDefault: true,
             })
           );
+          return;
+        }
+
+        // Handle /api/playwright/open-login
+        if (req.url === '/api/playwright/open-login' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              const provider = data.provider || 'gemini';
+              const targetUrl = provider === 'chatgpt' ? 'https://chatgpt.com' : 'https://gemini.google.com/app';
+              const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+
+              if (activeLoginContext) {
+                try {
+                  const pages = activeLoginContext.pages();
+                  if (pages.length > 0) {
+                    await pages[0].bringToFront().catch(() => {});
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                      success: true,
+                      message: `Cửa sổ trình duyệt đăng nhập ${provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'} đang mở. Vui lòng đăng nhập và đóng cửa sổ khi hoàn tất.`,
+                    }));
+                    return;
+                  }
+                } catch {
+                  activeLoginContext = null;
+                }
+              }
+
+              await ensurePlaywrightProfileClean(profileDir);
+
+              const context = await chromium.launchPersistentContext(profileDir, {
+                headless: false,
+                args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+              });
+
+              activeLoginContext = context;
+              context.on('close', () => { activeLoginContext = null; });
+
+              const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+              page.goto(targetUrl).catch(() => {});
+
+              page.on('close', async () => {
+                if (activeLoginContext && activeLoginContext.pages().length === 0) {
+                  await activeLoginContext.close().catch(() => {});
+                  activeLoginContext = null;
+                }
+              });
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                success: true,
+                message: `Đã mở cửa sổ trình duyệt đăng nhập ${provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'}. Đăng nhập xong bạn có thể đóng cửa sổ lại, phiên đăng nhập sẽ được lưu trữ tự động.`,
+              }));
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // Handle /api/playwright/close-login
+        if (req.url === '/api/playwright/close-login' && req.method === 'POST') {
+          try {
+            if (activeLoginContext) {
+              await activeLoginContext.close().catch(() => {});
+              activeLoginContext = null;
+            }
+            const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+            await ensurePlaywrightProfileClean(profileDir);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Đã đóng cửa sổ trình duyệt đăng nhập và giải phóng tài nguyên.' }));
+          } catch (err: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: err.message }));
+          }
           return;
         }
 

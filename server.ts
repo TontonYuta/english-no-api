@@ -3,12 +3,12 @@ import path from 'path';
 import fs from 'fs';
 import { chromium } from 'playwright-core';
 import { createServer as createViteServer } from 'vite';
-import { runChatbotPipeline } from './server/playwrightEngine';
+import { runChatbotPipeline, ensurePlaywrightProfileClean } from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
 import { generateContextualReply } from './src/utils/chatUtils';
 import { getTTSAudioBuffer } from './server/ttsService';
-import { generateFreshPassage } from './server/passageGenerator';
+import { generateFreshPassage, sanitizePassageDirection } from './server/passageGenerator';
 import { generatePassageWithGeminiUnified } from './server/geminiService';
 import {
   getLocalIpAddresses,
@@ -50,25 +50,36 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+let activeLoginContext: any = null;
+
 // Fresh Reading Passage Generator endpoint (Supports Gemini AI & Fast mode)
 app.post('/api/passage/generate', async (req: Request, res: Response) => {
   try {
-    const { level = 'B2', topic = 'tech', customTopic, provider = 'gemini', geminiApiKey } = req.body || {};
-    console.log(`[Passage Generator] Generating reading passage (level=${level}, topic=${topic}, provider=${provider})`);
+    const { level = 'B2', topic = 'tech', customTopic, provider = 'gemini', geminiApiKey, direction = 'en_vi' } = req.body || {};
+    console.log(`[Passage Generator] Generating reading passage (level=${level}, topic=${topic}, provider=${provider}, direction=${direction})`);
+
+    if (provider === 'gemini' && activeLoginContext) {
+      console.log('[Passage Generator] Closing active login browser before automated generation...');
+      await activeLoginContext.close().catch(() => {});
+      activeLoginContext = null;
+    }
 
     if (provider === 'gemini') {
       try {
-        const passage = await generatePassageWithGeminiUnified({
+        const rawPassage = await generatePassageWithGeminiUnified({
           level,
           topic,
           customTopic,
+          direction,
           geminiApiKey,
         });
+        const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
         console.log(`[Passage Generator] Successfully generated passage via ${passage.generatedBy}`);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
         console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message}), using pedagogical fallback`);
-        const fallbackPassage = generateFreshPassage(level, topic, customTopic);
+        const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
+        const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
         return res.json({
           success: true,
           passage: {
@@ -81,7 +92,8 @@ app.post('/api/passage/generate', async (req: Request, res: Response) => {
       }
     }
 
-    const passage = generateFreshPassage(level, topic, customTopic);
+    const rawPassage = generateFreshPassage(level, topic, customTopic, direction);
+    const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
     res.json({ success: true, passage, source: 'fast' });
   } catch (err: any) {
     console.error('[Passage Generator Error]', err);
@@ -95,19 +107,27 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
     const topic = req.query.topic as string | undefined;
     const customTopic = req.query.customTopic as string | undefined;
     const provider = (req.query.provider as string) || 'fast';
+    const direction = (req.query.direction as any) || 'en_vi';
     const geminiApiKey = req.query.geminiApiKey as string | undefined;
 
     if (provider === 'gemini') {
+      if (activeLoginContext) {
+        await activeLoginContext.close().catch(() => {});
+        activeLoginContext = null;
+      }
       try {
-        const passage = await generatePassageWithGeminiUnified({
+        const rawPassage = await generatePassageWithGeminiUnified({
           level,
           topic,
           customTopic,
+          direction,
           geminiApiKey,
         });
+        const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
-        const fallbackPassage = generateFreshPassage(level, topic, customTopic);
+        const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
+        const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
         return res.json({
           success: true,
           passage: {
@@ -119,7 +139,8 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
       }
     }
 
-    const passage = generateFreshPassage(level, topic, customTopic);
+    const rawPassage = generateFreshPassage(level, topic, customTopic, direction);
+    const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
     res.json({ success: true, passage, source: 'fast' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -151,9 +172,25 @@ app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
     const provider = req.body?.provider || 'gemini';
     const targetUrl = provider === 'chatgpt' ? 'https://chatgpt.com' : 'https://gemini.google.com/app';
     const profileDir = path.resolve(process.cwd(), '.playwright-profile');
-    if (!fs.existsSync(profileDir)) {
-      fs.mkdirSync(profileDir, { recursive: true });
+
+    // If an interactive login context is already open, bring its window to front
+    if (activeLoginContext) {
+      try {
+        const pages = activeLoginContext.pages();
+        if (pages.length > 0) {
+          await pages[0].bringToFront().catch(() => {});
+          return res.json({
+            success: true,
+            message: `Cửa sổ trình duyệt đăng nhập ${provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'} đang mở. Vui lòng đăng nhập và đóng cửa sổ khi hoàn tất.`,
+          });
+        }
+      } catch {
+        activeLoginContext = null;
+      }
     }
+
+    // Ensure clean state without orphaned lockfiles or stuck processes
+    await ensurePlaywrightProfileClean(profileDir);
 
     console.log(`[PlayEng Login] Launching interactive browser for ${provider} at ${targetUrl}`);
     const context = await chromium.launchPersistentContext(profileDir, {
@@ -161,8 +198,20 @@ app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
       args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
     });
 
+    activeLoginContext = context;
+    context.on('close', () => {
+      activeLoginContext = null;
+    });
+
     const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
     page.goto(targetUrl).catch(() => {});
+
+    page.on('close', async () => {
+      if (activeLoginContext && activeLoginContext.pages().length === 0) {
+        await activeLoginContext.close().catch(() => {});
+        activeLoginContext = null;
+      }
+    });
 
     res.json({
       success: true,
@@ -170,6 +219,21 @@ app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error('[PlayEng Login Error]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Close interactive login browser endpoint
+app.post('/api/playwright/close-login', async (req: Request, res: Response) => {
+  try {
+    if (activeLoginContext) {
+      await activeLoginContext.close().catch(() => {});
+      activeLoginContext = null;
+    }
+    const profileDir = path.resolve(process.cwd(), '.playwright-profile');
+    await ensurePlaywrightProfileClean(profileDir);
+    res.json({ success: true, message: 'Đã đóng cửa sổ trình duyệt đăng nhập và giải phóng tài nguyên.' });
+  } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });

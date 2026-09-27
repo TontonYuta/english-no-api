@@ -12,7 +12,7 @@ import {
   PlaywrightConfig,
 } from '../src/types';
 import { generateRealisticFallback } from './fallbackGenerator';
-import { GeneratedPassage } from './passageGenerator';
+import { GeneratedPassage, sanitizePassageDirection } from './passageGenerator';
 import { isGeminiApiAvailable, runGeminiApiEngine } from './geminiService';
 
 export interface PipelineCallbacks {
@@ -133,6 +133,63 @@ export function getSystemBrowserExecutable(): string | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * Ensures the Playwright user data directory has no orphaned lockfiles or stuck processes.
+ * Fixes the "Failed to create a ProcessSingleton: SingletonLock File exists" error.
+ */
+export async function ensurePlaywrightProfileClean(profileDir: string): Promise<void> {
+  if (!fs.existsSync(profileDir)) {
+    fs.mkdirSync(profileDir, { recursive: true });
+    return;
+  }
+
+  const lockPath = path.join(profileDir, 'SingletonLock');
+  const cookiePath = path.join(profileDir, 'SingletonCookie');
+  const socketPath = path.join(profileDir, 'SingletonSocket');
+
+  let hasLock = false;
+  try {
+    const stat = fs.lstatSync(lockPath);
+    hasLock = stat !== undefined;
+  } catch {
+    hasLock = false;
+  }
+
+  if (hasLock) {
+    try {
+      let target = '';
+      try {
+        target = fs.readlinkSync(lockPath);
+      } catch {}
+
+      const match = target.match(/-(\d+)$/);
+      if (match && match[1]) {
+        const pid = parseInt(match[1], 10);
+        if (!isNaN(pid) && pid > 1 && pid !== process.pid) {
+          try {
+            process.kill(pid, 0);
+            console.log(`[Playwright Profile] Stale browser process ${pid} found holding lock. Terminating...`);
+            process.kill(pid, 'SIGTERM');
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            try {
+              process.kill(pid, 0);
+              process.kill(pid, 'SIGKILL');
+            } catch {}
+          } catch {
+            // Process not alive
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('[Playwright Profile] Lock inspect note:', e.message);
+    }
+
+    try { fs.unlinkSync(lockPath); } catch {}
+    try { fs.unlinkSync(cookiePath); } catch {}
+    try { fs.unlinkSync(socketPath); } catch {}
+  }
 }
 
 async function runAntigravityCliEngine(options: RunPipelineOptions): Promise<TaskResult> {
@@ -317,6 +374,7 @@ export async function runChatbotPipeline(options: RunPipelineOptions): Promise<T
       if (sysExecutable) {
         emitLog('scraper', 'launching_browser', `Found system browser executable: ${sysExecutable}`);
       }
+      await ensurePlaywrightProfileClean(resolvedUserDataDir);
       context = await chromium.launchPersistentContext(resolvedUserDataDir, {
         executablePath: sysExecutable,
         headless: config.headless,
@@ -712,10 +770,54 @@ export function getCefrPedagogicalGuidelines(level: string): string {
   }
 }
 
-export function buildGeminiPassagePrompt(level: string, topic?: string, customTopic?: string): string {
+export function buildGeminiPassagePrompt(
+  level: string,
+  topic?: string,
+  customTopic?: string,
+  direction: 'en_vi' | 'vi_en' = 'en_vi'
+): string {
   const normLevel = (level || 'B2').toUpperCase();
   const topicName = customTopic || topic || 'General Life';
   const guidelines = getCefrPedagogicalGuidelines(normLevel);
+
+  if (direction === 'vi_en') {
+    return `[System: Senior Bilingual English-Vietnamese Curriculum Director]
+Role: Generate an authentic, natural VIETNAMESE reading passage and its high-caliber English model translation strictly calibrated for CEFR Level ${normLevel} (Vietnamese to English translation practice).
+
+CRITICAL LANGUAGE SPECIFICATIONS (DO NOT VIOLATE):
+1. "passage" MUST BE WRITTEN ENTIRELY IN VIETNAMESE (100% Tiếng Việt có dấu).
+   - This is the source text that the learner will read and translate into English.
+   - DO NOT write an English passage in the "passage" field.
+   - The Vietnamese passage should be natural, modern, and engaging (120-180 words).
+2. "referenceTranslation" MUST BE WRITTEN ENTIRELY IN ENGLISH (100% Tiếng Anh).
+   - This is the native English model translation corresponding to the Vietnamese passage.
+   - The English translation must reflect CEFR ${normLevel} vocabulary and sentence structures (${guidelines}).
+3. "targetWords": 4-6 key VIETNAMESE vocabulary expressions from the Vietnamese passage:
+   - "word": The Vietnamese keyword or phrase in context (e.g., "bước ngoặt quan trọng").
+   - "englishWord": The target English translation (e.g., "pivotal turning point").
+   - "ipa": Accurate IPA phonetics of the target English word.
+   - "partOfSpeech": "noun" | "verb" | "adjective" | "adverb".
+   - "contextSentence": The EXACT Vietnamese sentence from the passage containing this word.
+   - "meaningVi": Explanatory note or synonym in Vietnamese.
+
+Parameters:
+- Target CEFR Level: ${normLevel}
+- Direction: Vietnamese to English (Dịch Việt -> Anh)
+- Topic: "${topicName}"
+${customTopic ? `- Specific Custom Focus: "${customTopic}"` : ''}
+
+Output Requirements (STRICT JSON):
+1. "title": Catchy title in VIETNAMESE (Tiêu đề tiếng Việt).
+2. "difficulty": Exactly "${normLevel}".
+3. "topic": "${topicName}".
+4. "direction": "vi_en".
+5. "passage": The VIETNAMESE reading text (100% Tiếng Việt).
+6. "targetWords": Array of target Vietnamese expressions to translate into English.
+7. "referenceTranslation": The ENGLISH model translation (100% Tiếng Anh).
+8. "sentenceTranslations": Array of ENGLISH sentences matching 1:1 with the sentences of the Vietnamese passage.
+
+STRICT FORMAT: Return ONLY the JSON code block wrapped in \`\`\`json ... \`\`\`. Do not include any conversational filler outside the JSON.`;
+  }
 
   return `[System: Senior Bilingual English-Vietnamese Curriculum Director]
 Role: Generate an authentic, engaging English reading passage and contextual vocabulary set strictly calibrated for CEFR Level ${normLevel}.
@@ -749,10 +851,11 @@ export async function generatePassageWithGeminiPlaywright(params: {
   level: string;
   topic?: string;
   customTopic?: string;
+  direction?: 'en_vi' | 'vi_en';
   timeoutMs?: number;
 }): Promise<GeneratedPassage> {
-  const { level, topic, customTopic, timeoutMs = 40000 } = params;
-  const prompt = buildGeminiPassagePrompt(level, topic, customTopic);
+  const { level, topic, customTopic, direction = 'en_vi', timeoutMs = 40000 } = params;
+  const prompt = buildGeminiPassagePrompt(level, topic, customTopic, direction);
 
   const profileDir = path.resolve(process.cwd(), '.playwright-profile');
   if (!fs.existsSync(profileDir)) {
@@ -760,6 +863,7 @@ export async function generatePassageWithGeminiPlaywright(params: {
   }
 
   const sysExecutable = getSystemBrowserExecutable();
+  await ensurePlaywrightProfileClean(profileDir);
   const context = await chromium.launchPersistentContext(profileDir, {
     executablePath: sysExecutable,
     headless: true,
@@ -788,30 +892,48 @@ export async function generatePassageWithGeminiPlaywright(params: {
       timeout: 25000,
     });
 
-    const inputSelector = 'div.ql-editor[contenteditable="true"]';
-    await page.waitForSelector(inputSelector, { timeout: 15000 });
-    await page.click(inputSelector);
+    // Check for Google Sign-in redirect
+    const currentUrl = page.url();
+    if (currentUrl.includes('accounts.google.com') || currentUrl.includes('signin')) {
+      throw new Error('Google Sign-in Required. Vui lòng vào Cài đặt > Mở trình duyệt đăng nhập để đăng nhập tài khoản Google.');
+    }
+
+    // Find input element dynamically from GEMINI_INPUT_SELECTORS
+    let matchedInputSelector: string | null = null;
+    const inputDeadline = Date.now() + 15000;
+    while (Date.now() < inputDeadline && !matchedInputSelector) {
+      for (const sel of GEMINI_INPUT_SELECTORS) {
+        const el = await page.$(sel);
+        if (el && (await el.isVisible())) {
+          matchedInputSelector = sel;
+          break;
+        }
+      }
+      if (!matchedInputSelector) {
+        await page.waitForTimeout(400);
+      }
+    }
+
+    if (!matchedInputSelector) {
+      if (page.url().includes('accounts.google.com') || page.url().includes('signin')) {
+        throw new Error('Google Sign-in Required. Vui lòng vào Cài đặt > Mở trình duyệt đăng nhập để đăng nhập tài khoản Google.');
+      }
+      throw new Error('Không tìm thấy khung nhập văn bản trên Google Gemini. Vui lòng kiểm tra lại trạng thái đăng nhập hoặc mạng.');
+    }
+
+    await page.click(matchedInputSelector);
     await page.waitForTimeout(300);
 
     try {
       await page.keyboard.insertText(prompt);
     } catch {
-      await page.fill(inputSelector, prompt);
+      await page.fill(matchedInputSelector, prompt);
     }
 
     await page.waitForTimeout(600);
 
-    const sendSelectors = [
-      'button[aria-label*="Send" i]',
-      'button[aria-label*="Gửi" i]',
-      'button[aria-label*="nhắc" i]',
-      'button[aria-label*="tin nhắn" i]',
-      'button[data-test-id="send-button"]',
-      'button.send-button',
-    ];
-
     let sendClicked = false;
-    for (const sel of sendSelectors) {
+    for (const sel of GEMINI_SEND_SELECTORS) {
       const btn = await page.$(sel);
       if (btn && (await btn.isVisible())) {
         await btn.click();
@@ -827,19 +949,24 @@ export async function generatePassageWithGeminiPlaywright(params: {
     const pollStart = Date.now();
     while (Date.now() - pollStart < timeoutMs) {
       await page.waitForTimeout(1000);
-      const nodes = await page.$$('message-content');
-      if (nodes.length > 0) {
-        const text = await nodes[nodes.length - 1].innerText();
-        if (text.includes('```json') || text.includes('"title"') || text.includes('"passage"')) {
-          scrapedRawText = text;
-          if (
-            text.endsWith('}') ||
-            text.includes('```\n') ||
-            (text.includes('```') && text.lastIndexOf('```') > text.indexOf('```'))
-          ) {
-            break;
+      for (const rSel of GEMINI_RESPONSE_SELECTORS) {
+        const nodes = await page.$$(rSel);
+        if (nodes.length > 0) {
+          const text = await nodes[nodes.length - 1].innerText();
+          if (text.includes('```json') || text.includes('"title"') || text.includes('"passage"')) {
+            scrapedRawText = text;
+            if (
+              text.endsWith('}') ||
+              text.includes('```\n') ||
+              (text.includes('```') && text.lastIndexOf('```') > text.indexOf('```'))
+            ) {
+              break;
+            }
           }
         }
+      }
+      if (scrapedRawText && (scrapedRawText.endsWith('}') || scrapedRawText.includes('```\n'))) {
+        break;
       }
     }
 
@@ -860,7 +987,7 @@ export async function generatePassageWithGeminiPlaywright(params: {
     }
 
     const parsed = JSON.parse(jsonStr);
-    return {
+    const rawPassage: GeneratedPassage = {
       id: `gemini_${Date.now()}`,
       title: parsed.title || 'Gemini Reading Passage',
       topic: parsed.topic || topic || 'General',
@@ -868,17 +995,19 @@ export async function generatePassageWithGeminiPlaywright(params: {
       difficulty: (level as any) || (parsed.difficulty as any) || 'B1',
       genre: 'Article',
       passage: parsed.passage,
-      translationVi: parsed.translationVi || '',
+      translationVi: parsed.referenceTranslation || parsed.translationEn || parsed.translationVi || '',
       sentenceTranslations: parsed.sentenceTranslations || [],
+      direction: direction,
       targetWords: (parsed.targetWords || []).map((w: any) => ({
         word: w.word,
         contextSentence: w.contextSentence || '',
-        meaningVi: w.meaningVi || '',
+        meaningVi: w.englishWord || w.meaningVi || '',
         ipa: w.ipa || '',
         partOfSpeech: w.partOfSpeech || '',
       })),
       generatedBy: '✨ Google Gemini AI (Web Playwright)',
     };
+    return sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
   } finally {
     await context.close().catch(() => {});
   }

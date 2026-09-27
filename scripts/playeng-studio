@@ -116,8 +116,26 @@ start_server() {
             stop_server
         fi
     elif is_server_running; then
-        echo "[PlayEng Studio] Server is already running on http://127.0.0.1:$PORT"
-        return 0
+        local restart_needed=0
+        if [ -f "$PID_FILE" ] && [ -f "$APP_DIR/dist/server.cjs" ]; then
+            local pid
+            pid=$(cat "$PID_FILE" 2>/dev/null || true)
+            if [ -n "$pid" ] && [ -d "/proc/$pid" ]; then
+                local proc_time
+                proc_time=$(stat -c %Y "/proc/$pid" 2>/dev/null || echo 0)
+                local bin_time
+                bin_time=$(stat -c %Y "$APP_DIR/dist/server.cjs" 2>/dev/null || echo 0)
+                if [ "$bin_time" -gt "$proc_time" ]; then
+                    echo "[PlayEng Studio] Binary dist/server.cjs was updated. Restarting server..."
+                    stop_server
+                    restart_needed=1
+                fi
+            fi
+        fi
+        if [ "$restart_needed" -eq 0 ]; then
+            echo "[PlayEng Studio] Server is already running on http://127.0.0.1:$PORT"
+            return 0
+        fi
     fi
 
     echo "[PlayEng Studio] Starting background server..."
