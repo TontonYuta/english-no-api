@@ -13,6 +13,7 @@ export function buildChatbotPrompt(
       const userTranslation = (inputData.userTranslation as string) || '';
       const targetWords = (inputData.targetWords as Array<{ word: string; contextSentence?: string }>) || [];
       const userVocabGuesses = (inputData.userVocabGuesses as Array<{ word: string; guess: string }>) || [];
+      const direction = ((inputData.direction as string) || (inputData.translationDirection as string) || 'en_vi').toLowerCase();
 
       const targetWordsStr = targetWords
         .map((tw) => {
@@ -24,7 +25,85 @@ export function buildChatbotPrompt(
         })
         .join('\n');
 
-      const userPrompt = `You are a Senior Bilingual English-Vietnamese Translation Professor and Lexicographer.
+      let userPrompt = '';
+
+      if (direction === 'vi_en') {
+        userPrompt = `You are a Senior Bilingual English-Vietnamese Translation Professor and Native English Stylist.
+An English learner has practiced translating a Vietnamese passage into natural, idiomatic English and translating target Vietnamese vocabulary/phrases into appropriate English words based on context clues.
+Evaluate the learner's work objectively, rigorously, and pedagogically.
+
+Passage Details:
+- Direction: Vietnamese to English (Dịch Việt -> Anh)
+- Title / Topic: "${title}" (${topic})
+- Difficulty Level: ${difficulty}
+- Original Vietnamese Passage:
+"""
+${passage}
+"""
+
+Learner's Submitted English Translation:
+"""
+${userTranslation}
+"""
+
+Target Vocabulary / Phrase Translation Challenge (Translating Vietnamese concepts into natural English expressions):
+${targetWordsStr}
+
+You MUST return your response as a valid JSON object wrapped in \`\`\`json and \`\`\`.
+Do not include any conversational filler outside the JSON code block.
+
+Required JSON Structure:
+{
+  "title": "${title}",
+  "passage": ${JSON.stringify(passage)},
+  "topic": "${topic}",
+  "difficulty": "${difficulty}",
+  "overallScore": 85,
+  "cefrLevel": "${difficulty}",
+  "translationScore": 84,
+  "vocabScore": 86,
+  "performanceBadge": "Dịch Sang Tiếng Anh Tự Nhiên & Chuẩn Bản Ngữ",
+  "executiveSummary": "Đánh giá tổng quát 2-3 câu bằng tiếng Việt về độ chính xác ngữ pháp tiếng Anh, sự tự nhiên của câu văn, dùng từ vựng/collocation và cách diễn đạt thoát ý.",
+  "translationEvaluation": {
+    "referenceTranslation": "Bản dịch tiếng Anh chuẩn tự nhiên, chuẩn người bản ngữ (Model English Translation)",
+    "strengths": ["Điểm sáng trong bản dịch tiếng Anh của học viên 1", "Điểm sáng 2"],
+    "weaknesses": ["Điểm cần sửa (lỗi dịch thô word-by-word kiểu Vietlish, sai giới từ, mạo từ...) 1", "Điểm cần sửa 2"],
+    "sentenceBySentenceFeedback": [
+      {
+        "sentenceIndex": 1,
+        "originalSentence": "Câu gốc tiếng Việt",
+        "userTranslatedSentence": "Câu tiếng Anh người học đã dịch",
+        "suggestedSentence": "Câu tiếng Anh gợi ý chuẩn xác, tự nhiên hơn của người bản ngữ",
+        "status": "good | acceptable | needs_improvement",
+        "critique": "Nhận xét sư phạm bằng tiếng Việt phân tích chi tiết vì sao dịch tốt hoặc lỗi ngữ pháp, trật tự từ, cách dùng collocations tự nhiên hơn"
+      }
+    ]
+  },
+  "vocabEvaluations": [
+    {
+      "word": "target English word (e.g. 'peaceful')",
+      "ipa": "/.../",
+      "partOfSpeech": "verb | noun | adjective | adverb",
+      "contextSentence": "Câu ngữ cảnh trong bài",
+      "userGuess": "Từ/cụm từ tiếng Anh người học đã điền",
+      "actualMeaningInContext": "Từ tiếng Anh chuẩn xác kèm nghĩa tiếng Việt trong ngữ cảnh",
+      "generalMeaning": "Định nghĩa từ điển thông dụng",
+      "score": 85,
+      "accuracyGrade": "exact | close | incorrect",
+      "feedback": "Nhận xét chi tiết bằng tiếng Việt về độ chính xác của từ tiếng Anh người học đã chọn",
+      "nuanceExplanation": "Bóc tách sắc thái ngữ cảnh và gợi ý collocations tiếng Anh phù hợp",
+      "collocations": ["cụm từ tiếng Anh hay gặp 1", "cụm 2"],
+      "exampleSentence": "Câu ví dụ thực tế chuẩn tiếng Anh"
+    }
+  ],
+  "objectiveAdvice": {
+    "translationTips": ["Mẹo nâng cao kỹ năng dịch Việt - Anh 1 (ví dụ: chuyển đổi cấu trúc câu tự nhiên, tránh Vietlish)", "Mẹo 2"],
+    "contextDeductionTips": ["Cách chọn từ vựng tiếng Anh theo ngữ cảnh thay vì tra cứu từ đơn lẻ 1", "Mẹo 2"],
+    "nextAction": "Hành động đề xuất cho buổi học tiếp theo"
+  }
+}`;
+      } else {
+        userPrompt = `You are a Senior Bilingual English-Vietnamese Translation Professor and Lexicographer.
 An English learner has practiced translating an English passage and guessing target vocabulary words based on context clues.
 Evaluate the learner's work objectively, rigorously, and pedagogically.
 
@@ -97,10 +176,13 @@ Required JSON Structure:
     "nextAction": "Hành động đề xuất cho buổi học tiếp theo"
   }
 }`;
+      }
 
       return {
         systemInstruction:
-          'You are an expert bilingual English-Vietnamese translator and linguistics evaluator. Output strict JSON in ```json ``` blocks only.',
+          direction === 'vi_en'
+            ? 'You are a Senior Bilingual English-Vietnamese Translation Professor and Native English Stylist. Evaluate Vietnamese-to-English translation with strict naturalness, collocations, and grammar standards. Output strict JSON in ```json ``` blocks only.'
+            : 'You are an expert bilingual English-Vietnamese translator and linguistics evaluator. Output strict JSON in ```json ``` blocks only.',
         userPrompt,
       };
     }

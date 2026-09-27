@@ -16,6 +16,7 @@ import {
   SentenceTranslationFeedback
 } from '../src/types';
 import { findPassageByTextOrTitle } from './passageGenerator';
+import { splitTextIntoSentences } from '../src/utils/speechUtils';
 
 const KNOWN_VOCAB_DB: Record<string, {
   ipa: string;
@@ -216,59 +217,68 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
       const difficulty = (inputData.difficulty as string) || 'B2';
       const title = (inputData.title as string) || 'Luyện Dịch Đoạn Văn & Đoán Từ Vựng';
       const userTranslation = ((inputData.userTranslation as string) || '').trim();
-      const targetWords = (inputData.targetWords as Array<{ word: string; contextSentence?: string }>) || [];
+      const targetWords = (inputData.targetWords as Array<{ word: string; contextSentence?: string; meaningVi?: string; ipa?: string }>) || [];
       const userVocabGuesses = (inputData.userVocabGuesses as Array<{ word: string; guess: string }>) || [];
+      const direction = ((inputData.direction as string) || (inputData.translationDirection as string) || 'en_vi').toLowerCase();
 
-      // Split original passage into English sentences
-      const rawSentences = passage
-        .split(/(?<=[.!?])\s+/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-
-      // Split user translation into sentences
-      const userSentences = userTranslation
-        .split(/(?<=[.!?。])\s+|\n+/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      // Split sentences uniformly using abbreviation-aware splitter
+      const rawSentences = splitTextIntoSentences(passage);
+      const userSentences = splitTextIntoSentences(userTranslation);
 
       // 1. Build Reference Translation & Sentence-by-sentence feedback
       const catalogMatch = findPassageByTextOrTitle(passage, title);
-      const passedRef = (inputData.referenceTranslation as string) || (inputData.translationVi as string) || '';
+      const passedRef = (inputData.referenceTranslation as string) || (inputData.translationVi as string) || (inputData.translationEn as string) || '';
 
-      let referenceTranslation = passedRef || catalogMatch?.translationVi || '';
-      let sentenceTranslations = catalogMatch?.sentenceTranslations || [];
+      let referenceTranslation = '';
+      let sentenceTranslations: string[] = [];
 
-      // Fallback split if sentenceTranslations not provided
-      if (referenceTranslation && sentenceTranslations.length === 0) {
-        sentenceTranslations = referenceTranslation
-          .split(/(?<=[.!?。])\s+|\n+/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-      }
-
-      // Legacy fallback keyword checks if still empty
-      if (!referenceTranslation) {
-        const isCafe = /liam|cafe|croissant|latte|sourdough|park/i.test(passage);
-        const isTech = /artificial intelligence|spaced repetition|algorithm|digital devices/i.test(passage);
-        const isStartup = /startup|headwinds|venture capital|breakneck/i.test(passage);
-        const isHabit = /micro-habits|incremental|compound|monumental/i.test(passage);
-
-        if (isCafe) {
-          referenceTranslation =
-            'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng nằm nép mình bên cạnh công viên trung tâm. Hương thơm quyến rũ của hạt cà phê Arabica mới xay cùng những mẻ bánh nướng nóng hổi lan tỏa khắp căn phòng ngập nắng trong điệu nhạc mộc êm dịu.\n\nAnh thường gọi một chiếc bánh sừng bò bơ vàng ruộm cùng một ly latte sữa yến mạch đá, rồi ngồi vào chiếc bàn gỗ yên tĩnh cạnh cửa sổ. Trong một tiếng tiếp theo, Liam chủ động tắt thông báo điện thoại và gác lại lịch trình bận rộn. Thay vào đó, anh đắm chìm vào cuốn tiểu thuyết du lịch lôi cuốn, thi thoảng dừng lại ngắm nhìn cư dân địa phương dắt thú cưng đi dạo dọc theo đại lộ rợp bóng cây.\n\nKhoảng lặng có chủ đích này đã trở thành một nghi thức cá nhân không thể thiếu. Liam tin rằng giữa một thế giới ngày càng vội vã và tràn ngập màn hình điện tử, việc dành ra 30 đến 60 phút để suy ngẫm thư thái và khám phá trang sách là điều thiết yếu để tái tạo sự tập trung cũng như năng lượng tinh thần trước khi bước vào các thử thách mới.';
-        } else if (isTech) {
-          referenceTranslation =
-            'Các thiết bị số và trí tuệ nhân tạo đã thay đổi căn bản cách con người tiếp thu tri thức cũng như sắp xếp các ưu tiên hàng ngày. Từ các hệ thống gia sư thông minh đến trợ lý ngôn ngữ cá nhân hóa, công nghệ hiện nay cho phép người học tinh chỉnh tài liệu chính xác theo cấp độ CEFR, lên lịch học tập linh hoạt và nhận phản hồi tức thì vào bất kỳ thời điểm nào trong ngày.\n\nCác nền tảng giáo dục hiện đại tận dụng thuật toán lặp lại ngắt quãng (Spaced Repetition) để dự đoán thời điểm người học sắp quên một cấu trúc ngữ pháp hay từ vựng. Bằng cách đưa ra thử thách gợi nhớ chủ động vào những khoảng thời gian tối ưu, các công cụ này tối đa hóa khả năng ghi nhớ dài hạn trong khi giảm thiểu đáng kể sự mệt mỏi khi học. Thêm vào đó, công nghệ nhận diện giọng nói tương tác giúp người học luyện phát âm trong một môi trường riêng tư và không lo bị phán xét.\n\nDẫu vậy, các nhà tâm lý học giáo dục nhấn mạnh rằng công nghệ đóng vai trò như một đòn bẩy thúc đẩy mạnh mẽ chứ không thể thay thế hoàn toàn cho sự tò mò và tính kỷ luật tự thân. Việc kết hợp phản hồi chuẩn xác từ AI với thói quen rèn luyện kiên trì mỗi ngày vẫn là chuẩn mực vàng để đạt được sự lưu loát thực chất.';
-        } else if (isStartup) {
-          referenceTranslation =
-            'Trong thế giới cạnh tranh khốc liệt của các công ty khởi nghiệp công nghệ, những nhà sáng lập thường xuyên phải trăn trở trước một bài toán đánh đổi mang tính chiến lược: theo đuổi tốc độ tăng trưởng người dùng chóng mặt hay xây dựng nền tảng kinh tế đơn vị bền vững. Dù dòng vốn đầu tư mạo hiểm ban đầu luôn khuyến khích việc thâu tóm khách hàng bằng mọi giá, sức bật lâu dài của doanh nghiệp lại đòi hỏi tính kỷ luật tài chính nghiêm ngặt.\n\nNhững doanh nghiệp thành công tạo nên sự khác biệt nhờ kiến tạo hệ sinh thái sản phẩm bền vững nhằm vun đắp lòng trung thành thực chất từ khách hàng, thay vì chỉ đơn thuần dựa vào các chương trình khuyến mãi giảm giá. Khi những khó khăn bất lợi của nền kinh tế ập đến, các công ty có bảng cân đối tài chính vững mạnh và cộng đồng người dùng trung thành sẽ nắm giữ sự linh hoạt để chuyển hướng mà không phải đánh đổi giá trị cốt lõi.\n\nXét cho cùng, đổi mới sáng tạo bền vững đòi hỏi các nhà lãnh đạo có tầm nhìn phải biết dung hòa giữa tham vọng lớn lao táo bạo với năng lực thực thi vận hành thực tế.';
-        } else if (isHabit) {
-          referenceTranslation =
-            'Các nhà nghiên cứu hành vi từ lâu đã khám phá ra rằng những bước chuyển mình to lớn của một cá nhân hiếm khi bắt nguồn từ các quyết định đột ngột mang tính bước ngoặt. Thay vào đó, sự phát triển bền vững được vun đắp thông qua những điều chỉnh rất nhỏ và tăng dần đều đặn, tích lũy theo thời gian như lãi kép.\n\nKhi con người thiết lập những thói quen vi mô nhỏ nhắn—chẳng hạn như đọc hai trang sách tiếng Anh hay dành năm phút luyện dịch mỗi ngày—rào cản tâm lý để bắt đầu gần như tan biến. Não bộ không còn xem nhiệm vụ đó là gánh nặng gây nản lòng, giúp tính kiên trì trở nên dễ dàng đạt được một cách tự nhiên.\n\nQua nhiều tháng liên tiếp, những nỗ lực đầu tư khiêm tốn mỗi ngày này sẽ kết tinh thành phản xạ tự động trong tiềm thức, mở ra năng lực ngôn ngữ uyên thâm và sức bền nhận thức dẻo dai.';
-        } else {
+      if (direction === 'vi_en') {
+        referenceTranslation = passedRef || catalogMatch?.passage || '';
+        if (catalogMatch?.passage) {
+          sentenceTranslations = splitTextIntoSentences(catalogMatch.passage);
+        } else if (referenceTranslation) {
+          sentenceTranslations = splitTextIntoSentences(referenceTranslation);
+        }
+        if (!referenceTranslation) {
           referenceTranslation = userTranslation.trim()
-            ? `Bản dịch chuẩn tham khảo (Hiệu đính ngữ nghĩa): ${userTranslation}`
-            : `Bản dịch chuẩn tham khảo cho đoạn văn: ${passage}`;
+            ? userTranslation
+            : 'Authentic native English model translation for this passage.';
+        }
+      } else {
+        referenceTranslation = passedRef || catalogMatch?.translationVi || '';
+        sentenceTranslations = catalogMatch?.sentenceTranslations || [];
+
+        if (referenceTranslation && sentenceTranslations.length === 0) {
+          sentenceTranslations = referenceTranslation
+            .split(/(?<=[.!?。])\s+|\n+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+        }
+
+        // Legacy fallback keyword checks if still empty
+        if (!referenceTranslation) {
+          const isCafe = /liam|cafe|croissant|latte|sourdough|park/i.test(passage);
+          const isTech = /artificial intelligence|spaced repetition|algorithm|digital devices/i.test(passage);
+          const isStartup = /startup|headwinds|venture capital|breakneck/i.test(passage);
+          const isHabit = /micro-habits|incremental|compound|monumental/i.test(passage);
+
+          if (isCafe) {
+            referenceTranslation =
+              'Mỗi sáng thứ Bảy, Liam lại ghé một quán cà phê ấm cúng nằm nép mình bên cạnh công viên trung tâm. Hương thơm quyến rũ của hạt cà phê Arabica mới xay cùng những mẻ bánh nướng nóng hổi lan tỏa khắp căn phòng ngập nắng trong điệu nhạc mộc êm dịu.\n\nAnh thường gọi một chiếc bánh sừng bò bơ vàng ruộm cùng một ly latte sữa yến mạch đá, rồi ngồi vào chiếc bàn gỗ yên tĩnh cạnh cửa sổ. Trong một tiếng tiếp theo, Liam chủ động tắt thông báo điện thoại và gác lại lịch trình bận rộn. Thay vào đó, anh đắm chìm vào cuốn tiểu thuyết du lịch lôi cuốn, thi thoảng dừng lại ngắm nhìn cư dân địa phương dắt thú cưng đi dạo dọc theo đại lộ rợp bóng cây.\n\nKhoảng lặng có chủ đích này đã trở thành một nghi thức cá nhân không thể thiếu. Liam tin rằng giữa một thế giới ngày càng vội vã và tràn ngập màn hình điện tử, việc dành ra 30 đến 60 phút để suy ngẫm thư thái và khám phá trang sách là điều thiết yếu để tái tạo sự tập trung cũng như năng lượng tinh thần trước khi bước vào các thử thách mới.';
+          } else if (isTech) {
+            referenceTranslation =
+              'Các thiết bị số và trí tuệ nhân tạo đã thay đổi căn bản cách con người tiếp thu tri thức cũng như sắp xếp các ưu tiên hàng ngày. Từ các hệ thống gia sư thông minh đến trợ lý ngôn ngữ cá nhân hóa, công nghệ hiện nay cho phép người học tinh chỉnh tài liệu chính xác theo cấp độ CEFR, lên lịch học tập linh hoạt và nhận phản hồi tức thì vào bất kỳ thời điểm nào trong ngày.\n\nCác nền tảng giáo dục hiện đại tận dụng thuật toán lặp lại ngắt quãng (Spaced Repetition) để dự đoán thời điểm người học sắp quên một cấu trúc ngữ pháp hay từ vựng. Bằng cách đưa ra thử thách gợi nhớ chủ động vào những khoảng thời gian tối ưu, các công cụ này tối đa hóa khả năng ghi nhớ dài hạn trong khi giảm thiểu đáng kể sự mệt mỏi khi học. Thêm vào đó, công nghệ nhận diện giọng nói tương tác giúp người học luyện phát âm trong một môi trường riêng tư và không lo bị phán xét.\n\nDẫu vậy, các nhà tâm lý học giáo dục nhấn mạnh rằng công nghệ đóng vai trò như một đòn bẩy thúc đẩy mạnh mẽ chứ không thể thay thế hoàn toàn cho sự tò mò và tính kỷ luật tự thân. Việc kết hợp phản hồi chuẩn xác từ AI với thói quen rèn luyện kiên trì mỗi ngày vẫn là chuẩn mực vàng để đạt được sự lưu loát thực chất.';
+          } else if (isStartup) {
+            referenceTranslation =
+              'Trong thế giới cạnh tranh khốc liệt của các công ty khởi nghiệp công nghệ, những nhà sáng lập thường xuyên phải trăn trở trước một bài toán đánh đổi mang tính chiến lược: theo đuổi tốc độ tăng trưởng người dùng chóng mặt hay xây dựng nền tảng kinh tế đơn vị bền vững. Dù dòng vốn đầu tư mạo hiểm ban đầu luôn khuyến khích việc thâu tóm khách hàng bằng mọi giá, sức bật lâu dài của doanh nghiệp lại đòi hỏi tính kỷ luật tài chính nghiêm ngặt.\n\nNhững doanh nghiệp thành công tạo nên sự khác biệt nhờ kiến tạo hệ sinh thái sản phẩm bền vững nhằm vun đắp lòng trung thành thực chất từ khách hàng, thay vì chỉ đơn thuần dựa vào các chương trình khuyến mãi giảm giá. Khi những khó khăn bất lợi của nền kinh tế ập đến, các công ty có bảng cân đối tài chính vững mạnh và cộng đồng người dùng trung thành sẽ nắm giữ sự linh hoạt để chuyển hướng mà không phải đánh đổi giá trị cốt lõi.\n\nXét cho cùng, đổi mới sáng tạo bền vững đòi hỏi các nhà lãnh đạo có tầm nhìn phải biết dung hòa giữa tham vọng lớn lao táo bạo với năng lực thực thi vận hành thực tế.';
+          } else if (isHabit) {
+            referenceTranslation =
+              'Các nhà nghiên cứu hành vi từ lâu đã khám phá ra rằng những bước chuyển mình to lớn của một cá nhân hiếm khi bắt nguồn từ các quyết định đột ngột mang tính bước ngoặt. Thay vào đó, sự phát triển bền vững được vun đắp thông qua những điều chỉnh rất nhỏ và tăng dần đều đặn, tích lũy theo thời gian như lãi kép.\n\nKhi con người thiết lập những thói quen vi mô nhỏ nhắn—chẳng hạn như đọc hai trang sách tiếng Anh hay dành năm phút luyện dịch mỗi ngày—rào cản tâm lý để bắt đầu gần như tan biến. Não bộ không còn xem nhiệm vụ đó là gánh nặng gây nản lòng, giúp tính kiên trì trở nên dễ dàng đạt được một cách tự nhiên.\n\nQua nhiều tháng liên tiếp, những nỗ lực đầu tư khiêm tốn mỗi ngày này sẽ kết tinh thành phản xạ tự động trong tiềm thức, mở ra năng lực ngôn ngữ uyên thâm và sức bền nhận thức dẻo dai.';
+          } else {
+            referenceTranslation = userTranslation.trim()
+              ? `Bản dịch chuẩn tham khảo (Hiệu đính ngữ nghĩa): ${userTranslation}`
+              : `Bản dịch chuẩn tham khảo cho đoạn văn: ${passage}`;
+          }
         }
       }
 
@@ -279,21 +289,34 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
         
         let suggested = sentenceTranslations[idx] || (sentenceTranslations.length > 0 ? sentenceTranslations[sentenceTranslations.length - 1] : '');
         if (!suggested || suggested === origSent) {
-          suggested = userSent || `Bản dịch gợi ý: ${origSent}`;
+          suggested = userSent || (direction === 'vi_en' ? `Model English sentence: ${origSent}` : `Bản dịch gợi ý: ${origSent}`);
         }
 
         let status: 'good' | 'acceptable' | 'needs_improvement' = 'good';
         let critique = '';
 
-        if (!hasUserSent) {
-          status = 'needs_improvement';
-          critique = 'Câu này chưa có bản dịch tương ứng trong bài nộp. Hãy chú ý dịch trọn vẹn từng câu để đảm bảo tính mạch lạc của toàn đoạn.';
-        } else if (userSent.length < origSent.length * 0.4) {
-          status = 'acceptable';
-          critique = 'Bản dịch nắm được ý chính nhưng hơi ngắn gọn, lược bỏ một số chi tiết định ngữ quan trọng làm câu văn bớt sinh động.';
+        if (direction === 'vi_en') {
+          if (!hasUserSent) {
+            status = 'needs_improvement';
+            critique = 'Câu này chưa có bản dịch tiếng Anh tương ứng trong bài nộp. Hãy chú ý dịch trọn vẹn từng câu để đảm bảo tính mạch lạc của toàn đoạn.';
+          } else if (userSent.split(/\s+/).length < 3) {
+            status = 'acceptable';
+            critique = 'Bản dịch tiếng Anh hơi ngắn gọn, lược bỏ một số chi tiết và trạng từ quan trọng làm câu văn chưa trọn vẹn ngữ nghĩa.';
+          } else {
+            status = 'good';
+            critique = 'Bản dịch tiếng Anh tự nhiên, sử dụng đúng thì và cấu trúc câu chủ động rõ ràng, diễn đạt thoát ý mượt mà.';
+          }
         } else {
-          status = 'good';
-          critique = 'Dịch khá thoát ý, cấu trúc câu tiếng Việt tự nhiên và truyền tải chính xác sắc thái của câu gốc.';
+          if (!hasUserSent) {
+            status = 'needs_improvement';
+            critique = 'Câu này chưa có bản dịch tương ứng trong bài nộp. Hãy chú ý dịch trọn vẹn từng câu để đảm bảo tính mạch lạc của toàn đoạn.';
+          } else if (userSent.length < origSent.length * 0.4) {
+            status = 'acceptable';
+            critique = 'Bản dịch nắm được ý chính nhưng hơi ngắn gọn, lược bỏ một số chi tiết định ngữ quan trọng làm câu văn bớt sinh động.';
+          } else {
+            status = 'good';
+            critique = 'Dịch khá thoát ý, cấu trúc câu tiếng Việt tự nhiên và truyền tải chính xác sắc thái của câu gốc.';
+          }
         }
 
         return {
@@ -311,6 +334,87 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
         const cleanWord = tw.word.trim().toLowerCase();
         const guessObj = userVocabGuesses.find((g) => g.word.trim().toLowerCase() === cleanWord);
         const userGuess = (guessObj?.guess || '').trim();
+
+        if (direction === 'vi_en') {
+          // In VI -> EN, resolve target English word
+          const cleanMeaning = (tw.meaningVi || '').trim().toLowerCase();
+          let targetEnglish = cleanMeaning;
+          let targetViPrompt = tw.word.trim();
+
+          if (KNOWN_VOCAB_DB[cleanMeaning]) {
+            targetEnglish = cleanMeaning;
+            targetViPrompt = tw.word.trim();
+          } else if (KNOWN_VOCAB_DB[cleanWord]) {
+            targetEnglish = cleanWord;
+            targetViPrompt = tw.meaningVi || tw.word;
+          } else if (catalogMatch) {
+            const matchTw = catalogMatch.targetWords.find(
+              (ctw) =>
+                ctw.meaningVi.toLowerCase().includes(cleanWord) ||
+                cleanWord.includes(ctw.meaningVi.toLowerCase()) ||
+                ctw.word.toLowerCase() === cleanMeaning
+            );
+            if (matchTw) {
+              targetEnglish = matchTw.word.toLowerCase();
+              targetViPrompt = matchTw.meaningVi;
+            }
+          }
+
+          if (!targetEnglish) {
+            targetEnglish = cleanWord;
+          }
+
+          const dbEntry = KNOWN_VOCAB_DB[targetEnglish] || {
+            ipa: `/${targetEnglish}/`,
+            partOfSpeech: 'noun / verb / adjective',
+            meaningInContext: targetViPrompt,
+            generalMeaning: `Định nghĩa từ điển của "${targetEnglish}"`,
+            nuanceExplanation: `Từ "${targetEnglish}" trong tiếng Anh mang sắc thái biểu đạt tự nhiên và phù hợp với đăng cai ngữ cảnh này.`,
+            collocations: [`use ${targetEnglish}`, `natural ${targetEnglish}`],
+            exampleSentence: `Using "${targetEnglish}" in context helps produce native-like expressions.`,
+          };
+
+          let score = 50;
+          let accuracyGrade: 'exact' | 'close' | 'incorrect' = 'close';
+          let feedback = '';
+
+          if (!userGuess) {
+            score = 30;
+            accuracyGrade = 'incorrect';
+            feedback = 'Bạn chưa nhập từ tiếng Anh tương đương cho khái niệm này. Hãy dựa vào ngữ cảnh câu văn để phỏng đoán và lựa chọn từ phù hợp.';
+          } else {
+            const cleanGuess = userGuess.toLowerCase();
+            const cleanTarget = targetEnglish.toLowerCase();
+
+            if (cleanGuess === cleanTarget || cleanTarget.includes(cleanGuess) || cleanGuess.includes(cleanTarget)) {
+              score = 95;
+              accuracyGrade = 'exact';
+              feedback = `Rất chính xác! Từ tiếng Anh "${userGuess}" thể hiện trọn vẹn sắc thái ngữ nghĩa của "${targetViPrompt}" trong văn cảnh này.`;
+            } else {
+              score = 75;
+              accuracyGrade = 'close';
+              feedback = `Lựa chọn "${userGuess}" diễn đạt được ý cơ bản, nhưng từ chuẩn xác và tự nhiên hơn của người bản ngữ trong ngữ cảnh này là "${targetEnglish}".`;
+            }
+          }
+
+          return {
+            word: targetEnglish,
+            ipa: dbEntry.ipa || tw.ipa || `/${targetEnglish}/`,
+            partOfSpeech: dbEntry.partOfSpeech,
+            contextSentence: tw.contextSentence || passage,
+            userGuess: userGuess || '(Chưa điền)',
+            actualMeaningInContext: `${targetEnglish} (${targetViPrompt})`,
+            generalMeaning: dbEntry.generalMeaning,
+            score,
+            accuracyGrade,
+            feedback,
+            nuanceExplanation: dbEntry.nuanceExplanation,
+            collocations: dbEntry.collocations,
+            exampleSentence: dbEntry.exampleSentence,
+          };
+        }
+
+        // EN -> VI evaluation
         const dbEntry = KNOWN_VOCAB_DB[cleanWord] || {
           ipa: `/${cleanWord}/`,
           partOfSpeech: 'noun / verb',
@@ -336,12 +440,10 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
           accuracyGrade = 'incorrect';
           feedback = 'Bạn chưa nhập phỏng đoán cho từ vựng này. Khi gặp từ mới, hãy dựa vào các từ xung quanh và mối liên hệ nguyên nhân - kết quả để đoán nghĩa.';
         } else {
-          // Compare user guess with known context meaning
           const cleanGuess = userGuess.toLowerCase();
           const cleanMeaning = effectiveMeaningInContext.toLowerCase();
           const cleanGenMeaning = dbEntry.generalMeaning.toLowerCase();
 
-          // Check keyword overlap
           const keywords = cleanMeaning.split(/[ ,;]+/).filter((w) => w.length >= 2);
           const matched = keywords.some((kw) => cleanGuess.includes(kw));
 
@@ -396,44 +498,95 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
       const overallScore = Math.round(translationScore * 0.6 + avgVocabScore * 0.4);
 
       let performanceBadge = 'Dịch Thoát Ý Tốt';
-      if (overallScore >= 90) {
-        performanceBadge = 'Bậc Thầy Ngữ Cảnh & Dịch Thuật';
-      } else if (overallScore >= 80) {
-        performanceBadge = 'Dịch Thoát Ý Tốt & Nắm Chắc Ngữ Nghĩa';
-      } else if (overallScore >= 70) {
-        performanceBadge = 'Hiểu Đúng Đại Ý - Cần Chuốt Lại Câu Văn';
-      } else {
-        performanceBadge = 'Cần Rèn Luyện Phản Xạ & Bám Sát Ngữ Cảnh';
-      }
-
-      const executiveSummary = userTranslation
-        ? `Bản dịch của bạn thể hiện khả năng đọc hiểu tốt với điểm số tổng quát ${overallScore}/100. Bạn nắm bắt được ${avgVocabScore >= 80 ? 'rất chuẩn xác' : 'tương đối đầy đủ'} mạch ý của tác giả và biết vận dụng suy luận ngữ cảnh khi đoán từ vựng. Hãy chú ý chuốt lại một số câu dịch để văn phong tiếng Việt tự nhiên và thoát ý hơn nữa.`
-        : 'Bạn chưa nộp bản dịch hoàn chỉnh. Hãy xem bản dịch mẫu đối chiếu và các phân tích ngữ cảnh chi tiết bên dưới để bổ sung vốn từ và cách diễn đạt chuẩn xác.';
-
-      const strengths = [
-        'Truyền tải được thông điệp cốt lõi và luận điểm chính của đoạn văn mà không làm méo mó ý tác giả.',
-        'Nhận biết được từ loại và cấu trúc câu ghép phức tạp trong văn phong tiếng Anh học thuật.',
-      ];
-      if (avgVocabScore >= 80) {
-        strengths.push('Kỹ năng suy luận nghĩa từ mới dựa vào manh mối ngữ cảnh (context clues) rất sắc sảo.');
-      }
-
-      const weaknesses = [
-        'Một số cụm từ còn mang hơi hướng dịch từng từ (word-by-word), cần chuyển đổi linh hoạt hơn theo thói quen diễn đạt tự nhiên của người Việt.',
-        'Cần chú ý hơn đến các tiểu từ liên kết và sắc thái biểu cảm (tone) để câu văn có độ mượt mà cao hơn.',
-      ];
-
-      const objectiveAdvice = {
-        translationTips: [
-          'Nguyên tắc 3 bước dịch thoát ý: (1) Đọc trọn câu để nắm trọn ý nghĩa -> (2) Quên hẳn trật tự từ tiếng Anh -> (3) Diễn đạt lại ý đó bằng câu tiếng Việt thuần thục nhất.',
-          'Chú ý các liên từ (furthermore, nevertheless, instead): hãy đặt liên từ ở đầu câu tiếng Việt để mạch văn liền mạch.',
-        ],
-        contextDeductionTips: [
-          'Dấu hiệu tương phản: Khi thấy các từ như "instead", "rather than", từ cần đoán thường mang nghĩa đối lập với vế trước.',
-          'Dấu hiệu định nghĩa kèm theo: Chú ý dấu gạch ngang (—), dấu ngoặc đơn hoặc mệnh đề quan hệ ngay sau từ để tìm định nghĩa tác giả cài cắm.',
-        ],
-        nextAction: 'Lưu các từ vựng và cụm collocation tâm đắc vào Sổ Nhớ, sau đó thử sức với một đoạn văn thuộc chủ đề kinh tế hoặc khoa học tiếp theo!',
+      let executiveSummary = '';
+      let strengths: string[] = [];
+      let weaknesses: string[] = [];
+      let objectiveAdvice = {
+        translationTips: [] as string[],
+        contextDeductionTips: [] as string[],
+        nextAction: '',
       };
+
+      if (direction === 'vi_en') {
+        if (overallScore >= 90) {
+          performanceBadge = 'Bậc Thầy Chuyển Ngữ Việt - Anh';
+        } else if (overallScore >= 80) {
+          performanceBadge = 'Dịch Sang Tiếng Anh Chuẩn Xác & Tự Nhiên';
+        } else if (overallScore >= 70) {
+          performanceBadge = 'Diễn Đạt Đạt Ý - Cần Chuốt Lại Ngữ Pháp';
+        } else {
+          performanceBadge = 'Cần Rèn Luyện Collocation & Ngữ Pháp';
+        }
+
+        executiveSummary = userTranslation
+          ? `Bản dịch tiếng Anh của bạn đạt điểm tổng quát ${overallScore}/100. Bạn thể hiện khả năng nắm bắt cấu trúc câu tốt, biết lựa chọn từ vựng tương đương và tránh được nhiều lỗi dịch thô từng chữ (Vietlish). Hãy chú ý rèn luyện thêm về thì của động từ và mạo từ để văn phong tiệm cận chuẩn bản ngữ.`
+          : 'Bạn chưa nộp bản dịch tiếng Anh. Hãy xem bản dịch mẫu đối chiếu và các gợi ý diễn đạt chi tiết bên dưới để bổ sung vốn từ và cấu trúc câu chuẩn xác.';
+
+        strengths = [
+          'Chuyển tải trung thực thông điệp cốt lõi từ câu tiếng Việt sang tiếng Anh mà không làm lệch nghĩa gốc.',
+          'Biết sử dụng các cấu trúc câu chủ động rõ ràng và liên kết ý mạch lạc.',
+        ];
+        if (avgVocabScore >= 80) {
+          strengths.push('Vốn từ vựng tiếng Anh phong phú, chọn từ tương đương chuẩn xác trong ngữ cảnh.');
+        }
+
+        weaknesses = [
+          'Một số câu còn ảnh hưởng bởi tư duy cú pháp tiếng Việt (Vietlish), cần rèn luyện cấu trúc câu tự nhiên hơn.',
+          'Cần chú ý hơn đến mạo từ (a/an/the) và giới từ đi kèm với động từ.',
+        ];
+
+        objectiveAdvice = {
+          translationTips: [
+            'Quy tắc Vàng dịch Việt - Anh: Xác định rõ Chủ ngữ (S) và Động từ chính (V) của câu tiếng Anh trước khi bắt đầu dịch.',
+            'Tránh dịch nguyên từ theo cấu trúc câu tiếng Việt; ưu tiên các cụm từ (collocations) tự nhiên của người bản ngữ.',
+            'Lưu ý sự nhất quán về thì (Tense Consistency) và quy tắc hòa hợp giữa chủ ngữ và động từ.',
+          ],
+          contextDeductionTips: [
+            'Khi diễn đạt một ý tiếng Việt sang tiếng Anh, hãy tìm từ ngữ tương đương theo chức năng giao tiếp thay vì cố gắng tra cứu từng chữ.',
+            'Chú ý các liên từ tiếng Anh (However, Furthermore, Consequently, As a result) để liên kết câu trôi chảy.',
+          ],
+          nextAction: 'Lưu các từ vựng tiếng Anh và collocation mới vào Sổ Nhớ, sau đó tiếp tục luyện tập bài dịch tiếp theo!',
+        };
+      } else {
+        if (overallScore >= 90) {
+          performanceBadge = 'Bậc Thầy Ngữ Cảnh & Dịch Thuật';
+        } else if (overallScore >= 80) {
+          performanceBadge = 'Dịch Thoát Ý Tốt & Nắm Chắc Ngữ Nghĩa';
+        } else if (overallScore >= 70) {
+          performanceBadge = 'Hiểu Đúng Đại Ý - Cần Chuốt Lại Câu Văn';
+        } else {
+          performanceBadge = 'Cần Rèn Luyện Phản Xạ & Bám Sát Ngữ Cảnh';
+        }
+
+        executiveSummary = userTranslation
+          ? `Bản dịch của bạn thể hiện khả năng đọc hiểu tốt với điểm số tổng quát ${overallScore}/100. Bạn nắm bắt được ${avgVocabScore >= 80 ? 'rất chuẩn xác' : 'tương đối đầy đủ'} mạch ý của tác giả và biết vận dụng suy luận ngữ cảnh khi đoán từ vựng. Hãy chú ý chuốt lại một số câu dịch để văn phong tiếng Việt tự nhiên và thoát ý hơn nữa.`
+          : 'Bạn chưa nộp bản dịch hoàn chỉnh. Hãy xem bản dịch mẫu đối chiếu và các phân tích ngữ cảnh chi tiết bên dưới để bổ sung vốn từ và cách diễn đạt chuẩn xác.';
+
+        strengths = [
+          'Truyền tải được thông điệp cốt lõi và luận điểm chính của đoạn văn mà không làm méo mó ý tác giả.',
+          'Nhận biết được từ loại và cấu trúc câu ghép phức tạp trong văn phong tiếng Anh học thuật.',
+        ];
+        if (avgVocabScore >= 80) {
+          strengths.push('Kỹ năng suy luận nghĩa từ mới dựa vào manh mối ngữ cảnh (context clues) rất sắc sảo.');
+        }
+
+        weaknesses = [
+          'Một số cụm từ còn mang hơi hướng dịch từng từ (word-by-word), cần chuyển đổi linh hoạt hơn theo thói quen diễn đạt tự nhiên của người Việt.',
+          'Cần chú ý hơn đến các tiểu từ liên kết và sắc thái biểu cảm (tone) để câu văn có độ mượt mà cao hơn.',
+        ];
+
+        objectiveAdvice = {
+          translationTips: [
+            'Nguyên tắc 3 bước dịch thoát ý: (1) Đọc trọn câu để nắm trọn ý nghĩa -> (2) Quên hẳn trật tự từ tiếng Anh -> (3) Diễn đạt lại ý đó bằng câu tiếng Việt thuần thục nhất.',
+            'Chú ý các liên từ (furthermore, nevertheless, instead): hãy đặt liên từ ở đầu câu tiếng Việt để mạch văn liền mạch.',
+          ],
+          contextDeductionTips: [
+            'Dấu hiệu tương phản: Khi thấy các từ như "instead", "rather than", từ cần đoán thường mang nghĩa đối lập với vế trước.',
+            'Dấu hiệu định nghĩa kèm theo: Chú ý dấu gạch ngang (—), dấu ngoặc đơn hoặc mệnh đề quan hệ ngay sau từ để tìm định nghĩa tác giả cài cắm.',
+          ],
+          nextAction: 'Lưu các từ vựng và cụm collocation tâm đắc vào Sổ Nhớ, sau đó thử sức với một đoạn văn thuộc chủ đề kinh tế hoặc khoa học tiếp theo!',
+        };
+      }
 
       const resultData: TranslationVocabResult = {
         title,
@@ -446,6 +599,7 @@ export function generateRealisticFallback(taskType: TaskType, inputData: Record<
         vocabScore: avgVocabScore,
         performanceBadge,
         executiveSummary,
+        direction: (direction as any),
         translationEvaluation: {
           referenceTranslation,
           strengths,

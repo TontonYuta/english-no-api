@@ -1,4 +1,5 @@
-import { DialogueDifficulty } from '../src/types';
+import { DialogueDifficulty, TranslationDirection } from '../src/types';
+import { splitTextIntoSentences } from '../src/utils/speechUtils';
 
 export interface TargetWord {
   word: string;
@@ -10,6 +11,7 @@ export interface TargetWord {
 export interface GeneratedPassage {
   id: string;
   title: string;
+  titleVi?: string;
   topic: string;
   topicCategory: string;
   difficulty: DialogueDifficulty;
@@ -19,6 +21,7 @@ export interface GeneratedPassage {
   sentenceTranslations: string[];
   targetWords: TargetWord[];
   generatedBy?: string;
+  direction?: TranslationDirection;
 }
 
 export const TOPIC_OPTIONS = [
@@ -44,18 +47,18 @@ export const PASSAGE_CATALOG: GeneratedPassage[] = [
     topicCategory: 'daily',
     difficulty: 'A1',
     genre: 'Daily Story',
-    passage: `Every morning at six o'clock, the sun rises over my quiet neighborhood. Birds sing sweet songs in the tall green trees, and the cool morning air feels very fresh.
+    passage: `Every morning at six o'clock, the sun rises over my peaceful neighborhood. Birds sing sweet songs in the tall green trees, and the cool morning air feels very fresh.
 
 My neighbor Mr. Green walks his little white dog down the sidewalk. He always smiles, waves his hand, and says good morning to everyone he meets. At the street corner, a friendly baker opens his shop and sells warm, delicious bread.
 
 I enjoy sitting near my bedroom window with a warm cup of sweet tea. Watching the neighborhood wake up brings me calm and positive energy for a busy new day.`,
-    translationVi: `Mỗi sáng vào lúc sáu giờ, mặt trời lại mọc trên khu phố yên tĩnh của tôi. Những chú chim cất tiếng hót líu lo trên những hàng cây xanh rợp bóng, và bầu không khí sớm mai mát rượi đem lại cảm giác thật trong lành.
+    translationVi: `Mỗi sáng vào lúc sáu giờ, mặt trời lại mọc trên khu phố yên bình của tôi. Những chú chim cất tiếng hót líu lo trên những hàng cây xanh rợp bóng, và bầu không khí sớm mai mát rượi đem lại cảm giác thật trong lành.
 
 Bác hàng xóm Green dắt chú chó trắng nhỏ nhắn đi dạo dọc theo vỉa hè. Bác luôn mỉm cười, vẫy tay và gửi lời chào buổi sáng thân thiện tới bất cứ ai bác gặp. Ở góc phố, người thợ làm bánh tốt bụng mở cửa tiệm và bày bán những ổ bánh mì nóng hổi, thơm ngon.
 
 Tôi thích ngồi bên khung cửa sổ phòng ngủ với một tách trà ngọt ấm áp. Ngắm nhìn khu phố dần thức giấc mang lại cho tôi sự bình yên và năng lượng tích cực cho một ngày mới bận rộn.`,
     sentenceTranslations: [
-      "Mỗi sáng vào lúc sáu giờ, mặt trời lại mọc trên khu phố yên tĩnh của tôi.",
+      "Mỗi sáng vào lúc sáu giờ, mặt trời lại mọc trên khu phố yên bình của tôi.",
       "Những chú chim cất tiếng hót líu lo trên những hàng cây xanh rợp bóng, và bầu không khí sớm mai mát rượi đem lại cảm giác thật trong lành.",
       "Bác hàng xóm Green dắt chú chó trắng nhỏ nhắn đi dạo dọc theo vỉa hè.",
       "Bác luôn mỉm cười, vẫy tay và gửi lời chào buổi sáng thân thiện tới bất cứ ai bác gặp.",
@@ -64,7 +67,7 @@ Tôi thích ngồi bên khung cửa sổ phòng ngủ với một tách trà ng�
       "Ngắm nhìn khu phố dần thức giấc mang lại cho tôi sự bình yên và năng lượng tích cực cho một ngày mới bận rộn.",
     ],
     targetWords: [
-      { word: 'peaceful', contextSentence: 'A Peaceful Morning in My Neighborhood.', meaningVi: 'yên bình, thanh bình', ipa: '/ˈpiːsfl/' },
+      { word: 'peaceful', contextSentence: "Every morning at six o'clock, the sun rises over my peaceful neighborhood.", meaningVi: 'yên bình, thanh bình, yên tĩnh', ipa: '/ˈpiːsfl/' },
       { word: 'fresh', contextSentence: 'The cool morning air feels very fresh.', meaningVi: 'trong lành, tươi mới', ipa: '/freʃ/' },
       { word: 'sidewalk', contextSentence: 'He walks his little white dog down the sidewalk.', meaningVi: 'vỉa hè, lề đường', ipa: '/ˈsaɪdwɔːk/' },
       { word: 'delicious', contextSentence: 'He sells warm, delicious bread.', meaningVi: 'thơm ngon, ngon miệng', ipa: '/dɪˈlɪʃəs/' },
@@ -343,7 +346,7 @@ Dẫu vậy, các nhà tâm lý học giáo dục nhấn mạnh rằng công ngh
       { word: 'fundamentally', contextSentence: 'Digital devices have fundamentally transformed how people acquire knowledge.', meaningVi: 'về cơ bản, từ gốc rễ', ipa: '/ˌfʌndəˈmentəli/' },
       { word: 'leverage', contextSentence: 'Modern educational platforms leverage spaced repetition algorithms.', meaningVi: 'tận dụng đòn bẩy, khai thác', ipa: '/ˈliːvərɪdʒ/' },
       { word: 'retention', contextSentence: 'These tools maximize long-term retention while reducing fatigue.', meaningVi: 'sự ghi nhớ, khả năng lưu giữ', ipa: '/rɪˈtenʃn/' },
-      { word: 'accelerator', contextSentence: 'Technology serves as a powerful accelerator, not a total substitute.', meaningVi: 'chất xúc tác, máy gia tốc', ipa: '/əkˈseləreɪtə(r)/' },
+      { word: 'accelerator', contextSentence: 'Technology serves as a powerful accelerator, not a total substitute.', meaningVi: 'đòn bẩy thúc đẩy, chất xúc tác, máy gia tốc', ipa: '/əkˈseləreɪtə(r)/' },
       { word: 'fluency', contextSentence: 'The gold standard for achieving authentic language fluency.', meaningVi: 'sự trôi chảy, lưu loát', ipa: '/ˈfluːənsi/' },
     ],
   },
@@ -686,6 +689,24 @@ export function generateCustomPassage(
   };
 }
 
+export const CATALOG_TITLE_VI: Record<string, string> = {
+  a1_daily_routine: 'Buổi Sáng Bình Yên Ở Khu Phố Tôi',
+  a1_food_breakfast: 'Tự Nấu Bữa Sáng Đơn Giản Tại Nhà',
+  a2_weekend_market: 'Khu Chợ Nông Sản Tươi Cuối Tuần',
+  a2_watercolor_hobby: 'Thú Vui Học Vẽ Màu Nước Sau Giờ Làm',
+  a2_tech_learning: 'Học Lập Trình Cơ Bản Cho Người Mới',
+  b1_cafe_culture: 'Văn Hóa Cà Phê và Khoảng Lặng Tĩnh Tâm',
+  b1_eco_travel: 'Du Lịch Sinh Thái và Văn Hóa Bản Địa',
+  b1_remote_work: 'Làm Việc Từ Xa và Cân Bằng Nếp Sống',
+  b2_ai_learning: 'Trí Tuệ Nhân Tạo Tái Định Hình Giáo Dục',
+  b2_micro_habits: 'Sức Mạnh của Những Thói Quen Nhỏ Mỗi Ngày',
+  b2_urban_nature: 'Không Gian Xanh Đô Thị và Sức Khỏe Tinh Thần',
+  b2_deep_work: 'Làm Việc Sâu trong Kỷ Nguyên Xao Nhãng',
+  c1_startup_dilemma: 'Bài Toán Đánh Đổi Chiến Lược của Khởi Nghiệp',
+  c1_quantum_leap: 'Kỷ Nguyên Điện Toán Lượng Tử và Đột Phá Công Nghệ',
+  c1_neuroplasticity: 'Cơ Chế Dẻo Dai Não Bộ và Học Tập Suốt Đời',
+};
+
 /**
  * Find matching passage by substring or title in catalog
  */
@@ -699,95 +720,391 @@ export function findPassageByTextOrTitle(
   const cleanTitle = (title || '').toLowerCase().trim();
 
   return PASSAGE_CATALOG.find((p) => {
-    // Match by title
-    if (cleanTitle && p.title.toLowerCase().includes(cleanTitle)) {
-      return true;
+    // Match by title (English or Vietnamese)
+    if (cleanTitle) {
+      if (p.title.toLowerCase().includes(cleanTitle) || cleanTitle.includes(p.title.toLowerCase())) {
+        return true;
+      }
+      const rawId = p.id.replace(/_vien_\d+$/, '').replace(/_\d+$/, '');
+      const viTitle = CATALOG_TITLE_VI[rawId];
+      if (viTitle && (viTitle.toLowerCase().includes(cleanTitle) || cleanTitle.includes(viTitle.toLowerCase()))) {
+        return true;
+      }
     }
-    // Match by snippet / key phrases
+    // Match by English snippet / key phrases
     const pLower = p.passage.toLowerCase();
     const firstSent = cleanPassage.slice(0, 60);
     if (firstSent && pLower.includes(firstSent)) {
       return true;
     }
-    // Check specific target words overlap
+    // Match by Vietnamese translation snippet
+    const viLower = (p.translationVi || '').toLowerCase();
+    if (firstSent && viLower.includes(firstSent)) {
+      return true;
+    }
+    // Check specific target words overlap (either English word or Vietnamese meaning)
     const wordMatches = p.targetWords.filter((tw) =>
-      cleanPassage.includes(tw.word.toLowerCase())
+      cleanPassage.includes(tw.word.toLowerCase()) ||
+      cleanPassage.includes(tw.meaningVi.toLowerCase())
     );
-    return wordMatches.length >= 3;
+    return wordMatches.length >= 2;
   });
 }
 
 /**
  * Generate fresh passage filtered by Level, Topic category, or Custom Topic
+ * Supports direction: 'en_vi' (English to Vietnamese) or 'vi_en' (Vietnamese to English)
  */
 export function generateFreshPassage(
   level?: string,
   topic?: string,
-  customTopic?: string
+  customTopic?: string,
+  direction: TranslationDirection = 'en_vi'
 ): GeneratedPassage {
+  let chosen: GeneratedPassage;
+
   // If user provided custom topic text
   if (customTopic && customTopic.trim()) {
-    const customResult = generateCustomPassage(
+    chosen = generateCustomPassage(
       (level || 'B1') as DialogueDifficulty,
       customTopic.trim()
     );
-    lastServedId = customResult.id;
-    return customResult;
-  }
+  } else {
+    const normLevel = (level || 'B2').toUpperCase();
 
-  const normLevel = (level || 'B2').toUpperCase();
-
-  // Filter by level first
-  let candidates = PASSAGE_CATALOG.filter(
-    (p) => p.difficulty.toUpperCase() === normLevel
-  );
-
-  // If topic provided, filter or match category
-  if (topic && topic.trim()) {
-    const rawTopic = topic.trim().toLowerCase();
-    const topicMatches = candidates.filter(
-      (p) =>
-        p.topicCategory === rawTopic ||
-        p.topic.toLowerCase().includes(rawTopic) ||
-        p.title.toLowerCase().includes(rawTopic)
+    // Filter by level first
+    let candidates = PASSAGE_CATALOG.filter(
+      (p) => p.difficulty.toUpperCase() === normLevel
     );
-    if (topicMatches.length > 0) {
-      candidates = topicMatches;
-    } else {
-      // If no candidate at this specific level matches the topic, synthesize a custom passage for this exact level & topic
-      const topicObj = TOPIC_OPTIONS.find((t) => t.id === rawTopic);
-      const topicLabel = topicObj ? topicObj.label : topic.trim();
-      const customResult = generateCustomPassage(
-        normLevel as DialogueDifficulty,
-        topicLabel
+
+    // If topic provided, filter or match category
+    if (topic && topic.trim()) {
+      const rawTopic = topic.trim().toLowerCase();
+      const topicMatches = candidates.filter(
+        (p) =>
+          p.topicCategory === rawTopic ||
+          p.topic.toLowerCase().includes(rawTopic) ||
+          p.title.toLowerCase().includes(rawTopic)
       );
-      lastServedId = customResult.id;
-      return customResult;
+      if (topicMatches.length > 0) {
+        candidates = topicMatches;
+      } else {
+        // If no candidate at this specific level matches the topic, synthesize a custom passage for this exact level & topic
+        const topicObj = TOPIC_OPTIONS.find((t) => t.id === rawTopic);
+        const topicLabel = topicObj ? topicObj.label : topic.trim();
+        chosen = generateCustomPassage(
+          normLevel as DialogueDifficulty,
+          topicLabel
+        );
+      }
+    }
+
+    if (!chosen!) {
+      // Synthesize at normLevel if candidates are empty
+      if (candidates.length === 0) {
+        chosen = generateCustomPassage(
+          normLevel as DialogueDifficulty,
+          topic || 'Đời sống hiện đại'
+        );
+      } else {
+        // Avoid repeating the immediately previous passage
+        let filteredCandidates = candidates.filter((p) => p.id !== lastServedId);
+        if (filteredCandidates.length === 0) {
+          filteredCandidates = candidates;
+        }
+        const nextIdx = Math.floor(Math.random() * filteredCandidates.length);
+        chosen = filteredCandidates[nextIdx];
+      }
     }
   }
 
-  // Synthesize at normLevel if candidates are empty
-  if (candidates.length === 0) {
-    const customResult = generateCustomPassage(
-      normLevel as DialogueDifficulty,
-      topic || 'Đời sống hiện đại'
-    );
-    lastServedId = customResult.id;
-    return customResult;
-  }
-
-  // Avoid repeating the immediately previous passage
-  let filteredCandidates = candidates.filter((p) => p.id !== lastServedId);
-  if (filteredCandidates.length === 0) {
-    filteredCandidates = candidates;
-  }
-
-  const nextIdx = Math.floor(Math.random() * filteredCandidates.length);
-  const chosen = filteredCandidates[nextIdx];
   lastServedId = chosen.id;
+  const rawId = chosen.id.replace(/_vien_\d+$/, '').replace(/_\d+$/, '');
+  const titleVi = chosen.titleVi || CATALOG_TITLE_VI[rawId] || chosen.topic || chosen.title;
+
+  // Handle VI -> EN mode: invert passage and reference translation
+  if (direction === 'vi_en') {
+    const englishSentences = splitTextIntoSentences(chosen.passage);
+    const vietnameseSentences =
+      chosen.sentenceTranslations && chosen.sentenceTranslations.length > 0
+        ? chosen.sentenceTranslations
+        : splitTextIntoSentences(chosen.translationVi);
+
+    const viTargetWords: TargetWord[] = chosen.targetWords.map((tw, idx) => {
+      // 1. Find 1:1 corresponding Vietnamese context sentence by locating English sentence with tw.word
+      const enSentIdx = englishSentences.findIndex((es) =>
+        es.toLowerCase().includes(tw.word.toLowerCase())
+      );
+
+      let viContext = '';
+      if (enSentIdx !== -1 && enSentIdx < vietnameseSentences.length) {
+        viContext = vietnameseSentences[enSentIdx];
+      }
+
+      // 2. Identify the exact Vietnamese keyword/phrase used in that sentence
+      const cleanVi = (tw.meaningVi || '').replace(/\([^)]*\)/g, ' ').trim();
+      const candidatePhrases = cleanVi
+        .split(/[,;\/]/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+
+      let matchedWord = '';
+
+      if (viContext) {
+        for (const cp of candidatePhrases) {
+          if (viContext.toLowerCase().includes(cp.toLowerCase())) {
+            matchedWord = cp;
+            break;
+          }
+          // Subphrase match
+          const subWords = cp.split(/\s+/);
+          for (let len = subWords.length - 1; len >= 1; len--) {
+            for (let i = 0; i <= subWords.length - len; i++) {
+              const sub = subWords.slice(i, i + len).join(' ');
+              if (sub.length >= 3 && viContext.toLowerCase().includes(sub.toLowerCase())) {
+                matchedWord = sub;
+                break;
+              }
+            }
+            if (matchedWord) break;
+          }
+          if (matchedWord) break;
+        }
+      }
+
+      // If still not found, search all vietnameseSentences
+      if (!viContext || !matchedWord) {
+        for (const sent of vietnameseSentences) {
+          const foundPhrase = candidatePhrases.find((cp) =>
+            sent.toLowerCase().includes(cp.toLowerCase())
+          );
+          if (foundPhrase) {
+            viContext = sent;
+            matchedWord = foundPhrase;
+            break;
+          }
+        }
+      }
+
+      if (!viContext) {
+        viContext = vietnameseSentences[idx] || vietnameseSentences[0] || chosen.translationVi.slice(0, 100);
+      }
+      if (!matchedWord) {
+        matchedWord = candidatePhrases[0] || tw.meaningVi;
+      }
+
+      return {
+        word: matchedWord, // Target Vietnamese term for the student to translate
+        contextSentence: viContext, // Exact Vietnamese sentence containing this term
+        meaningVi: tw.word, // Expected target English word
+        ipa: tw.ipa,
+      };
+    });
+
+    return {
+      ...chosen,
+      id: `${chosen.id}_vien_${Date.now()}`,
+      title: titleVi,
+      titleVi,
+      passage: chosen.translationVi, // Source text to translate (Vietnamese)
+      translationVi: chosen.passage, // Reference translation (English)
+      sentenceTranslations: englishSentences, // 1:1 English sentences
+      targetWords: viTargetWords,
+      direction: 'vi_en',
+      generatedBy: chosen.generatedBy || '⚡ PlayEng Studio (Vietnamese-to-English)',
+    };
+  }
 
   return {
     ...chosen,
+    titleVi,
+    direction: 'en_vi',
     id: `${chosen.id}_${Date.now()}`,
   };
+}
+
+export const VI_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i;
+
+export function countVietnameseDiacritics(text: string): number {
+  if (!text) return 0;
+  const matches = text.match(/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/gi);
+  return matches ? matches.length : 0;
+}
+
+export function isVietnameseText(text: string): boolean {
+  if (!text) return false;
+  const count = countVietnameseDiacritics(text);
+  if (text.length > 50) {
+    // For paragraphs or long passages, an English text might mention "Công Nghệ & AI" (2 diacritics).
+    // Genuine Vietnamese paragraphs have dozens of diacritics (density >= 1 diacritic per 20 chars).
+    return count >= 5;
+  }
+  // For short phrases or single words (e.g. "tập trung", "đổi mới", "thói quen")
+  return count >= 1;
+}
+
+/**
+ * Sanitizes and validates the language orientation of a generated passage.
+ * Guarantees that:
+ * - If direction is 'vi_en': passage MUST be 100% Vietnamese, translationVi MUST be English.
+ * - If direction is 'en_vi': passage MUST be 100% English, translationVi MUST be Vietnamese.
+ * - If fields were inverted by LLM (Gemini), automatically swaps them.
+ * - If both fields lack Vietnamese for 'vi_en' or lack English for 'en_vi', falls back safely.
+ */
+export function sanitizePassageDirection(
+  rawPassage: GeneratedPassage,
+  targetDirection: 'en_vi' | 'vi_en' = 'en_vi',
+  level?: string,
+  topic?: string,
+  customTopic?: string
+): GeneratedPassage {
+  const p: GeneratedPassage = { ...rawPassage };
+  p.direction = targetDirection;
+
+  if (targetDirection === 'vi_en') {
+    const passageHasVi = isVietnameseText(p.passage);
+    const refHasVi = isVietnameseText(p.translationVi);
+
+    // Case 1: Inverted (passage is English, translationVi is Vietnamese)
+    if (!passageHasVi && refHasVi) {
+      const temp = p.passage;
+      p.passage = p.translationVi;
+      p.translationVi = temp;
+      if (p.titleVi && isVietnameseText(p.titleVi)) {
+        p.title = p.titleVi;
+      }
+    } else if (!passageHasVi && !refHasVi) {
+      // Case 2: Pure English returned for both! LLM failed to generate Vietnamese
+      const fallback = generateFreshPassage(
+        (level || p.difficulty || 'B2') as any,
+        topic || p.topic,
+        customTopic,
+        'vi_en'
+      );
+      return {
+        ...fallback,
+        generatedBy: p.generatedBy ? `${p.generatedBy} (Auto-aligned)` : fallback.generatedBy,
+      };
+    }
+
+    // Ensure sentenceTranslations are in English
+    if (p.sentenceTranslations && p.sentenceTranslations.length > 0) {
+      const firstSentHasVi = isVietnameseText(p.sentenceTranslations[0]);
+      if (firstSentHasVi && !isVietnameseText(p.translationVi)) {
+        p.sentenceTranslations = splitTextIntoSentences(p.translationVi);
+      }
+    } else if (p.translationVi) {
+      p.sentenceTranslations = splitTextIntoSentences(p.translationVi);
+    }
+
+    // Sanitize target words for vi_en:
+    // word: Vietnamese keyword from passage
+    // meaningVi: English translation
+    // contextSentence: Vietnamese sentence from passage
+    const viSentences = splitTextIntoSentences(p.passage);
+    p.targetWords = (p.targetWords || []).map((tw, idx) => {
+      let word = (tw.word || '').trim();
+      let meaning = (tw.meaningVi || '').trim();
+      let context = (tw.contextSentence || '').trim();
+
+      const wordHasVi = isVietnameseText(word);
+      const meaningHasVi = isVietnameseText(meaning);
+
+      // Inverted word and meaning (e.g., word is English, meaning is Vietnamese)
+      if (!wordHasVi && meaningHasVi) {
+        const temp = word;
+        word = meaning;
+        meaning = temp;
+      }
+
+      // Check context sentence
+      if (!isVietnameseText(context) || (word && !context.toLowerCase().includes(word.toLowerCase()))) {
+        const found = viSentences.find((s) => word && s.toLowerCase().includes(word.toLowerCase()));
+        if (found) {
+          context = found;
+        } else if (viSentences[idx]) {
+          context = viSentences[idx];
+        } else {
+          context = viSentences[0] || p.passage.slice(0, 100);
+        }
+      }
+
+      return {
+        ...tw,
+        word,
+        meaningVi: meaning,
+        contextSentence: context,
+      };
+    });
+  } else {
+    // targetDirection === 'en_vi'
+    const passageHasVi = isVietnameseText(p.passage);
+    const refHasVi = isVietnameseText(p.translationVi);
+
+    // Case 1: Inverted (passage is Vietnamese, translationVi is English)
+    if (passageHasVi && !refHasVi) {
+      const temp = p.passage;
+      p.passage = p.translationVi;
+      p.translationVi = temp;
+    } else if (passageHasVi && refHasVi) {
+      // Both are Vietnamese -> fallback to valid English passage
+      const fallback = generateFreshPassage(
+        (level || p.difficulty || 'B2') as any,
+        topic || p.topic,
+        customTopic,
+        'en_vi'
+      );
+      return fallback;
+    }
+
+    // Ensure sentenceTranslations are in Vietnamese
+    if (p.sentenceTranslations && p.sentenceTranslations.length > 0) {
+      const firstSentHasVi = isVietnameseText(p.sentenceTranslations[0]);
+      if (!firstSentHasVi && isVietnameseText(p.translationVi)) {
+        p.sentenceTranslations = splitTextIntoSentences(p.translationVi);
+      }
+    } else if (p.translationVi) {
+      p.sentenceTranslations = splitTextIntoSentences(p.translationVi);
+    }
+
+    // Sanitize target words for en_vi:
+    // word: English keyword from passage
+    // meaningVi: Vietnamese meaning
+    // contextSentence: English sentence from passage
+    const enSentences = splitTextIntoSentences(p.passage);
+    p.targetWords = (p.targetWords || []).map((tw, idx) => {
+      let word = (tw.word || '').trim();
+      let meaning = (tw.meaningVi || '').trim();
+      let context = (tw.contextSentence || '').trim();
+
+      const wordHasVi = isVietnameseText(word);
+      const meaningHasVi = isVietnameseText(meaning);
+
+      if (wordHasVi && !meaningHasVi) {
+        const temp = word;
+        word = meaning;
+        meaning = temp;
+      }
+
+      if (isVietnameseText(context) || (word && !context.toLowerCase().includes(word.toLowerCase()))) {
+        const found = enSentences.find((s) => word && s.toLowerCase().includes(word.toLowerCase()));
+        if (found) {
+          context = found;
+        } else if (enSentences[idx]) {
+          context = enSentences[idx];
+        } else {
+          context = enSentences[0] || p.passage.slice(0, 100);
+        }
+      }
+
+      return {
+        ...tw,
+        word,
+        meaningVi: meaning,
+        contextSentence: context,
+      };
+    });
+  }
+
+  return p;
 }
