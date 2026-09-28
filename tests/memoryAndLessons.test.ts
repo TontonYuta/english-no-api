@@ -69,7 +69,13 @@ import {
   POPULAR_CHAT_SCENARIOS,
 } from '../src/utils/chatUtils';
 import { chunkTextForTTS } from '../server/ttsService';
-import { generateFreshPassage, findPassageByTextOrTitle } from '../server/passageGenerator';
+import {
+  generateFreshPassage,
+  findPassageByTextOrTitle,
+  sanitizePassageDirection,
+  isVietnameseText,
+  VI_DIACRITICS_REGEX,
+} from '../server/passageGenerator';
 
 test('learningMemory: Word storage and anti-repetition', () => {
   localStorage.clear();
@@ -1405,6 +1411,240 @@ test('passageGenerator & geminiService: catalog topics, CEFR spectrum and unifie
     assert.ok(p.sentenceTranslations.length >= 3, `Level ${lvl} sentenceTranslations length`);
   }
 });
+
+test('vi_en translation mode: passageGenerator inverts passage and reference translation properly', () => {
+  const levels = ['A1', 'A2', 'B1', 'B2', 'C1'] as const;
+  for (const lvl of levels) {
+    const p = generateFreshPassage(lvl, 'daily', undefined, 'vi_en');
+    assert.equal(p.direction, 'vi_en');
+    assert.equal(p.difficulty, lvl);
+    assert.ok(p.titleVi && p.titleVi.length > 0, `Level ${lvl} titleVi exists`);
+    // Passage must be in Vietnamese (contains accented characters or letters)
+    assert.ok(p.passage.length > 40, `Level ${lvl} Vietnamese passage length`);
+    // translationVi in vi_en mode is the English model translation
+    assert.ok(p.translationVi.length > 40, `Level ${lvl} English model translation length`);
+    assert.ok(p.sentenceTranslations.length >= 2, `Level ${lvl} sentenceTranslations`);
+    // Target words in vi_en must have Vietnamese concept as prompt (word) and English term as meaningVi
+    assert.ok(p.targetWords.length >= 3, `Level ${lvl} target words`);
+    for (const tw of p.targetWords) {
+      assert.ok(tw.word.length > 0, 'Target word prompt');
+      assert.ok(tw.meaningVi.length > 0, 'Target word expected English term');
+      assert.ok(tw.ipa && tw.ipa.startsWith('/'), 'IPA format');
+    }
+  }
+});
+
+test('vi_en translation mode: buildChatbotPrompt generates specialized prompt for VI -> EN translation', () => {
+  const viPassage = 'Làm việc từ xa mang lại sự linh hoạt đáng kể cho nhân viên.';
+  const prompt = buildChatbotPrompt('translation_vocab', {
+    direction: 'vi_en',
+    passage: viPassage,
+    title: 'Làm việc từ xa',
+    difficulty: 'B1',
+    userTranslation: 'Remote work brings significant flexibility for employees.',
+    referenceTranslation: 'Working remotely provides substantial flexibility for professionals.',
+    targetWords: [
+      { word: 'sự linh hoạt', meaningVi: 'flexibility', ipa: '/ˌflek.səˈbɪl.ə.ti/' },
+    ],
+    userVocabGuesses: [{ word: 'sự linh hoạt', guess: 'flexibility' }],
+  });
+
+  assert.ok(prompt.systemInstruction.includes('Senior Bilingual English-Vietnamese Translation Professor'), 'System instruction has VI -> EN Professor role');
+  assert.ok(prompt.userPrompt.includes('Vietnamese to English (Dịch Việt -> Anh)'), 'Prompt states VI to EN translation direction');
+  assert.ok(prompt.userPrompt.includes('Original Vietnamese Passage'), 'Contains Vietnamese source passage header');
+  assert.ok(prompt.userPrompt.includes("Learner's Submitted English Translation"), 'Contains student English translation header');
+  assert.ok(prompt.userPrompt.toLowerCase().includes('vietlish'), 'Contains guidance on avoiding Vietlish');
+});
+
+test('vi_en translation mode: generateRealisticFallback evaluates VI -> EN translation accurately', () => {
+  const viPassage = 'Bắt đầu ngày mới với một bữa sáng đầy đủ dưỡng chất tiếp thêm năng lượng cho bạn.';
+  const userEnglish = 'Starting a new day with a nutrient-rich breakfast energizes you.';
+  const fallback = generateRealisticFallback('translation_vocab', {
+    direction: 'vi_en',
+    passage: viPassage,
+    title: 'Bữa Sáng Dinh Dưỡng',
+    topic: 'Ẩm Thực & Nấu Nướng',
+    difficulty: 'A1',
+    userTranslation: userEnglish,
+    targetWords: [
+      { word: 'dinh dưỡng', meaningVi: 'nutritious', ipa: '/njuːˈtrɪʃ.əs/', contextSentence: viPassage },
+    ],
+    userVocabGuesses: [{ word: 'dinh dưỡng', guess: 'nutritious' }],
+  });
+
+  const fbData = fallback.data as any;
+  assert.ok(fbData.overallScore >= 50, 'Overall score computed');
+  assert.ok(fbData.translationEvaluation.referenceTranslation.length > 0, 'Reference translation generated');
+  assert.ok(fbData.translationEvaluation.sentenceBySentenceFeedback.length > 0, 'Sentence feedback present');
+  
+  const firstSentence = fbData.translationEvaluation.sentenceBySentenceFeedback[0];
+  assert.equal(firstSentence.originalSentence, viPassage);
+  assert.equal(firstSentence.userTranslatedSentence, userEnglish);
+  assert.ok(firstSentence.suggestedSentence.length > 0, 'English suggestion provided');
+
+  assert.ok(fbData.vocabEvaluations.length > 0, 'Vocab evaluations created');
+  const firstVocab = fbData.vocabEvaluations[0];
+  assert.equal(firstVocab.userGuess, 'nutritious');
+  assert.ok(firstVocab.ipa.length > 0, 'IPA present');
+  assert.ok(firstVocab.score > 0, 'Vocab score present');
+  assert.ok(fbData.performanceBadge.length > 0, 'Badge present');
+  assert.ok(fbData.objectiveAdvice.translationTips.length > 0, 'Tips present');
+});
+
+test('vi_en translation mode: 100% 1:1 sentence alignment and context sentence containment', () => {
+  const levels = ['A1', 'A2', 'B1', 'B2', 'C1'] as const;
+  const topics = ['tech', 'business', 'daily'] as const;
+
+  for (const lvl of levels) {
+    for (const t of topics) {
+      const p = generateFreshPassage(lvl, t, undefined, 'vi_en');
+      const viSentences = splitTextIntoSentences(p.passage);
+      const enSentences = splitTextIntoSentences(p.translationVi);
+      
+      // Exact 1:1 sentence match
+      assert.equal(
+        viSentences.length,
+        enSentences.length,
+        `Level ${lvl} Topic ${t}: Vietnamese (${viSentences.length}) vs English (${enSentences.length}) count mismatch`
+      );
+
+      // Verify that every target word's contextSentence contains the word itself
+      for (const tw of p.targetWords) {
+        assert.ok(tw.word.length > 0, `Target word must not be empty`);
+        assert.ok(tw.contextSentence.length > 0, `Context sentence must not be empty`);
+        assert.ok(
+          tw.contextSentence.toLowerCase().includes(tw.word.toLowerCase()),
+          `Context sentence "${tw.contextSentence}" must contain target word "${tw.word}"`
+        );
+      }
+    }
+  }
+});
+
+test('language validation regex: accurately detects Vietnamese diacritics and English markers', () => {
+  const VIETNAMESE_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i;
+  const ENGLISH_KEYWORDS_REGEX = /\b(the|and|is|are|in|on|at|to|for|with|this|that|from)\b/i;
+
+  // Vietnamese text detection
+  assert.ok(VIETNAMESE_DIACRITICS_REGEX.test('Chào buổi sáng, tôi đang học tiếng Anh'));
+  assert.ok(VIETNAMESE_DIACRITICS_REGEX.test('Làm việc từ xa rất linh hoạt'));
+  assert.ok(!VIETNAMESE_DIACRITICS_REGEX.test('Good morning, I am practicing English translation today'));
+
+  // English text detection
+  assert.ok(ENGLISH_KEYWORDS_REGEX.test('This is a great translation practice for everyone.'));
+  assert.ok(ENGLISH_KEYWORDS_REGEX.test('Learning with spaced repetition and intelligent feedback.'));
+  assert.ok(!ENGLISH_KEYWORDS_REGEX.test('Học tập chăm chỉ mỗi ngày.'));
+});
+
+test('sanitizePassageDirection: detects inverted passage in vi_en mode and swaps them', () => {
+  const invertedRaw = {
+    id: 'gemini_test_1',
+    title: 'Morning Routine and Productivity',
+    titleVi: 'Thói quen buổi sáng và hiệu suất làm việc',
+    topic: 'Daily Routine',
+    topicCategory: 'daily',
+    difficulty: 'B2' as const,
+    genre: 'Article',
+    // Inverted: Gemini put English in passage and Vietnamese in translationVi
+    passage: 'Developing an intentional morning routine allows professionals to optimize their cognitive focus.',
+    translationVi: 'Phát triển thói quen buổi sáng có chủ đích giúp các chuyên gia tối ưu hóa khả năng tập trung.',
+    sentenceTranslations: [
+      'Phát triển thói quen buổi sáng có chủ đích giúp các chuyên gia tối ưu hóa khả năng tập trung.',
+    ],
+    targetWords: [
+      {
+        word: 'cognitive focus',
+        meaningVi: 'khả năng tập trung',
+        ipa: '/ˈkɒɡnətɪv ˈfəʊkəs/',
+        contextSentence: 'Developing an intentional morning routine allows professionals to optimize their cognitive focus.',
+      },
+    ],
+    generatedBy: '✨ Google Gemini AI',
+  };
+
+  const sanitized = sanitizePassageDirection(invertedRaw, 'vi_en');
+
+  // 1. Passage must be 100% Vietnamese
+  assert.ok(isVietnameseText(sanitized.passage), 'Passage must be in Vietnamese');
+  assert.equal(
+    sanitized.passage,
+    'Phát triển thói quen buổi sáng có chủ đích giúp các chuyên gia tối ưu hóa khả năng tập trung.'
+  );
+
+  // 2. Reference translation must be in English
+  assert.ok(!isVietnameseText(sanitized.translationVi), 'TranslationVi must be in English');
+  assert.equal(
+    sanitized.translationVi,
+    'Developing an intentional morning routine allows professionals to optimize their cognitive focus.'
+  );
+
+  // 3. Sentence translations must be English
+  assert.ok(sanitized.sentenceTranslations.length > 0);
+  assert.ok(!isVietnameseText(sanitized.sentenceTranslations[0]), 'sentenceTranslations must be English');
+
+  // 4. Target words must have Vietnamese word and English meaning
+  assert.equal(sanitized.targetWords[0].word, 'khả năng tập trung');
+  assert.equal(sanitized.targetWords[0].meaningVi, 'cognitive focus');
+  assert.ok(
+    isVietnameseText(sanitized.targetWords[0].contextSentence),
+    'Context sentence must be Vietnamese'
+  );
+  assert.ok(
+    sanitized.targetWords[0].contextSentence.includes('tập trung'),
+    'Context sentence must contain keyword'
+  );
+});
+
+test('sanitizePassageDirection: handles LLM pure English output for vi_en by falling back to Vietnamese catalog', () => {
+  const pureEnglishRaw = {
+    id: 'gemini_test_2',
+    title: 'Technology and Modern Life',
+    topic: 'tech',
+    topicCategory: 'tech',
+    difficulty: 'B1' as const,
+    genre: 'Article',
+    // Both fields are in English
+    passage: 'Artificial intelligence is changing the way we interact with software every day.',
+    translationVi: 'Artificial intelligence is reshaping contemporary industries at an unprecedented pace.',
+    sentenceTranslations: ['Artificial intelligence is changing the way we interact with software every day.'],
+    targetWords: [
+      { word: 'artificial intelligence', meaningVi: 'AI', contextSentence: 'Artificial intelligence is changing...' },
+    ],
+    generatedBy: '✨ Google Gemini AI',
+  };
+
+  const sanitized = sanitizePassageDirection(pureEnglishRaw, 'vi_en', 'B1', 'tech');
+
+  // Must fall back to catalog Vietnamese text
+  assert.ok(isVietnameseText(sanitized.passage), 'Sanitized passage must be Vietnamese even when LLM output English');
+  assert.ok(!isVietnameseText(sanitized.translationVi), 'Reference translation must be English');
+  assert.equal(sanitized.direction, 'vi_en');
+});
+
+test('sanitizePassageDirection: handles inverted passage in en_vi mode and aligns them correctly', () => {
+  const invertedEnVi = {
+    id: 'gemini_test_3',
+    title: 'Khám phá thế giới',
+    topic: 'travel',
+    topicCategory: 'travel',
+    difficulty: 'A2' as const,
+    genre: 'Article',
+    // Inverted: Vietnamese in passage, English in translationVi
+    passage: 'Du lịch giúp chúng ta mở rộng tầm nhìn và hiểu biết về văn hóa.',
+    translationVi: 'Traveling helps us broaden our horizons and understand different cultures.',
+    sentenceTranslations: ['Traveling helps us broaden our horizons and understand different cultures.'],
+    targetWords: [
+      { word: 'mở rộng tầm nhìn', meaningVi: 'broaden horizons', contextSentence: 'Du lịch giúp chúng ta...' },
+    ],
+  };
+
+  const sanitized = sanitizePassageDirection(invertedEnVi, 'en_vi');
+
+  assert.ok(!isVietnameseText(sanitized.passage), 'Passage must be English in en_vi mode');
+  assert.ok(isVietnameseText(sanitized.translationVi), 'translationVi must be Vietnamese in en_vi mode');
+  assert.equal(sanitized.direction, 'en_vi');
+});
+
 
 
 

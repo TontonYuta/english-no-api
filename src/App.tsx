@@ -8,7 +8,9 @@ import {
   DialogueDifficulty,
   CEFRLevel,
   Language,
+  TranslationDirection,
   AppSettings,
+  TargetWordItem,
 } from './types';
 import { Navbar } from './components/Navbar';
 import { AutomationModal } from './components/AutomationModal';
@@ -64,6 +66,8 @@ function getSavedSettings(): AppSettings {
   }
   return DEFAULT_SETTINGS;
 }
+
+const VI_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i;
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(getSavedSettings);
@@ -150,25 +154,60 @@ export default function App() {
   };
 
   // Core Feature: Translation & Contextual Vocab Guessing State (Clean initial state - No mock data)
+  const [translationDirection, setTranslationDirection] = useState<TranslationDirection>(() => {
+    return (localStorage.getItem('playeng_translation_direction') as TranslationDirection) || 'en_vi';
+  });
   const [passage, setPassage] = useState<string>('');
   const [passageTitle, setPassageTitle] = useState<string>('');
   const [passageTopic, setPassageTopic] = useState<string>('Công Nghệ & AI');
   const [passageDifficulty, setPassageDifficulty] = useState<DialogueDifficulty>(() => {
     return (localStorage.getItem('playeng_user_level') as DialogueDifficulty) || 'B1';
   });
-  const [targetWords, setTargetWords] = useState<Array<{ word: string; contextSentence: string }>>([]);
+  const [targetWords, setTargetWords] = useState<TargetWordItem[]>([]);
   const [userTranslation, setUserTranslation] = useState<string>('');
   const [userVocabGuesses, setUserVocabGuesses] = useState<Record<string, string>>({});
   const [referenceTranslation, setReferenceTranslation] = useState<string>('');
   const [isMemoryBankModalOpen, setIsMemoryBankModalOpen] = useState(false);
   const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
 
+  // Automatically generate/load an initial passage on first mount if empty
+  useEffect(() => {
+    if (!passage.trim() && !isGeneratingPassage) {
+      handleGeneratePassage(userLevel || passageDifficulty || 'B1', undefined, undefined, translationDirection);
+    }
+  }, []);
+
+  const handleSetTranslationDirection = (dir: TranslationDirection) => {
+    setTranslationDirection(dir);
+    localStorage.setItem('playeng_translation_direction', dir);
+    setUserTranslation('');
+    setUserVocabGuesses({});
+    setResult(null);
+
+    // Instant 0ms transition: swap passage and reference translation if available
+    if (passage && referenceTranslation) {
+      const passHasVi = VI_DIACRITICS_REGEX.test(passage);
+      const refHasVi = VI_DIACRITICS_REGEX.test(referenceTranslation);
+      if (dir === 'vi_en' && !passHasVi && refHasVi) {
+        setPassage(referenceTranslation);
+        setReferenceTranslation(passage);
+      } else if (dir === 'en_vi' && passHasVi && !refHasVi) {
+        setPassage(referenceTranslation);
+        setReferenceTranslation(passage);
+      }
+    }
+
+    handleGeneratePassage(undefined, undefined, undefined, dir);
+  };
+
   const handleGeneratePassage = async (
     targetLevel?: string,
     targetTopic?: string,
-    customTopic?: string
+    customTopic?: string,
+    targetDirection?: TranslationDirection
   ) => {
     setIsGeneratingPassage(true);
+    const activeDir = targetDirection || translationDirection || 'en_vi';
     try {
       const selectedLevel = (targetLevel || userLevel || passageDifficulty || 'B1').toUpperCase();
       const res = await fetch('/api/passage/generate', {
@@ -178,20 +217,43 @@ export default function App() {
           level: selectedLevel,
           topic: targetTopic || passageTopic,
           customTopic: customTopic || undefined,
+          direction: activeDir,
           provider: provider,
           geminiApiKey: settings.geminiApiKey,
         }),
       });
       const data = await res.json();
       if (data.success && data.passage) {
-        setPassage(data.passage.passage);
+        let cleanPassage = data.passage.passage;
+        let cleanRef = data.passage.translationVi || '';
+
+        // Double-layer language alignment defense: swap if server returned inverted fields
+        if (activeDir === 'vi_en') {
+          const passHasVi = VI_DIACRITICS_REGEX.test(cleanPassage);
+          const refHasVi = VI_DIACRITICS_REGEX.test(cleanRef);
+          if (!passHasVi && refHasVi) {
+            const temp = cleanPassage;
+            cleanPassage = cleanRef;
+            cleanRef = temp;
+          }
+        } else if (activeDir === 'en_vi') {
+          const passHasVi = VI_DIACRITICS_REGEX.test(cleanPassage);
+          const refHasVi = VI_DIACRITICS_REGEX.test(cleanRef);
+          if (passHasVi && !refHasVi) {
+            const temp = cleanPassage;
+            cleanPassage = cleanRef;
+            cleanRef = temp;
+          }
+        }
+
+        setPassage(cleanPassage);
         setPassageTitle(data.passage.title);
         setPassageTopic(data.passage.topic);
         const effectiveDifficulty = (data.passage.difficulty || selectedLevel) as DialogueDifficulty;
         setPassageDifficulty(effectiveDifficulty);
         setTargetWords(data.passage.targetWords || []);
-        if (data.passage.translationVi) {
-          setReferenceTranslation(data.passage.translationVi);
+        if (cleanRef) {
+          setReferenceTranslation(cleanRef);
         }
         setUserTranslation('');
         setUserVocabGuesses({});
@@ -315,12 +377,17 @@ export default function App() {
     const guessesStr = targetWords
       .map((tw) => `- "${tw.word}": ${userVocabGuesses[tw.word] || '(Chưa đoán)'}`)
       .join('\n');
-    return `[System: Senior Bilingual English-Vietnamese Translation Professor]\nTitle: ${passageTitle}\nTopic: ${passageTopic} (${passageDifficulty})\nPassage:\n${passage}\n\nUser Translation:\n${userTranslation}\n\nVocab Guesses:\n${guessesStr}\n\n[Instruction: Return strict JSON evaluating translation and contextual vocab guessing]`;
+    const dirLabel = translationDirection === 'vi_en' ? 'Vietnamese to English (Việt -> Anh)' : 'English to Vietnamese (Anh -> Việt)';
+    return `[System: Senior Bilingual English-Vietnamese Translation Professor]\nDirection: ${dirLabel}\nTitle: ${passageTitle}\nTopic: ${passageTopic} (${passageDifficulty})\nPassage:\n${passage}\n\nUser Translation:\n${userTranslation}\n\nVocab Guesses:\n${guessesStr}\n\n[Instruction: Return strict JSON evaluating translation and contextual vocab guessing]`;
   };
 
   const handleSubmitTranslationVocab = () => {
     if (!passage.trim()) {
-      alert(lang === 'vi' ? 'Vui lòng nhập hoặc chọn một đoạn văn tiếng Anh.' : 'Please enter or select an English passage.');
+      alert(
+        lang === 'vi'
+          ? (translationDirection === 'vi_en' ? 'Vui lòng nhập hoặc tạo một đoạn văn tiếng Việt.' : 'Vui lòng nhập hoặc chọn một đoạn văn tiếng Anh.')
+          : (translationDirection === 'vi_en' ? 'Please enter or generate a Vietnamese passage.' : 'Please enter or select an English passage.')
+      );
       return;
     }
 
@@ -334,6 +401,7 @@ export default function App() {
       title: passageTitle,
       topic: passageTopic,
       difficulty: passageDifficulty,
+      direction: translationDirection,
       targetWords,
       userTranslation,
       userVocabGuesses: guessesArray,
@@ -506,6 +574,8 @@ export default function App() {
           setTopic={setPassageTopic}
           difficulty={passageDifficulty}
           setDifficulty={setPassageDifficulty}
+          direction={translationDirection}
+          setDirection={handleSetTranslationDirection}
           targetWords={targetWords}
           setTargetWords={setTargetWords}
           userTranslation={userTranslation}

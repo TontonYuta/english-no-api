@@ -48,6 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [resetting, setResetting] = useState(false);
   const [resetSuccessMessage, setResetSuccessMessage] = useState(false);
   const [isOpeningBrowser, setIsOpeningBrowser] = useState(false);
+  const [isClosingBrowser, setIsClosingBrowser] = useState(false);
   const [loginStatusMessage, setLoginStatusMessage] = useState<string | null>(null);
 
   const handleOpenLogin = async (targetProvider: 'gemini' | 'chatgpt' = 'gemini') => {
@@ -61,12 +62,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
       const data = await res.json();
       if (data.message) {
-        setLoginStatusMessage(data.message);
+        setLoginStatusMessage(data.message + ' (Lưu ý: Sau khi đăng nhập xong, hãy đóng cửa sổ trình duyệt để giải phóng phiên cho chế độ tự động).');
       }
     } catch (err: any) {
       setLoginStatusMessage('Lỗi mở trình duyệt: ' + err.message);
     } finally {
       setIsOpeningBrowser(false);
+    }
+  };
+
+  const handleCloseLogin = async () => {
+    setIsClosingBrowser(true);
+    try {
+      const res = await fetch('/api/playwright/close-login', { method: 'POST' });
+      const data = await res.json();
+      setLoginStatusMessage(data.message || 'Đã đóng trình duyệt đăng nhập.');
+    } catch (err: any) {
+      setLoginStatusMessage('Lỗi đóng trình duyệt: ' + err.message);
+    } finally {
+      setIsClosingBrowser(false);
     }
   };
 
@@ -381,15 +395,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={isOpeningBrowser}
-                  onClick={() => handleOpenLogin('gemini')}
-                  className="px-3 py-1.5 rounded-lg bg-sky-900/60 hover:bg-sky-850 border border-sky-600/50 text-sky-200 text-xs font-mono font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-xs"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-                  <span>{isOpeningBrowser ? 'Đang mở...' : '🔑 Mở Trình Duyệt Đăng Nhập'}</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={isOpeningBrowser}
+                    onClick={() => handleOpenLogin('gemini')}
+                    className="px-3 py-1.5 rounded-lg bg-sky-900/60 hover:bg-sky-850 border border-sky-600/50 text-sky-200 text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{isOpeningBrowser ? 'Đang mở...' : '🔑 Mở Trình Duyệt Đăng Nhập'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isClosingBrowser}
+                    onClick={handleCloseLogin}
+                    className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    title="Đóng cửa sổ đăng nhập để giải phóng phiên cho chế độ tự động"
+                  >
+                    <span>{isClosingBrowser ? 'Đang đóng...' : '✖ Đóng Trình Duyệt'}</span>
+                  </button>
+                </div>
               </div>
 
               {loginStatusMessage && (

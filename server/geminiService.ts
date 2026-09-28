@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { TaskType, TaskResult, TranslationVocabResult, PipelineStepId, StepState, AutomationLog } from '../src/types';
-import { GeneratedPassage } from './passageGenerator';
+import { GeneratedPassage, sanitizePassageDirection } from './passageGenerator';
 import { generatePassageWithGeminiPlaywright, buildGeminiPassagePrompt } from './playwrightEngine';
 
 export function getEffectiveGeminiApiKey(customApiKey?: string): string | undefined {
@@ -137,16 +137,17 @@ export async function generatePassageWithGeminiApi(params: {
   level: string;
   topic?: string;
   customTopic?: string;
+  direction?: 'en_vi' | 'vi_en';
   apiKey?: string;
 }): Promise<GeneratedPassage> {
-  const { level, topic, customTopic, apiKey } = params;
+  const { level, topic, customTopic, direction = 'en_vi', apiKey } = params;
   const effectiveKey = getEffectiveGeminiApiKey(apiKey);
   if (!effectiveKey) {
     throw new Error('Gemini API Key is missing. Provide GEMINI_API_KEY in environment or app settings.');
   }
 
   const ai = new GoogleGenAI({ apiKey: effectiveKey });
-  const prompt = buildGeminiPassagePrompt(level, topic, customTopic);
+  const prompt = buildGeminiPassagePrompt(level, topic, customTopic, direction);
 
   let rawResponseText = '';
   let modelUsed = 'gemini-2.5-flash';
@@ -182,7 +183,7 @@ export async function generatePassageWithGeminiApi(params: {
   }
 
   const parsed = JSON.parse(jsonStr);
-  return {
+  const rawPassage: GeneratedPassage = {
     id: `gemini_api_${Date.now()}`,
     title: parsed.title || 'Gemini Reading Passage',
     topic: parsed.topic || topic || 'General',
@@ -190,23 +191,26 @@ export async function generatePassageWithGeminiApi(params: {
     difficulty: (level as any) || (parsed.difficulty as any) || 'B1',
     genre: 'Article',
     passage: parsed.passage,
-    translationVi: parsed.translationVi || '',
+    translationVi: parsed.referenceTranslation || parsed.translationEn || parsed.translationVi || '',
     sentenceTranslations: parsed.sentenceTranslations || [],
+    direction: direction,
     targetWords: (parsed.targetWords || []).map((w: any) => ({
       word: w.word,
       contextSentence: w.contextSentence || '',
-      meaningVi: w.meaningVi || '',
+      meaningVi: w.englishWord || w.meaningVi || '',
       ipa: w.ipa || '',
       partOfSpeech: w.partOfSpeech || '',
     })),
     generatedBy: `✨ Google Gemini AI (${modelUsed} Direct API)`,
   };
+  return sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
 }
 
 export async function generatePassageWithGeminiUnified(params: {
   level: string;
   topic?: string;
   customTopic?: string;
+  direction?: 'en_vi' | 'vi_en';
   geminiApiKey?: string;
 }): Promise<GeneratedPassage> {
   if (isGeminiApiAvailable(params.geminiApiKey)) {

@@ -13,6 +13,7 @@ export type RoleplayLength = 'short' | 'medium' | 'long';
 export type DialogueDifficulty = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 export type Language = 'vi' | 'en';
+export type TranslationDirection = 'en_vi' | 'vi_en';
 
 export type ChatbotProvider = 'fast' | 'gemini' | 'chatgpt' | 'antigravity';
 
@@ -443,6 +444,14 @@ export interface VocabGuessItem {
   userGuess: string;
 }
 
+export interface TargetWordItem {
+  word: string;
+  contextSentence: string;
+  meaningVi?: string;
+  ipa?: string;
+  partOfSpeech?: string;
+}
+
 export interface VocabGuessEvaluation {
   word: string;
   ipa?: string;
@@ -481,6 +490,7 @@ export interface TranslationVocabResult {
   vocabScore: number;
   performanceBadge: string;
   executiveSummary: string;
+  direction?: TranslationDirection;
   translationEvaluation: {
     referenceTranslation: string;
     strengths: string[];

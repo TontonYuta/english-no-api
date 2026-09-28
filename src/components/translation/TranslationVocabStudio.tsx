@@ -4,8 +4,10 @@ import {
   DialogueDifficulty,
   CEFRLevel,
   Language,
+  TranslationDirection,
   TranslationVocabResult,
   PipelineStep,
+  TargetWordItem,
 } from '../../types';
 import {
   Sparkles,
@@ -35,10 +37,12 @@ import {
   Columns,
   ArrowRight,
   ExternalLink,
+  ListOrdered,
 } from 'lucide-react';
 import {
   playAudioPronunciation,
   getUserAudioSettings,
+  splitTextIntoSentences,
 } from '../../utils/speechUtils';
 import { addLearnedWords } from '../../utils/learningMemory';
 
@@ -51,8 +55,10 @@ export interface TranslationVocabStudioProps {
   setTopic: (val: string) => void;
   difficulty: DialogueDifficulty;
   setDifficulty: (val: DialogueDifficulty) => void;
-  targetWords: Array<{ word: string; contextSentence: string }>;
-  setTargetWords: React.Dispatch<React.SetStateAction<Array<{ word: string; contextSentence: string }>>>;
+  direction?: TranslationDirection;
+  setDirection?: (dir: TranslationDirection) => void;
+  targetWords: TargetWordItem[];
+  setTargetWords: React.Dispatch<React.SetStateAction<TargetWordItem[]>>;
   userTranslation: string;
   setUserTranslation: (val: string) => void;
   userVocabGuesses: Record<string, string>;
@@ -61,7 +67,7 @@ export interface TranslationVocabStudioProps {
   isAutomating: boolean;
   provider: ChatbotProvider;
   lang?: Language;
-  onGeneratePassage: (level?: string, topic?: string, customTopic?: string) => void;
+  onGeneratePassage: (level?: string, topic?: string, customTopic?: string, direction?: TranslationDirection) => void;
   isGeneratingPassage: boolean;
   referenceTranslation?: string;
   userLevel?: CEFRLevel;
@@ -103,6 +109,8 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
   setTopic,
   difficulty,
   setDifficulty,
+  direction = 'en_vi',
+  setDirection,
   targetWords,
   setTargetWords,
   userTranslation,
@@ -134,12 +142,17 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
   // Generator control panel state
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [selectedGenDirection, setSelectedGenDirection] = useState<TranslationDirection>(direction);
   const [selectedGenLevel, setSelectedGenLevel] = useState<CEFRLevel>(
     userLevel || (difficulty as CEFRLevel) || 'B1'
   );
   const [selectedGenTopic, setSelectedGenTopic] = useState<string>('daily');
   const [isCustomTopicActive, setIsCustomTopicActive] = useState(false);
   const [customTopicInput, setCustomTopicInput] = useState('');
+
+  useEffect(() => {
+    setSelectedGenDirection(direction);
+  }, [direction]);
 
   // Audio & UI states
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -150,6 +163,109 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
   const [addedWords, setAddedWords] = useState<Record<string, boolean>>({});
   const [showCustomPassageInput, setShowCustomPassageInput] = useState(false);
   const [showSideBySideComparison, setShowSideBySideComparison] = useState(true);
+
+  // Interactive workspace translation mode: 'full' (toàn văn) | 'guided' (từng câu)
+  const [workspaceMode, setWorkspaceMode] = useState<'full' | 'guided'>('full');
+  const [sentenceInputs, setSentenceInputs] = useState<Record<number, string>>({});
+  const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
+  const [playingSentenceIdx, setPlayingSentenceIdx] = useState<number | null>(null);
+
+  // Split passage into natural sentences
+  const passageSentences = React.useMemo(() => {
+    return passage.trim() ? splitTextIntoSentences(passage) : [];
+  }, [passage]);
+
+  // Reset sentence inputs & hints when passage changes
+  useEffect(() => {
+    setSentenceInputs({});
+    setRevealedHints({});
+  }, [passage]);
+
+  const handleSwitchToGuided = () => {
+    setWorkspaceMode('guided');
+    const hasAnyInput = Object.values(sentenceInputs).some((v) => typeof v === 'string' && v.trim().length > 0);
+    if (!hasAnyInput && userTranslation.trim()) {
+      const userSents = splitTextIntoSentences(userTranslation);
+      const initial: Record<number, string> = {};
+      userSents.forEach((sent, idx) => {
+        initial[idx] = sent;
+      });
+      setSentenceInputs(initial);
+    }
+  };
+
+  const handleSentenceInputChange = (idx: number, val: string) => {
+    const updated = { ...sentenceInputs, [idx]: val };
+    setSentenceInputs(updated);
+    const combined = passageSentences
+      .map((_, i) => updated[i] || '')
+      .filter((s) => s.trim().length > 0)
+      .join(' ');
+    setUserTranslation(combined);
+  };
+
+  const guidedCompletedCount = passageSentences.filter(
+    (_, idx) => (sentenceInputs[idx] || '').trim().length > 0
+  ).length;
+
+  const handlePlaySentenceAudio = (sentenceText: string, idx: number, isVietnamese: boolean) => {
+    setPlayingSentenceIdx(idx);
+    if (isVietnamese) {
+      handlePlayVietnameseAudio(sentenceText);
+    } else {
+      playAudioPronunciation(sentenceText, { voice: 'en-US', rate: 0.95 });
+    }
+    const duration = Math.min((sentenceText.split(/\s+/).length / 2.2) * 1000, 15000);
+    setTimeout(() => {
+      setPlayingSentenceIdx(null);
+    }, duration);
+  };
+
+  const toggleHint = (word: string) => {
+    setRevealedHints((prev) => ({
+      ...prev,
+      [word]: !prev[word],
+    }));
+  };
+
+  const renderHighlightedContext = (sentence: string, word: string) => {
+    if (!sentence || !word) return <span>"{sentence}"</span>;
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = sentence.split(new RegExp(`(${escaped})`, 'i'));
+    return (
+      <span>
+        "
+        {parts.map((part, i) =>
+          part.toLowerCase() === word.toLowerCase() ? (
+            <mark
+              key={i}
+              className="bg-amber-400/25 text-amber-200 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 not-italic"
+            >
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+        "
+      </span>
+    );
+  };
+
+  // Language check warnings
+  const VIETNAMESE_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i;
+  const ENGLISH_KEYWORDS_REGEX = /\b(the|and|is|are|in|on|at|to|for|with|this|that|from)\b/i;
+
+  const showVietnameseWarningInEnglishMode =
+    direction === 'vi_en' &&
+    userTranslation.trim().length > 5 &&
+    VIETNAMESE_DIACRITICS_REGEX.test(userTranslation);
+
+  const showEnglishWarningInVietnameseMode =
+    direction === 'en_vi' &&
+    userTranslation.trim().length > 15 &&
+    !VIETNAMESE_DIACRITICS_REGEX.test(userTranslation) &&
+    ENGLISH_KEYWORDS_REGEX.test(userTranslation);
 
   // Sync selected level when userLevel or difficulty changes
   useEffect(() => {
@@ -175,7 +291,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
       return;
     }
     const cleanText = passage.replace(/[*_#`]/g, '');
-    playAudioPronunciation(cleanText, { voice: 'en-US', rate: 0.95 });
+    if (direction === 'vi_en') {
+      handlePlayVietnameseAudio(cleanText);
+    } else {
+      playAudioPronunciation(cleanText, { voice: 'en-US', rate: 0.95 });
+    }
     setIsPlayingAudio(true);
     const estDuration = (cleanText.split(/\s+/).length / 2.2) * 1000;
     setTimeout(() => {
@@ -184,7 +304,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
   };
 
   const handlePlayVietnameseAudio = (text: string) => {
-    if ('speechSynthesis' in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'vi-VN';
@@ -193,12 +313,33 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
     }
   };
 
-  const handlePlayWordAudio = (word: string) => {
+  const handlePlayWordAudio = (word: string, isVietnamese = false) => {
     setPlayingWord(word);
-    playAudioPronunciation(word, { voice: 'en-US', rate: 0.9 });
+    if (isVietnamese) {
+      handlePlayVietnameseAudio(word);
+    } else {
+      playAudioPronunciation(word, { voice: 'en-US', rate: 0.9 });
+    }
     setTimeout(() => {
       setPlayingWord(null);
     }, 1500);
+  };
+
+  const handlePlayModelAudio = (text: string) => {
+    if (!text.trim()) return;
+    if (direction === 'vi_en') {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      } else {
+        playAudioPronunciation(text.slice(0, 100), { voice: 'en-US', rate: 0.9 });
+      }
+    } else {
+      handlePlayVietnameseAudio(text);
+    }
   };
 
   const handleCopyPassage = () => {
@@ -240,7 +381,10 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
   const handleTriggerGenerate = () => {
     const finalCustom = isCustomTopicActive ? customTopicInput.trim() : undefined;
-    onGeneratePassage(selectedGenLevel, selectedGenTopic, finalCustom);
+    if (setDirection && selectedGenDirection !== direction) {
+      setDirection(selectedGenDirection);
+    }
+    onGeneratePassage(selectedGenLevel, selectedGenTopic, finalCustom, selectedGenDirection);
     setIsGeneratorOpen(false);
   };
 
@@ -263,8 +407,39 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
       {/* ========================================================= */}
       <section className="p-3 sm:p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-md backdrop-blur-sm transition-all">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          {/* Left info: Quick CEFR level switcher & topic */}
+          {/* Left info: Direction switcher, quick CEFR level switcher & topic */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Direction Selector (Mode Dịch) */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-950/80 border border-zinc-800">
+              <span className="text-[10px] font-mono font-bold text-zinc-400 px-1.5 uppercase hidden sm:inline">Chế độ:</span>
+              <button
+                type="button"
+                onClick={() => setDirection && setDirection('en_vi')}
+                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  direction === 'en_vi'
+                    ? 'bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/50'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+                title="Chế độ dịch Anh - Việt (Đọc tiếng Anh, dịch sang tiếng Việt)"
+              >
+                <span>🇬🇧 ➔ 🇻🇳</span>
+                <span>Anh - Việt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirection && setDirection('vi_en')}
+                className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  direction === 'vi_en'
+                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/50'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+                title="Chế độ dịch Việt - Anh (Đọc tiếng Việt, dịch sang tiếng Anh)"
+              >
+                <span>🇻🇳 ➔ 🇬🇧</span>
+                <span>Việt - Anh</span>
+              </button>
+            </div>
+
             {/* Quick Level Pills */}
             <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-950/80 border border-zinc-800">
               <span className="text-[10px] font-mono font-bold text-zinc-400 px-1.5 uppercase">Cấp độ:</span>
@@ -277,13 +452,14 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                     onClick={() => {
                       setSelectedGenLevel(lvl);
                       if (setUserLevel) setUserLevel(lvl);
+                      onGeneratePassage(lvl, selectedGenTopic, undefined, direction);
                     }}
                     className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/50'
                         : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
                     }`}
-                    title={`Chọn học theo cấp độ CEFR ${lvl}`}
+                    title={`Chuyển và tạo bài luyện cấp độ CEFR ${lvl}`}
                   >
                     {lvl}
                   </button>
@@ -297,7 +473,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
             {passageWordCount > 0 && (
               <span className="text-xs font-mono text-zinc-400">
-                {passageWordCount} từ • {targetWordsCount} từ vựng
+                {passageWordCount} từ • {targetWordsCount} {direction === 'vi_en' ? 'cụm từ thử thách' : 'từ vựng'}
               </span>
             )}
           </div>
@@ -323,10 +499,56 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
         {/* EXPANDABLE GENERATOR PANEL */}
         {isGeneratorOpen && (
           <div className="mt-4 pt-4 border-t border-zinc-800/80 space-y-4 animate-fade-in">
+            {/* Step 0: Select Direction */}
+            <div>
+              <label className="block text-xs font-mono uppercase text-zinc-400 font-bold mb-2">
+                1. Chọn Hướng Dịch Mục Tiêu:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg">
+                <button
+                  type="button"
+                  onClick={() => setSelectedGenDirection('en_vi')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    selectedGenDirection === 'en_vi'
+                      ? 'bg-sky-500/15 border-sky-400 text-sky-200 ring-1 ring-sky-400/50 shadow-sm'
+                      : 'border-zinc-800 bg-zinc-950/60 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">🇬🇧 ➔ 🇻🇳</span>
+                    <div>
+                      <div className="font-mono font-bold text-xs">Dịch Anh ➔ Việt</div>
+                      <div className="text-[10px] text-zinc-400">Đọc tiếng Anh, dịch sang tiếng Việt & đoán từ vựng</div>
+                    </div>
+                  </div>
+                  {selectedGenDirection === 'en_vi' && <span className="text-xs font-bold text-sky-400">✓</span>}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedGenDirection('vi_en')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    selectedGenDirection === 'vi_en'
+                      ? 'bg-emerald-500/15 border-emerald-400 text-emerald-200 ring-1 ring-emerald-400/50 shadow-sm'
+                      : 'border-zinc-800 bg-zinc-950/60 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">🇻🇳 ➔ 🇬🇧</span>
+                    <div>
+                      <div className="font-mono font-bold text-xs">Dịch Việt ➔ Anh</div>
+                      <div className="text-[10px] text-zinc-400">Đọc tiếng Việt, dịch sang tiếng Anh tự nhiên & chuẩn ngữ pháp</div>
+                    </div>
+                  </div>
+                  {selectedGenDirection === 'vi_en' && <span className="text-xs font-bold text-emerald-400">✓</span>}
+                </button>
+              </div>
+            </div>
+
             {/* Step 1: Select CEFR Level */}
             <div>
               <label className="block text-xs font-mono uppercase text-zinc-400 font-bold mb-2">
-                1. Chọn Cấp Độ CEFR:
+                2. Chọn Cấp Độ CEFR:
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {CEFR_LEVELS.map((lvl) => (
@@ -356,7 +578,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             {/* Step 2: Select Topic Category */}
             <div>
               <label className="block text-xs font-mono uppercase text-zinc-400 font-bold mb-2">
-                2. Chọn Chủ Đề Bài Học:
+                3. Chọn Chủ Đề Bài Học:
               </label>
               <div className="flex flex-wrap gap-2">
                 {TOPIC_CHIPS.map((chip) => (
@@ -434,7 +656,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition-all"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
-                <span>{isGeneratingPassage ? 'ĐANG TẠO BÀI ĐỌC...' : '⚡ BẮT ĐẦU TẠO BÀI HỌC'}</span>
+                <span>
+                  {isGeneratingPassage
+                    ? (selectedGenDirection === 'vi_en' ? 'ĐANG TẠO BÀI DỊCH VIỆT - ANH...' : 'ĐANG TẠO BÀI ĐỌC...')
+                    : (selectedGenDirection === 'vi_en' ? '⚡ BẮT ĐẦU TẠO BÀI VIỆT - ANH' : '⚡ BẮT ĐẦU TẠO BÀI HỌC')}
+                </span>
               </button>
             </div>
           </div>
@@ -448,7 +674,9 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-sky-400 animate-spin" />
               <span className="font-bold text-sky-200">
-                ✨ GOOGLE GEMINI ĐANG BIÊN SOẠN BÀI ĐỌC TIẾNG ANH...
+                {direction === 'vi_en'
+                  ? '✨ GOOGLE GEMINI ĐANG BIÊN SOẠN BÀI DỊCH VIỆT - ANH...'
+                  : '✨ GOOGLE GEMINI ĐANG BIÊN SOẠN BÀI ĐỌC TIẾNG ANH...'}
               </span>
             </div>
             <span className="text-[10px] text-sky-300 font-semibold px-2 py-0.5 rounded-full bg-sky-900/50 border border-sky-700/50">
@@ -456,7 +684,9 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             </span>
           </div>
           <p className="text-xs text-zinc-300 font-sans">
-            AI đang viết đoạn văn tự nhiên phù hợp chuẩn CEFR {difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...
+            {direction === 'vi_en'
+              ? `AI đang viết đoạn văn tiếng Việt tự nhiên theo chuẩn CEFR ${difficulty}, chuẩn bị bài dịch mẫu tiếng Anh bản ngữ và trích xuất các từ/cụm từ thử thách...`
+              : `AI đang viết đoạn văn tự nhiên phù hợp chuẩn CEFR ${difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...`}
           </p>
         </div>
       )}
@@ -475,7 +705,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          <span>1. Bài Đọc & Đoán Từ</span>
+          <span>{direction === 'vi_en' ? '1. Đoạn Văn & Thử Thách' : '1. Bài Đọc & Đoán Từ'}</span>
         </button>
 
         <button
@@ -504,18 +734,18 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             mobileTab === 'reading' ? 'block' : 'hidden lg:block'
           }`}
         >
-          {/* Card: English Reading Passage */}
+          {/* Card: Reading / Source Passage */}
           <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-md space-y-4">
             {/* Header info & tools */}
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>Bài Đọc Tiếng Anh</span>
+                  <span>{direction === 'vi_en' ? '🇻🇳 Đoạn Văn Tiếng Việt' : '🇬🇧 Bài Đọc Tiếng Anh'}</span>
                 </span>
                 <span className="text-zinc-600">•</span>
                 <span className="text-xs font-mono text-zinc-400">
-                  {passageWordCount} words
+                  {passageWordCount} {direction === 'vi_en' ? 'từ tiếng Việt' : 'words'}
                 </span>
               </div>
 
@@ -582,7 +812,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                   rows={4}
                   value={passage}
                   onChange={(e) => setPassage(e.target.value)}
-                  placeholder="Dán đoạn văn tiếng Anh của bạn tại đây..."
+                  placeholder={
+                    direction === 'vi_en'
+                      ? 'Dán đoạn văn tiếng Việt của bạn tại đây...'
+                      : 'Dán đoạn văn tiếng Anh của bạn tại đây...'
+                  }
                   className="w-full p-2.5 bg-zinc-900 border border-zinc-750 rounded-lg text-xs font-sans text-neutral-200 placeholder-zinc-500 focus:outline-none focus:border-sky-500"
                 />
               </div>
@@ -596,9 +830,13 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                 </div>
 
                 <div className="space-y-1.5 max-w-md mx-auto">
-                  <h3 className="text-sm font-bold text-white font-mono">Chưa có bài đọc nào</h3>
+                  <h3 className="text-sm font-bold text-white font-mono">
+                    {direction === 'vi_en' ? 'Chưa có đoạn văn tiếng Việt nào' : 'Chưa có bài đọc nào'}
+                  </h3>
                   <p className="text-xs text-zinc-400 leading-relaxed font-sans">
-                    Chọn cấp độ CEFR và chủ đề bạn muốn luyện tập, sau đó bấm nút bên dưới để Google Gemini biên soạn bài đọc và trích xuất từ vựng tương ứng:
+                    {direction === 'vi_en'
+                      ? 'Chọn cấp độ CEFR và chủ đề, sau đó bấm nút bên dưới để Google Gemini biên soạn đoạn văn tiếng Việt và trích xuất các từ/cụm từ tiếng Anh mục tiêu cần luyện dịch:'
+                      : 'Chọn cấp độ CEFR và chủ đề bạn muốn luyện tập, sau đó bấm nút bên dưới để Google Gemini biên soạn bài đọc và trích xuất từ vựng tương ứng:'}
                   </p>
                 </div>
 
@@ -670,8 +908,12 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                     <Sparkles className={`w-4 h-4 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
                     <span>
                       {isGeneratingPassage
-                        ? `✨ GEMINI ĐANG TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel}...`
-                        : `✨ TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel} (GEMINI)`}
+                        ? (direction === 'vi_en'
+                            ? `✨ GEMINI ĐANG TẠO ĐOẠN VĂN TIẾNG VIỆT ${selectedGenLevel}...`
+                            : `✨ GEMINI ĐANG TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel}...`)
+                        : (direction === 'vi_en'
+                            ? `✨ TẠO ĐOẠN VĂN TIẾNG VIỆT ${selectedGenLevel} (GEMINI)`
+                            : `✨ TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel} (GEMINI)`)}
                     </span>
                   </button>
                 </div>
@@ -699,7 +941,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                   <Lightbulb className="w-3.5 h-3.5" />
-                  <span>Thử Thách Đoán Từ Ngữ Cảnh</span>
+                  <span>{direction === 'vi_en' ? 'Thử Thách Dịch Từ & Cụm Từ' : 'Thử Thách Đoán Từ Ngữ Cảnh'}</span>
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30">
                   {answeredVocabCount}/{targetWordsCount} từ
@@ -710,13 +952,17 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             {targetWords.length === 0 ? (
               <div className="p-4 rounded-xl border border-dashed border-zinc-800 text-center space-y-1.5 bg-zinc-950/40">
                 <p className="text-xs text-zinc-400">
-                  Chưa có từ vựng mục tiêu. Hãy bấm <strong className="text-amber-300">Tạo bài đọc mới</strong> để Gemini tự động trích xuất các từ vựng cốt lõi.
+                  {direction === 'vi_en'
+                    ? 'Chưa có từ vựng mục tiêu. Hãy bấm tạo bài mới để AI tự động trích xuất các từ/cụm từ tiếng Anh cốt lõi.'
+                    : 'Chưa có từ vựng mục tiêu. Hãy bấm tạo bài đọc mới để Gemini tự động trích xuất các từ vựng cốt lõi.'}
                 </p>
               </div>
             ) : (
               <>
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Dựa vào câu văn trích dẫn, hãy phỏng đoán nghĩa tiếng Việt phù hợp nhất trong bối cảnh:
+                  {direction === 'vi_en'
+                    ? 'Dựa vào câu văn tiếng Việt, hãy viết từ hoặc cụm từ tiếng Anh tương đương chuẩn xác nhất:'
+                    : 'Dựa vào câu văn trích dẫn, hãy phỏng đoán nghĩa tiếng Việt phù hợp nhất trong bối cảnh:'}
                 </p>
 
                 <div className="space-y-2.5">
@@ -743,24 +989,76 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handlePlayWordAudio(tw.word)}
-                            className="p-1 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                            title="Nghe phát âm từ"
-                          >
-                            <Volume2
-                              className={`w-3.5 h-3.5 ${
-                                playingWord === tw.word ? 'animate-pulse text-amber-400' : ''
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleHint(tw.word)}
+                              className={`px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1 transition-colors cursor-pointer ${
+                                revealedHints[tw.word]
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'text-zinc-400 hover:text-amber-300 hover:bg-zinc-800'
                               }`}
-                            />
-                          </button>
+                              title="Xem gợi ý cho từ vựng này"
+                            >
+                              <Lightbulb className="w-3 h-3 text-amber-400" />
+                              <span>{revealedHints[tw.word] ? 'Ẩn gợi ý' : 'Gợi ý'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePlayWordAudio(tw.word, direction === 'vi_en')}
+                              className="p-1 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                              title={direction === 'vi_en' ? 'Nghe phát âm tiếng Việt' : 'Nghe phát âm từ tiếng Anh'}
+                            >
+                              <Volume2
+                                className={`w-3.5 h-3.5 ${
+                                  playingWord === tw.word ? 'animate-pulse text-amber-400' : ''
+                                }`}
+                              />
+                            </button>
+                          </div>
                         </div>
 
                         {tw.contextSentence && (
-                          <p className="text-xs text-zinc-400 italic font-sans mb-2 pl-2 border-l-2 border-zinc-750">
-                            "{tw.contextSentence}"
-                          </p>
+                          <div className="text-xs text-zinc-300 italic font-sans mb-2 pl-2 border-l-2 border-amber-500/40 leading-relaxed">
+                            {renderHighlightedContext(tw.contextSentence, tw.word)}
+                          </div>
+                        )}
+
+                        {revealedHints[tw.word] && (
+                          <div className="mb-2 p-2 rounded-lg bg-zinc-900/90 border border-amber-500/25 text-[11px] font-sans text-amber-200/90 space-y-1 animate-fade-in">
+                            <div className="flex items-center gap-1.5 font-mono text-[10px] text-amber-400 font-bold">
+                              <Lightbulb className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span>{direction === 'vi_en' ? 'GỢI Ý TỪ TIẾNG ANH:' : 'GỢI Ý TỪ VỰNG:'}</span>
+                            </div>
+                            {direction === 'vi_en' ? (
+                              <>
+                                {tw.meaningVi && (
+                                  <div className="text-zinc-300">
+                                    Bắt đầu bằng: <strong className="text-amber-300 font-mono text-xs font-bold">"{tw.meaningVi.trim()[0].toUpperCase()}"</strong> ({tw.meaningVi.trim().length} chữ cái)
+                                  </div>
+                                )}
+                                {tw.ipa && (
+                                  <div className="text-zinc-400 font-mono text-[10px]">
+                                    Phiên âm: <span className="text-amber-300">{tw.ipa}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {tw.ipa && (
+                                  <div className="text-zinc-400 font-mono text-[10px]">
+                                    Phiên âm: <span className="text-amber-300">{tw.ipa}</span>
+                                  </div>
+                                )}
+                                {tw.meaningVi && (
+                                  <div className="text-zinc-300">
+                                    Gợi ý nghĩa: bắt đầu bằng <strong className="text-amber-300 font-mono">"{tw.meaningVi.trim()[0]}"</strong> ({tw.meaningVi.trim().length} ký tự)
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
                         )}
 
                         <input
@@ -772,7 +1070,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                               [tw.word]: e.target.value,
                             }))
                           }
-                          placeholder={`Nghĩa của "${tw.word}" trong câu trên là gì?...`}
+                          placeholder={
+                            direction === 'vi_en'
+                              ? `Nhập từ / cụm từ tiếng Anh tương đương cho "${tw.word}"...`
+                              : `Nghĩa của "${tw.word}" trong câu trên là gì?...`
+                          }
                           className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-white font-sans placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors"
                         />
                       </div>
@@ -847,26 +1149,191 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             {/* VIEW A: TRANSLATION INPUT (KHI ĐANG LÀM BÀI)         */}
             {/* =================================================== */}
             {rightPanelTab === 'input' && (
-              <div className="space-y-4 animate-fade-in">
-                <textarea
-                  rows={9}
-                  value={userTranslation}
-                  onChange={(e) => setUserTranslation(e.target.value)}
-                  disabled={!passage.trim() || isAutomating}
-                  placeholder={
-                    !passage.trim()
-                      ? "Vui lòng bấm '✨ TẠO BÀI ĐỌC MỚI (GEMINI)' ở cột bên trái để bắt đầu luyện dịch..."
-                      : "Dịch đoạn văn tiếng Anh sang tiếng Việt tự nhiên, thoát ý và chuẩn xác tại đây..."
-                  }
-                  className={`w-full p-4 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-sans text-sm sm:text-base leading-relaxed placeholder-zinc-500 focus:outline-none focus:border-emerald-500 resize-y transition-colors ${
-                    !passage.trim() ? 'opacity-60 cursor-not-allowed bg-zinc-950/50' : ''
-                  }`}
-                />
+              <div className="space-y-3.5 animate-fade-in">
+                {/* Workspace Mode Switcher: Full vs Guided Sentence-by-Sentence */}
+                <div className="flex items-center justify-between gap-2 p-1.5 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setWorkspaceMode('full')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        workspaceMode === 'full'
+                          ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>✍️ Dịch Toàn Văn</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSwitchToGuided}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        workspaceMode === 'guided'
+                          ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <ListOrdered className="w-3.5 h-3.5" />
+                      <span>🧩 Dịch Từng Câu (Guided)</span>
+                      {passageSentences.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-900/80 text-emerald-300 font-mono">
+                          {passageSentences.length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  {workspaceMode === 'guided' && passageSentences.length > 0 && (
+                    <div className="text-[11px] font-mono text-zinc-400 pr-1.5">
+                      Đã dịch: <span className="text-emerald-400 font-bold">{guidedCompletedCount}/{passageSentences.length}</span> câu
+                    </div>
+                  )}
+                </div>
+
+                {/* Language Check Warning Banners */}
+                {showVietnameseWarningInEnglishMode && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs animate-fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>⚠️ Bạn đang ở chế độ <strong>Dịch Việt ➔ Anh</strong>. Hãy viết bài dịch bằng Tiếng Anh nhé!</span>
+                  </div>
+                )}
+                {showEnglishWarningInVietnameseMode && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs animate-fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>⚠️ Bạn đang ở chế độ <strong>Dịch Anh ➔ Việt</strong>. Hãy viết bài dịch bằng Tiếng Việt nhé!</span>
+                  </div>
+                )}
+
+                {/* Mode A: Guided Sentence-by-Sentence View */}
+                {workspaceMode === 'guided' ? (
+                  <div className="space-y-3 animate-fade-in">
+                    {/* Sentence Progress Bar */}
+                    <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-850 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-mono text-zinc-400 flex items-center gap-1.5">
+                          <ListOrdered className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Tiến độ dịch từng câu ({guidedCompletedCount}/{passageSentences.length})</span>
+                        </span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          {passageSentences.length > 0
+                            ? Math.round((guidedCompletedCount / passageSentences.length) * 100)
+                            : 0}
+                          %
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-zinc-850 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300 rounded-full"
+                          style={{
+                            width: `${
+                              passageSentences.length > 0
+                                ? (guidedCompletedCount / passageSentences.length) * 100
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Sentence Cards List */}
+                    <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                      {passageSentences.map((sent, idx) => {
+                        const sVal = sentenceInputs[idx] || '';
+                        const isDone = sVal.trim().length > 0;
+                        const isPlaying = playingSentenceIdx === idx;
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3.5 rounded-xl border transition-all space-y-2 ${
+                              isDone
+                                ? 'bg-zinc-950/80 border-emerald-500/30 ring-1 ring-emerald-500/20'
+                                : 'bg-zinc-950/50 border-zinc-800 focus-within:border-emerald-500/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-zinc-400">
+                                  Câu #{idx + 1}
+                                </span>
+                                {isDone ? (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 font-semibold flex items-center gap-1">
+                                    <Check className="w-3 h-3" />
+                                    <span>Đã dịch</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400">
+                                    Chưa dịch
+                                  </span>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handlePlaySentenceAudio(sent, idx, direction === 'vi_en')}
+                                className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-mono"
+                                title={direction === 'vi_en' ? 'Nghe phát âm câu tiếng Việt' : 'Nghe phát âm câu tiếng Anh'}
+                              >
+                                <Volume2
+                                  className={`w-3.5 h-3.5 ${isPlaying ? 'animate-pulse text-sky-400' : ''}`}
+                                />
+                                <span className="hidden sm:inline">Nghe câu gốc</span>
+                              </button>
+                            </div>
+
+                            {/* Source Sentence */}
+                            <p className="text-xs sm:text-sm text-zinc-300 font-sans leading-relaxed italic bg-zinc-900/60 p-2.5 rounded-lg border border-zinc-850/80">
+                              "{sent}"
+                            </p>
+
+                            {/* Student Input for this Sentence */}
+                            <textarea
+                              rows={2}
+                              value={sVal}
+                              onChange={(e) => handleSentenceInputChange(idx, e.target.value)}
+                              placeholder={
+                                direction === 'vi_en'
+                                  ? `Dịch câu #${idx + 1} sang tiếng Anh tự nhiên...`
+                                  : `Dịch câu #${idx + 1} sang tiếng Việt...`
+                              }
+                              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs sm:text-sm text-white font-sans placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* Mode B: Full Paragraph Textarea */
+                  <textarea
+                    rows={9}
+                    value={userTranslation}
+                    onChange={(e) => setUserTranslation(e.target.value)}
+                    disabled={!passage.trim() || isAutomating}
+                    placeholder={
+                      !passage.trim()
+                        ? (direction === 'vi_en'
+                            ? "Vui lòng bấm '✨ TẠO ĐOẠN VĂN TIẾNG VIỆT' ở cột bên trái để bắt đầu luyện dịch..."
+                            : "Vui lòng bấm '✨ TẠO BÀI ĐỌC MỚI (GEMINI)' ở cột bên trái để bắt đầu luyện dịch...")
+                        : (direction === 'vi_en'
+                            ? "Dịch đoạn văn tiếng Việt sang tiếng Anh tự nhiên, chuẩn ngữ pháp, thì và collocations tại đây..."
+                            : "Dịch đoạn văn tiếng Anh sang tiếng Việt tự nhiên, thoát ý và chuẩn xác tại đây...")
+                    }
+                    className={`w-full p-4 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-sans text-sm sm:text-base leading-relaxed placeholder-zinc-500 focus:outline-none focus:border-emerald-500 resize-y transition-colors ${
+                      !passage.trim() ? 'opacity-60 cursor-not-allowed bg-zinc-950/50' : ''
+                    }`}
+                  />
+                )}
 
                 {/* Model preview hint (optional peek) */}
                 {effectiveRefTranslation && (
                   <div className="flex items-center justify-between text-xs font-mono text-zinc-500">
-                    <span>💡 Mẹo: Dịch thoát ý theo từng ngữ cảnh, tránh dịch thô từng chữ.</span>
+                    <span>
+                      {direction === 'vi_en'
+                        ? '💡 Mẹo: Chú ý chia thì động từ, mạo từ a/an/the và dùng collocations tự nhiên.'
+                        : '💡 Mẹo: Dịch thoát ý theo từng ngữ cảnh, tránh dịch thô từng chữ.'}
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -906,7 +1373,9 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                     <p className="text-xs text-zinc-300 font-sans">
                       {steps?.find((s) => s.status === 'running')?.subtext ||
                         (provider === 'gemini'
-                          ? 'Đang gửi bản dịch vào Google Gemini, phân tích đối chiếu nghĩa ngữ cảnh và độ chuẩn CEFR...'
+                          ? (direction === 'vi_en'
+                              ? 'Đang gửi bản dịch tiếng Anh vào Google Gemini, phân tích ngữ pháp, collocations và độ chuẩn CEFR...'
+                              : 'Đang gửi bản dịch vào Google Gemini, phân tích đối chiếu nghĩa ngữ cảnh và độ chuẩn CEFR...')
                           : 'Đang trích xuất đối chiếu câu dịch và nhận xét từng từ vựng...')}
                     </p>
                     <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
@@ -1103,17 +1572,21 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
                             <span>🌟</span>
-                            <span>Bản Dịch Mẫu Tiếng Việt (Thoát Ý & Chuẩn Ngữ Cảnh)</span>
+                            <span>
+                              {direction === 'vi_en'
+                                ? 'Bản Dịch Mẫu Tiếng Anh (Chuẩn Bản Ngữ & Văn Phong Tự Nhiên)'
+                                : 'Bản Dịch Mẫu Tiếng Việt (Thoát Ý & Chuẩn Ngữ Cảnh)'}
+                            </span>
                           </span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          {/* Speak Vietnamese TTS */}
+                          {/* Speak Model Translation TTS */}
                           <button
                             type="button"
-                            onClick={() => handlePlayVietnameseAudio(effectiveRefTranslation)}
+                            onClick={() => handlePlayModelAudio(effectiveRefTranslation)}
                             className="px-2 py-1 rounded bg-zinc-850 hover:bg-zinc-800 text-[11px] font-mono text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
-                            title="Nghe giọng đọc tiếng Việt"
+                            title={direction === 'vi_en' ? 'Nghe phát âm chuẩn tiếng Anh (en-US)' : 'Nghe giọng đọc tiếng Việt'}
                           >
                             <Volume2 className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">Nghe</span>
@@ -1168,7 +1641,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
                     {/* SIDE-BY-SIDE COMPARISON: YOURS VS MODEL */}
                     {showSideBySideComparison && userTranslation.trim() && (
-                      <div className="p-3.5 rounded-xl bg-zinc-950/70 border border-zinc-850 space-y-2.5 animate-fade-in">
+                      <div className="p-3.5 rounded-xl bg-zinc-950/70 border border-zinc-855 space-y-2.5 animate-fade-in">
                         <div className="flex items-center justify-between pb-1.5 border-b border-zinc-850">
                           <span className="text-xs font-mono font-bold text-sky-400 flex items-center gap-1">
                             <Columns className="w-3.5 h-3.5" />
@@ -1189,7 +1662,9 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                           {/* Left: User Translation */}
                           <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 space-y-1.5">
                             <span className="font-mono text-[10px] uppercase font-bold text-sky-300 block">
-                              ✍️ Bản Dịch Của Bạn ({userWordCount} từ):
+                              {direction === 'vi_en'
+                                ? `✍️ Bản Dịch Tiếng Anh Của Bạn (${userWordCount} từ):`
+                                : `✍️ Bản Dịch Của Bạn (${userWordCount} từ):`}
                             </span>
                             <div className="text-zinc-200 font-sans leading-relaxed whitespace-pre-wrap">
                               {userTranslation}
@@ -1199,7 +1674,9 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                           {/* Right: AI Reference */}
                           <div className="p-3 rounded-lg bg-zinc-900 border border-emerald-500/30 space-y-1.5">
                             <span className="font-mono text-[10px] uppercase font-bold text-emerald-300 block">
-                              🌟 Bản Dịch Mẫu Tham Khảo:
+                              {direction === 'vi_en'
+                                ? '🌟 Bản Dịch Mẫu Tiếng Anh Tham Khảo:'
+                                : '🌟 Bản Dịch Mẫu Tham Khảo:'}
                             </span>
                             <div className="text-zinc-200 font-sans leading-relaxed whitespace-pre-wrap">
                               {effectiveRefTranslation}
@@ -1242,29 +1719,73 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                           </span>
                         </div>
 
-                        {/* English original */}
+                        {/* Original sentence with audio button */}
                         <div>
-                          <span className="text-[10px] font-mono text-zinc-500 block uppercase">
-                            🇬🇧 Câu gốc tiếng Anh:
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-zinc-500 block uppercase">
+                              {direction === 'vi_en' ? '🇻🇳 Câu gốc tiếng Việt:' : '🇬🇧 Câu gốc tiếng Anh:'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (direction === 'vi_en') {
+                                  handlePlayVietnameseAudio(st.originalSentence);
+                                } else {
+                                  playAudioPronunciation(st.originalSentence, { voice: 'en-US', rate: 0.95 });
+                                }
+                              }}
+                              className="p-1 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                              title={direction === 'vi_en' ? 'Nghe phát âm câu tiếng Việt' : 'Nghe phát âm câu tiếng Anh'}
+                            >
+                              <Volume2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                           <p className="text-zinc-300 font-sans italic">{st.originalSentence}</p>
                         </div>
 
                         {/* User translated sentence */}
                         {st.userTranslatedSentence && (
                           <div>
-                            <span className="text-[10px] font-mono text-sky-400 block uppercase">
-                              ✍️ Bạn đã dịch:
-                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-sky-400 block uppercase">
+                                {direction === 'vi_en' ? '✍️ Bạn đã dịch (Tiếng Anh):' : '✍️ Bạn đã dịch:'}
+                              </span>
+                              {direction === 'vi_en' && (
+                                <button
+                                  type="button"
+                                  onClick={() => playAudioPronunciation(st.userTranslatedSentence!, { voice: 'en-US', rate: 0.95 })}
+                                  className="p-1 text-sky-400 hover:text-sky-200 transition-colors cursor-pointer"
+                                  title="Nghe phát âm câu dịch của bạn"
+                                >
+                                  <Volume2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                             <p className="text-zinc-200 font-sans">{st.userTranslatedSentence}</p>
                           </div>
                         )}
 
-                        {/* Suggested model sentence */}
-                        <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/20">
-                          <span className="text-[10px] font-mono text-emerald-400 block uppercase">
-                            💡 Gợi ý chuẩn xác của AI:
-                          </span>
+                        {/* Suggested model sentence with audio button */}
+                        <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-emerald-400 block uppercase font-bold">
+                              {direction === 'vi_en' ? '💡 Gợi ý tiếng Anh chuẩn của AI:' : '💡 Gợi ý chuẩn xác của AI:'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (direction === 'vi_en') {
+                                  playAudioPronunciation(st.suggestedSentence, { voice: 'en-US', rate: 0.95 });
+                                } else {
+                                  handlePlayVietnameseAudio(st.suggestedSentence);
+                                }
+                              }}
+                              className="p-1 text-emerald-400 hover:text-emerald-200 transition-colors cursor-pointer"
+                              title={direction === 'vi_en' ? 'Nghe phát âm câu gợi ý tiếng Anh' : 'Nghe câu gợi ý'}
+                            >
+                              <Volume2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                           <p className="text-emerald-200 font-sans font-medium">{st.suggestedSentence}</p>
                         </div>
 
@@ -1342,7 +1863,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                             <div className="p-2 rounded bg-zinc-900 border border-zinc-800">
                               <span className="text-[10px] font-mono text-zinc-400 block uppercase">
-                                Bạn đã đoán:
+                                {direction === 'vi_en' ? 'Từ tiếng Anh bạn đã viết:' : 'Bạn đã đoán:'}
                               </span>
                               <p className="text-zinc-200 font-sans font-medium">
                                 {v.userGuess || '(Chưa điền)'}
@@ -1351,7 +1872,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
                             <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30">
                               <span className="text-[10px] font-mono text-emerald-400 block uppercase">
-                                Nghĩa chuẩn trong ngữ cảnh:
+                                {direction === 'vi_en' ? 'Từ chuẩn & Nghĩa ngữ cảnh:' : 'Nghĩa chuẩn trong ngữ cảnh:'}
                               </span>
                               <p className="text-emerald-200 font-sans font-bold">
                                 {v.actualMeaningInContext}
@@ -1424,7 +1945,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                       <div className="space-y-1.5 pt-2 border-t border-zinc-850">
                         <span className="font-mono text-sky-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
                           <Lightbulb className="w-3.5 h-3.5" />
-                          <span>Nguyên Tắc Dịch Thoát Ý:</span>
+                          <span>{direction === 'vi_en' ? 'Mẹo Dịch Việt - Anh Chuẩn Xác:' : 'Nguyên Tắc Dịch Thoát Ý:'}</span>
                         </span>
                         <ul className="list-disc list-inside space-y-1 text-zinc-300 pl-1">
                           {result.objectiveAdvice.translationTips.map((tip, i) => (
