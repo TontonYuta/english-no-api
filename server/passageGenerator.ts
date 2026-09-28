@@ -555,23 +555,46 @@ let lastServedId = '';
  * Procedural Dynamic Custom Passage Generator
  * Generates an authentic English passage + Vietnamese translation for ANY custom topic
  */
+const TOPIC_ENGLISH_MAP: Record<string, string> = {
+  tech: 'technology and innovation',
+  business: 'business and entrepreneurship',
+  daily: 'daily habits and personal routines',
+  psychology: 'mindset and personal development',
+  nature: 'environmental sustainability',
+  travel: 'travel and cultural exploration',
+  food: 'culinary arts and nutrition',
+  science: 'scientific discovery and the future',
+  arts: 'artistic expression and creativity',
+  'công nghệ & ai': 'technology and artificial intelligence',
+  'kinh doanh & khởi nghiệp': 'business and entrepreneurship',
+  'đời sống & thói quen': 'daily life and habits',
+  'tâm lý & phát triển': 'psychology and personal growth',
+  'môi trường & đô thị': 'environment and urban sustainability',
+  'du lịch & văn hóa': 'travel and world cultures',
+  'ẩm thực & sức khỏe': 'culinary arts and wellness',
+  'khoa học & tương lai': 'science and future innovation',
+  'nghệ thuật & sáng tạo': 'arts and creative thinking',
+};
+
 export function generateCustomPassage(
   level: DialogueDifficulty = 'B1',
   customTopic: string = 'Đời sống hiện đại'
 ): GeneratedPassage {
   const normLevel = (level || 'B1').toUpperCase() as DialogueDifficulty;
   const cleanTopic = customTopic.trim();
+  const rawKey = cleanTopic.toLowerCase();
+  const enTopic = TOPIC_ENGLISH_MAP[rawKey] || cleanTopic;
 
   // Determine complexity based on level
   if (normLevel === 'A1') {
     return {
       id: `custom_a1_${Date.now()}`,
-      title: `Learning and Exploring: ${cleanTopic}`,
+      title: `Learning and Exploring: ${enTopic}`,
       topic: cleanTopic,
       topicCategory: 'daily',
       difficulty: 'A1',
       genre: 'Story',
-      passage: `Every day brings new chances to discover ${cleanTopic}. Many people find great joy when they explore this friendly topic with their close friends and family members.\n\nTaking time to learn simple things makes our daily life brighter and much more interesting. It helps everyone feel happy, relaxed, and ready for a good new day.`,
+      passage: `Every day brings new chances to discover ${enTopic}. Many people find great joy when they explore this friendly topic with their close friends and family members.\n\nTaking time to learn simple things makes our daily life brighter and much more interesting. It helps everyone feel happy, relaxed, and ready for a good new day.`,
       translationVi: `Mỗi ngày đều mang đến những cơ hội mới để khám phá về ${cleanTopic}. Rất nhiều người tìm thấy niềm vui to lớn khi họ tìm hiểu chủ đề thân thiện này cùng bạn bè thân thiết và người thân trong gia đình.\n\nDành thời gian học hỏi những điều giản dị giúp cuộc sống thường ngày của chúng ta trở nên tươi sáng và thú vị hơn rất nhiều. Điều đó giúp mọi người luôn cảm thấy vui vẻ, thư thái và sẵn sàng cho một ngày mới tốt lành.`,
       sentenceTranslations: [
         `Mỗi ngày đều mang đến những cơ hội mới để khám phá về ${cleanTopic}.`,
@@ -580,7 +603,7 @@ export function generateCustomPassage(
         `Điều đó giúp mọi người luôn cảm thấy vui vẻ, thư thái và sẵn sàng cho một ngày mới tốt lành.`,
       ],
       targetWords: [
-        { word: 'discover', contextSentence: `New chances to discover ${cleanTopic}.`, meaningVi: 'khám phá, tìm hiểu', ipa: '/dɪˈskʌvə(r)/' },
+        { word: 'discover', contextSentence: `New chances to discover ${enTopic}.`, meaningVi: 'khám phá, tìm hiểu', ipa: '/dɪˈskʌvə(r)/' },
         { word: 'explore', contextSentence: 'When they explore this friendly topic with close friends.', meaningVi: 'khám phá, khảo sát', ipa: '/ɪkˈsplɔː(r)/' },
         { word: 'brighter', contextSentence: 'Makes our daily life brighter and more interesting.', meaningVi: 'tươi sáng hơn', ipa: '/ˈbraɪtə(r)/' },
         { word: 'relaxed', contextSentence: 'Helps everyone feel happy and relaxed.', meaningVi: 'thư thái, nhẹ nhõm', ipa: '/rɪˈlækst/' },
@@ -591,12 +614,12 @@ export function generateCustomPassage(
   if (normLevel === 'A2') {
     return {
       id: `custom_a2_${Date.now()}`,
-      title: `Practical Insights on ${cleanTopic}`,
+      title: `Practical Insights on ${enTopic}`,
       topic: cleanTopic,
       topicCategory: 'daily',
       difficulty: 'A2',
       genre: 'Article',
-      passage: `In recent times, more people are paying attention to ${cleanTopic}. Exploring this subject helps us understand our surroundings and develop practical skills for everyday life.\n\nWhen we dedicate regular time each week to learn about ${cleanTopic}, we discover helpful ideas that improve our routines. Sharing these experiences with others also creates strong bonds and encourages healthy habits.`,
+      passage: `In recent times, more people are paying attention to ${enTopic}. Exploring this subject helps us understand our surroundings and develop practical skills for everyday life.\n\nWhen we dedicate regular time each week to learn about ${enTopic}, we discover helpful ideas that improve our routines. Sharing these experiences with others also creates strong bonds and encourages healthy habits.`,
       translationVi: `Thời gian gần đây, ngày càng có nhiều người dành sự quan tâm tới ${cleanTopic}. Việc tìm hiểu chủ đề này giúp chúng ta thấu hiểu môi trường xung quanh và phát triển các kỹ năng thực tế cho cuộc sống hàng ngày.\n\nKhi chúng ta dành thời gian đều đặn mỗi tuần để học hỏi về ${cleanTopic}, chúng ta sẽ khám phá ra những ý tưởng bổ ích giúp cải thiện nếp sinh hoạt. Chia sẻ những trải nghiệm này với người khác cũng tạo nên những sự gắn kết bền chặt và khích lệ các thói quen lành mạnh.`,
       sentenceTranslations: [
         `Thời gian gần đây, ngày càng có nhiều người dành sự quan tâm tới ${cleanTopic}.`,
@@ -605,9 +628,9 @@ export function generateCustomPassage(
         `Chia sẻ những trải nghiệm này với người khác cũng tạo nên những sự gắn kết bền chặt và khích lệ các thói quen lành mạnh.`,
       ],
       targetWords: [
-        { word: 'attention', contextSentence: `More people are paying attention to ${cleanTopic}.`, meaningVi: 'sự chú ý, quan tâm', ipa: '/əˈtenʃn/' },
+        { word: 'attention', contextSentence: `More people are paying attention to ${enTopic}.`, meaningVi: 'sự chú ý, quan tâm', ipa: '/əˈtenʃn/' },
         { word: 'surroundings', contextSentence: 'Helps us understand our surroundings and develop skills.', meaningVi: 'môi trường xung quanh', ipa: '/səˈraʊndɪŋz/' },
-        { word: 'dedicate', contextSentence: `When we dedicate regular time each week to learn about ${cleanTopic}.`, meaningVi: 'dành ra, cống hiến', ipa: '/ˈdedɪkeɪt/' },
+        { word: 'dedicate', contextSentence: `When we dedicate regular time each week to learn about ${enTopic}.`, meaningVi: 'dành ra, cống hiến', ipa: '/ˈdedɪkeɪt/' },
         { word: 'experiences', contextSentence: 'Sharing these experiences with others creates strong bonds.', meaningVi: 'trải nghiệm, kinh nghiệm', ipa: '/ɪkˈspɪəriənsɪz/' },
       ],
     };
@@ -616,12 +639,12 @@ export function generateCustomPassage(
   if (normLevel === 'C1' || normLevel === 'C2') {
     return {
       id: `custom_c1_${Date.now()}`,
-      title: `Strategic Horizons: A Critical Analysis of ${cleanTopic}`,
+      title: `Strategic Horizons: A Critical Analysis of ${enTopic}`,
       topic: cleanTopic,
       topicCategory: 'business',
       difficulty: 'C1',
       genre: 'Analytical Essay',
-      passage: `In contemporary socio-economic discourse, the evolution of ${cleanTopic} constitutes a pivotal catalyst for structural transformation. Visionary analysts argue that navigating this domain demands not merely incremental adjustments, but a profound paradigm shift in how organizations synthesize strategic priorities.\n\nCrucially, embracing the intricacies of ${cleanTopic} requires leaders to harmonize audacious long-term objectives with meticulous operational execution. Those who cultivate systemic resilience and foster continuous intellectual inquiry will undeniably command decisive competitive advantages in an increasingly volatile global landscape.`,
+      passage: `In contemporary socio-economic discourse, the evolution of ${enTopic} constitutes a pivotal catalyst for structural transformation. Visionary analysts argue that navigating this domain demands not merely incremental adjustments, but a profound paradigm shift in how organizations synthesize strategic priorities.\n\nCrucially, embracing the intricacies of ${enTopic} requires leaders to harmonize audacious long-term objectives with meticulous operational execution. Those who cultivate systemic resilience and foster continuous intellectual inquiry will undeniably command decisive competitive advantages in an increasingly volatile global landscape.`,
       translationVi: `Trong các cuộc thảo luận kinh tế - xã hội đương đại, sự phát triển của ${cleanTopic} đóng vai trò như một chất xúc tác then chốt cho những cuộc chuyển mình mang tính cơ cấu. Các nhà phân tích có tầm nhìn lập luận rằng việc làm chủ lĩnh vực này đòi hỏi không đơn thuần là những điều chỉnh nhỏ nhặt, mà là một bước chuyển đổi hình mẫu sâu sắc trong cách các tổ chức tổng hòa các ưu tiên chiến lược.\n\nĐiều cốt yếu là, việc thấu suốt những khía cạnh tinh vi của ${cleanTopic} đòi hỏi các nhà lãnh đạo phải biết dung hòa giữa các mục tiêu dài hạn táo bạo với quy trình thực thi vận hành tỉ mỉ. Những ai biết vun đắp sức bật mang tính hệ thống và nuôi dưỡng tinh thần tìm tòi học hỏi không ngừng chắc chắn sẽ nắm giữ những lợi thế cạnh tranh mang tính quyết định giữa một bối cảnh toàn cầu ngày càng biến động.`,
       sentenceTranslations: [
         `Trong các cuộc thảo luận kinh tế - xã hội đương đại, sự phát triển của ${cleanTopic} đóng vai trò như một chất xúc tác then chốt cho những cuộc chuyển mình mang tính cơ cấu.`,
@@ -630,9 +653,9 @@ export function generateCustomPassage(
         `Những ai biết vun đắp sức bật mang tính hệ thống và nuôi dưỡng tinh thần tìm tòi học hỏi không ngừng chắc chắn sẽ nắm giữ những lợi thế cạnh tranh mang tính quyết định giữa một bối cảnh toàn cầu ngày càng biến động.`,
       ],
       targetWords: [
-        { word: 'discourse', contextSentence: `In contemporary socio-economic discourse, the evolution of ${cleanTopic}.`, meaningVi: 'đàm luận, diễn ngôn học thuật', ipa: '/ˈdɪskɔːs/' },
+        { word: 'discourse', contextSentence: `In contemporary socio-economic discourse, the evolution of ${enTopic}.`, meaningVi: 'đàm luận, diễn ngôn học thuật', ipa: '/ˈdɪskɔːs/' },
         { word: 'pivotal', contextSentence: 'Constitutes a pivotal catalyst for structural transformation.', meaningVi: 'then chốt, mang tính quyết định', ipa: '/ˈpɪvətl/' },
-        { word: 'intricacies', contextSentence: `Embracing the intricacies of ${cleanTopic} requires leaders to harmonize goals.`, meaningVi: 'sự phức tạp, khía cạnh tinh vi', ipa: '/ˈɪntrɪkəsiz/' },
+        { word: 'intricacies', contextSentence: `Embracing the intricacies of ${enTopic} requires leaders to harmonize goals.`, meaningVi: 'sự phức tạp, khía cạnh tinh vi', ipa: '/ˈɪntrɪkəsiz/' },
         { word: 'resilience', contextSentence: 'Those who cultivate systemic resilience command decisive advantages.', meaningVi: 'sức bật, năng lực chống chịu bền bỉ', ipa: '/rɪˈzɪliəns/' },
         { word: 'volatile', contextSentence: 'Command decisive advantages in an increasingly volatile global landscape.', meaningVi: 'dễ biến động, khó lường', ipa: '/ˈvɒlətaɪl/' },
       ],
@@ -642,12 +665,12 @@ export function generateCustomPassage(
   if (normLevel === 'B1') {
     return {
       id: `custom_b1_${Date.now()}`,
-      title: `Finding Balance and Growth Through ${cleanTopic}`,
+      title: `Finding Balance and Growth Through ${enTopic}`,
       topic: cleanTopic,
       topicCategory: 'daily',
       difficulty: 'B1',
       genre: 'Article',
-      passage: `In recent years, many people have recognized the positive influence of ${cleanTopic} on their lives. Taking time to learn about this subject helps us develop healthy habits and gain more self-confidence.\n\nAlthough building a new routine can be challenging at first, staying consistent brings great satisfaction. When we focus on small daily improvements, we can balance our busy schedules and feel much more motivated every day.`,
+      passage: `In recent years, many people have recognized the positive influence of ${enTopic} on their lives. Taking time to learn about this subject helps us develop healthy habits and gain more self-confidence.\n\nAlthough building a new routine can be challenging at first, staying consistent brings great satisfaction. When we focus on small daily improvements, we can balance our busy schedules and feel much more motivated every day.`,
       translationVi: `Trong những năm gần đây, nhiều người đã nhận ra sức ảnh hưởng tích cực của ${cleanTopic} đối với cuộc sống của họ. Dành thời gian tìm hiểu về chủ đề này giúp chúng ta phát triển những thói quen lành mạnh và bồi đắp thêm sự tự tin.\n\nMặc dù việc xây dựng một nếp sống mới ban đầu có thể gặp đôi chút thử thách, nhưng việc duy trì đều đặn sẽ mang lại sự hài lòng to lớn. Khi chúng ta tập trung vào những tiến bộ nhỏ mỗi ngày, chúng ta có thể cân bằng thời gian biểu bận rộn và cảm thấy có thêm nhiều động lực mỗi ngày.`,
       sentenceTranslations: [
         `Trong những năm gần đây, nhiều người đã nhận ra sức ảnh hưởng tích cực của ${cleanTopic} đối với cuộc sống của họ.`,
@@ -656,7 +679,7 @@ export function generateCustomPassage(
         `Khi chúng ta tập trung vào những tiến bộ nhỏ mỗi ngày, chúng ta có thể cân bằng thời gian biểu bận rộn và cảm thấy có thêm nhiều động lực mỗi ngày.`,
       ],
       targetWords: [
-        { word: 'recognized', contextSentence: `Many people have recognized the positive influence of ${cleanTopic}.`, meaningVi: 'nhận ra, công nhận', ipa: '/ˈrekəɡnaɪzd/' },
+        { word: 'recognized', contextSentence: `Many people have recognized the positive influence of ${enTopic}.`, meaningVi: 'nhận ra, công nhận', ipa: '/ˈrekəɡnaɪzd/' },
         { word: 'influence', contextSentence: 'The positive influence on their lives.', meaningVi: 'sức ảnh hưởng, tác động', ipa: '/ˈɪnfluəns/' },
         { word: 'satisfaction', contextSentence: 'Staying consistent brings great satisfaction.', meaningVi: 'sự thỏa mãn, hài lòng', ipa: '/ˌsætɪsˈfækʃn/' },
         { word: 'motivated', contextSentence: 'Feel much more motivated every day.', meaningVi: 'có động lực, hứng khởi', ipa: '/ˈməʊtɪveɪtɪd/' },
@@ -667,12 +690,12 @@ export function generateCustomPassage(
   // Default B2
   return {
     id: `custom_b2_${Date.now()}`,
-    title: `The Dynamics of ${cleanTopic} in Contemporary Society`,
+    title: `The Dynamics of ${enTopic} in Contemporary Society`,
     topic: cleanTopic,
     topicCategory: 'psychology',
     difficulty: 'B2',
     genre: 'Article',
-    passage: `In our interconnected modern world, ${cleanTopic} plays an increasingly indispensable role in shaping human behaviors and cultural priorities. Understanding the underlying mechanisms of this subject enables individuals to make conscious, well-informed decisions that enrich personal productivity.\n\nPsychologists and researchers highlight that engaging thoughtfully with ${cleanTopic} cultivates genuine curiosity and cognitive agility. By integrating meaningful insights into our everyday routines, we can foster sustainable growth and achieve enduring harmony in an ever-accelerating environment.`,
+    passage: `In our interconnected modern world, ${enTopic} plays an increasingly indispensable role in shaping human behaviors and cultural priorities. Understanding the underlying mechanisms of this subject enables individuals to make conscious, well-informed decisions that enrich personal productivity.\n\nPsychologists and researchers highlight that engaging thoughtfully with ${enTopic} cultivates genuine curiosity and cognitive agility. By integrating meaningful insights into our everyday routines, we can foster sustainable growth and achieve enduring harmony in an ever-accelerating environment.`,
     translationVi: `Trong thế giới hiện đại siêu kết nối của chúng ta, ${cleanTopic} ngày càng đóng một vai trò không thể thiếu trong việc định hình các hành vi và ưu tiên văn hóa của con người. Việc thấu hiểu các cơ chế nền tảng của chủ đề này cho phép mỗi cá nhân đưa ra những quyết định sáng suốt, có ý thức, từ đó làm phong phú thêm năng suất sống của bản thân.\n\nCác nhà tâm lý học và nghiên cứu nhấn mạnh rằng việc đào sâu suy ngẫm về ${cleanTopic} sẽ vun đắp sự tò mò chân thực cùng tính nhanh nhạy nhận thức. Bằng cách tích hợp những hiểu biết sâu sắc vào nếp sinh hoạt mỗi ngày, chúng ta có thể thúc đẩy sự phát triển bền vững và đạt được sự cân bằng hài hòa dài lâu trong một môi trường sống không ngừng tăng tốc.`,
     sentenceTranslations: [
       `Trong thế giới hiện đại siêu kết nối của chúng ta, ${cleanTopic} ngày càng đóng một vai trò không thể thiếu trong việc định hình các hành vi và ưu tiên văn hóa của con người.`,
@@ -780,18 +803,29 @@ export function generateFreshPassage(
     // If topic provided, filter or match category
     if (topic && topic.trim()) {
       const rawTopic = topic.trim().toLowerCase();
+      const matchedOpt = TOPIC_OPTIONS.find(
+        (t) =>
+          t.id === rawTopic ||
+          t.label.toLowerCase() === rawTopic ||
+          t.label.toLowerCase().includes(rawTopic) ||
+          rawTopic.includes(t.id) ||
+          rawTopic.includes(t.label.toLowerCase())
+      );
+      const categoryId = matchedOpt ? matchedOpt.id : rawTopic;
+
       const topicMatches = candidates.filter(
         (p) =>
+          p.topicCategory === categoryId ||
           p.topicCategory === rawTopic ||
           p.topic.toLowerCase().includes(rawTopic) ||
-          p.title.toLowerCase().includes(rawTopic)
+          p.title.toLowerCase().includes(rawTopic) ||
+          (matchedOpt && p.topic.toLowerCase().includes(matchedOpt.label.toLowerCase()))
       );
       if (topicMatches.length > 0) {
         candidates = topicMatches;
       } else {
         // If no candidate at this specific level matches the topic, synthesize a custom passage for this exact level & topic
-        const topicObj = TOPIC_OPTIONS.find((t) => t.id === rawTopic);
-        const topicLabel = topicObj ? topicObj.label : topic.trim();
+        const topicLabel = matchedOpt ? matchedOpt.label : topic.trim();
         chosen = generateCustomPassage(
           normLevel as DialogueDifficulty,
           topicLabel

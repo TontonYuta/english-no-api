@@ -873,7 +873,7 @@ export async function generatePassageWithGeminiPlaywright(params: {
   direction?: 'en_vi' | 'vi_en';
   timeoutMs?: number;
 }): Promise<GeneratedPassage> {
-  const { level, topic, customTopic, direction = 'en_vi', timeoutMs = 40000 } = params;
+  const { level, topic, customTopic, direction = 'en_vi', timeoutMs = 12000 } = params;
   const prompt = buildGeminiPassagePrompt(level, topic, customTopic, direction);
 
   const profileDir = getDefaultProfileDir();

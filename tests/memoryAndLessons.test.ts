@@ -1645,6 +1645,29 @@ test('sanitizePassageDirection: handles inverted passage in en_vi mode and align
   assert.equal(sanitized.direction, 'en_vi');
 });
 
+test('passageGenerator: topic category matching with Vietnamese labels for vi_en mode', () => {
+  // Test with Vietnamese label "Công Nghệ & AI"
+  const pTech = generateFreshPassage('B2', 'Công Nghệ & AI', undefined, 'vi_en');
+  assert.equal(pTech.direction, 'vi_en');
+  assert.ok(isVietnameseText(pTech.passage), 'B2 Công Nghệ & AI passage must be in Vietnamese');
+  assert.ok(!isVietnameseText(pTech.translationVi), 'B2 reference translation must be in English');
+  assert.ok(pTech.targetWords.length >= 3);
+  for (const tw of pTech.targetWords) {
+    assert.ok(isVietnameseText(tw.word), `Target word "${tw.word}" must be in Vietnamese`);
+    assert.ok(tw.contextSentence && tw.contextSentence.length > 0);
+  }
+
+  // Test across all CEFR levels for vi_en mode
+  for (const lvl of ['A1', 'A2', 'B1', 'B2', 'C1'] as const) {
+    const p = generateFreshPassage(lvl, 'Đời Sống & Thói Quen', undefined, 'vi_en');
+    assert.equal(p.direction, 'vi_en');
+    assert.ok(isVietnameseText(p.passage), `${lvl} passage must be in Vietnamese`);
+    assert.ok(!isVietnameseText(p.translationVi), `${lvl} reference translation must be in English`);
+    assert.ok(p.targetWords.length >= 3);
+  }
+});
+
+
 
 
 

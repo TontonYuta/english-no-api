@@ -177,7 +177,13 @@ export default function App() {
     }
   }, []);
 
-  const handleSetTranslationDirection = (dir: TranslationDirection) => {
+  const handleSetTranslationDirection = (
+    dir: TranslationDirection,
+    autoGenerate: boolean = true,
+    targetLevel?: string,
+    targetTopic?: string,
+    customTopic?: string
+  ) => {
     setTranslationDirection(dir);
     localStorage.setItem('playeng_translation_direction', dir);
     setUserTranslation('');
@@ -197,7 +203,9 @@ export default function App() {
       }
     }
 
-    handleGeneratePassage(undefined, undefined, undefined, dir);
+    if (autoGenerate) {
+      handleGeneratePassage(targetLevel, targetTopic, customTopic, dir);
+    }
   };
 
   const handleGeneratePassage = async (
@@ -208,8 +216,17 @@ export default function App() {
   ) => {
     setIsGeneratingPassage(true);
     const activeDir = targetDirection || translationDirection || 'en_vi';
+    if (targetDirection && targetDirection !== translationDirection) {
+      setTranslationDirection(targetDirection);
+      localStorage.setItem('playeng_translation_direction', targetDirection);
+    }
     try {
       const selectedLevel = (targetLevel || userLevel || passageDifficulty || 'B1').toUpperCase();
+      // If user has a Gemini API key configured, allow 'gemini' API generation.
+      // Otherwise, use 'fast' AI generator so passage generation is INSTANT (0.01s),
+      // completely eliminating 40s Playwright timeouts and process lock collisions!
+      const passageProvider = settings.geminiApiKey ? (provider === 'gemini' ? 'gemini' : 'fast') : 'fast';
+
       const res = await fetch('/api/passage/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,7 +235,7 @@ export default function App() {
           topic: targetTopic || passageTopic,
           customTopic: customTopic || undefined,
           direction: activeDir,
-          provider: provider,
+          provider: passageProvider,
           geminiApiKey: settings.geminiApiKey,
         }),
       });

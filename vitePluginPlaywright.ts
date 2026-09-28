@@ -127,7 +127,7 @@ export function vitePluginPlaywright(): Plugin {
                   level = 'B2',
                   topic = 'tech',
                   customTopic,
-                  provider = 'gemini',
+                  provider = 'fast',
                   geminiApiKey,
                   direction = 'en_vi',
                 } = data;

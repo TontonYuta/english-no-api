@@ -55,7 +55,7 @@ let activeLoginContext: any = null;
 // Fresh Reading Passage Generator endpoint (Supports Gemini AI & Fast mode)
 app.post('/api/passage/generate', async (req: Request, res: Response) => {
   try {
-    const { level = 'B2', topic = 'tech', customTopic, provider = 'gemini', geminiApiKey, direction = 'en_vi' } = req.body || {};
+    const { level = 'B2', topic = 'tech', customTopic, provider = 'fast', geminiApiKey, direction = 'en_vi' } = req.body || {};
     console.log(`[Passage Generator] Generating reading passage (level=${level}, topic=${topic}, provider=${provider}, direction=${direction})`);
 
     if (provider === 'gemini' && activeLoginContext) {

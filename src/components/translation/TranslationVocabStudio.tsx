@@ -56,7 +56,7 @@ export interface TranslationVocabStudioProps {
   difficulty: DialogueDifficulty;
   setDifficulty: (val: DialogueDifficulty) => void;
   direction?: TranslationDirection;
-  setDirection?: (dir: TranslationDirection) => void;
+  setDirection?: (dir: TranslationDirection, autoGenerate?: boolean, targetLevel?: string, targetTopic?: string, customTopic?: string) => void;
   targetWords: TargetWordItem[];
   setTargetWords: React.Dispatch<React.SetStateAction<TargetWordItem[]>>;
   userTranslation: string;
@@ -153,6 +153,12 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
   useEffect(() => {
     setSelectedGenDirection(direction);
   }, [direction]);
+
+  useEffect(() => {
+    if (userLevel) {
+      setSelectedGenLevel(userLevel);
+    }
+  }, [userLevel]);
 
   // Audio & UI states
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -382,7 +388,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
   const handleTriggerGenerate = () => {
     const finalCustom = isCustomTopicActive ? customTopicInput.trim() : undefined;
     if (setDirection && selectedGenDirection !== direction) {
-      setDirection(selectedGenDirection);
+      setDirection(selectedGenDirection, false);
     }
     onGeneratePassage(selectedGenLevel, selectedGenTopic, finalCustom, selectedGenDirection);
     setIsGeneratorOpen(false);
@@ -751,6 +757,20 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-1.5 shrink-0">
+                {/* Quick Refresh / Change Passage Button */}
+                <button
+                  type="button"
+                  onClick={() => onGeneratePassage(selectedGenLevel, selectedGenTopic, undefined, direction)}
+                  disabled={isGeneratingPassage || isAutomating}
+                  className="p-1.5 px-2 rounded-lg bg-sky-600/90 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-mono font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+                  title={direction === 'vi_en' ? 'Đổi đoạn văn tiếng Việt khác' : 'Đổi bài đọc tiếng Anh khác'}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline text-[11px] font-bold">
+                    {direction === 'vi_en' ? 'Đổi bài Việt' : 'Đổi bài mới'}
+                  </span>
+                </button>
+
                 {/* Audio TTS Button */}
                 <button
                   type="button"
@@ -909,11 +929,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                     <span>
                       {isGeneratingPassage
                         ? (direction === 'vi_en'
-                            ? `✨ GEMINI ĐANG TẠO ĐOẠN VĂN TIẾNG VIỆT ${selectedGenLevel}...`
-                            : `✨ GEMINI ĐANG TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel}...`)
+                            ? `⚡ ĐANG TẠO ĐOẠN VĂN TIẾNG VIỆT ${selectedGenLevel}...`
+                            : `⚡ ĐANG TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel}...`)
                         : (direction === 'vi_en'
-                            ? `✨ TẠO ĐOẠN VĂN TIẾNG VIỆT ${selectedGenLevel} (GEMINI)`
-                            : `✨ TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel} (GEMINI)`)}
+                            ? `⚡ TẠO ĐOẠN VĂN TIẾNG VIỆT ${selectedGenLevel}`
+                            : `⚡ TẠO BÀI ĐỌC CẤP ĐỘ ${selectedGenLevel}`)}
                     </span>
                   </button>
                 </div>
