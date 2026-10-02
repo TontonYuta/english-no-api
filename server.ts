@@ -106,13 +106,33 @@ app.post('/api/passage/generate', async (req: Request, res: Response) => {
         console.log(`[Passage Generator] Successfully generated passage via ${passage.generatedBy}`);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
-        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message})`);
-        return res.json({
-          success: false,
-          error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
-          fallbackAvailable: false,
-          source: 'gemini_error',
-        });
+        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message}). Tự động phục hồi tạo bài bằng Antigravity CLI (agy)...`);
+        try {
+          const rawAgyPassage = await generatePassageWithAgy({
+            level,
+            topic,
+            customTopic,
+            direction,
+          });
+          const passage = sanitizePassageDirection(rawAgyPassage, direction, level, topic, customTopic);
+          console.log(`[Passage Generator] Successfully auto-recovered passage via Antigravity CLI (agy)`);
+          return res.json({
+            success: true,
+            passage: {
+              ...passage,
+              generatedBy: '🚀 Antigravity CLI (Tự động phục hồi từ Gemini)',
+            },
+            source: 'agy',
+            notice: `Google Gemini gặp sự cố (${geminiErr.message}). Hệ thống đã tự động chuyển sang Antigravity CLI (agy) tạo bài thành công!`,
+          });
+        } catch (agyErr: any) {
+          return res.json({
+            success: false,
+            error: `Gemini: ${geminiErr.message} | AGY: ${agyErr.message}`,
+            fallbackAvailable: false,
+            source: 'gemini_error',
+          });
+        }
       }
     }
 
@@ -173,12 +193,32 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
         const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
-        return res.json({
-          success: false,
-          error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
-          fallbackAvailable: false,
-          source: 'gemini_error',
-        });
+        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message}). Tự động phục hồi tạo bài bằng Antigravity CLI (agy)...`);
+        try {
+          const rawAgyPassage = await generatePassageWithAgy({
+            level,
+            topic,
+            customTopic,
+            direction,
+          });
+          const passage = sanitizePassageDirection(rawAgyPassage, direction, level, topic, customTopic);
+          return res.json({
+            success: true,
+            passage: {
+              ...passage,
+              generatedBy: '🚀 Antigravity CLI (Tự động phục hồi từ Gemini)',
+            },
+            source: 'agy',
+            notice: `Google Gemini gặp sự cố (${geminiErr.message}). Hệ thống đã tự động chuyển sang Antigravity CLI (agy) tạo bài thành công!`,
+          });
+        } catch (agyErr: any) {
+          return res.json({
+            success: false,
+            error: `Gemini: ${geminiErr.message} | AGY: ${agyErr.message}`,
+            fallbackAvailable: false,
+            source: 'gemini_error',
+          });
+        }
       }
     }
 

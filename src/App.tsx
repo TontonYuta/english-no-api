@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   TaskType,
   ChatbotProvider,
@@ -53,7 +53,7 @@ function getSavedSettings(): AppSettings {
     if (raw) {
       const parsed = JSON.parse(raw);
       // Migrate legacy 'fast' to 'gemini' so users get fresh AI passages
-      const effectiveProvider = parsed.defaultProvider === 'fast' && !parsed.hasManuallySetFast
+      const effectiveProvider = parsed.defaultProvider === 'fast'
         ? 'gemini'
         : (parsed.defaultProvider || 'gemini');
       return {
@@ -80,6 +80,39 @@ function getSavedSettings(): AppSettings {
 }
 
 const VI_DIACRITICS_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i;
+
+const DEFAULT_STARTER_LESSON = {
+  title: 'Building a Productive Daily Routine',
+  topic: 'Đời Sống & Năng Suất',
+  difficulty: 'B1' as DialogueDifficulty,
+  passage:
+    'Establishing a consistent daily routine can profoundly enhance both mental clarity and long-term productivity. Many experts suggest starting your morning with focused activities rather than immediately checking social media notifications. When you allocate dedicated time for exercise, mindful reflection, and structured learning, you create positive momentum that sustains your energy throughout demanding work hours.',
+  translationVi:
+    'Việc thiết lập một thói quen hàng ngày nhất quán có thể cải thiện sâu sắc cả sự tỉnh táo tinh thần lẫn năng suất lâu dài. Nhiều chuyên gia khuyên bạn nên bắt đầu buổi sáng bằng các hoạt động tập trung thay vì lướt thông báo mạng xã hội ngay lập tức. Khi bạn dành thời gian riêng cho việc rèn luyện thể chất, suy ngẫm chánh niệm và học tập có định hướng, bạn sẽ tạo ra một đà phát triển tích cực giúp duy trì năng lượng suốt những giờ làm việc căng thẳng.',
+  targetWords: [
+    { word: 'consistent', meaningVi: 'nhất quán, kiên định', contextInPassage: 'Establishing a consistent daily routine...' },
+    { word: 'profoundly', meaningVi: 'sâu sắc, sâu đậm', contextInPassage: '...can profoundly enhance both mental clarity...' },
+    { word: 'allocate', meaningVi: 'phân bổ, dành ra', contextInPassage: 'When you allocate dedicated time for exercise...' },
+    { word: 'momentum', meaningVi: 'đà phát triển, xung lượng', contextInPassage: '...you create positive momentum that sustains your energy...' },
+  ],
+};
+
+function getSavedLesson() {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('playeng_current_lesson');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.passage === 'string' && parsed.passage.trim().length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return DEFAULT_STARTER_LESSON;
+}
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(getSavedSettings);
@@ -165,20 +198,22 @@ export default function App() {
     });
   };
 
-  // Core Feature: Translation & Contextual Vocab Guessing State (Clean initial state - No mock data)
+  const initialLesson = useMemo(() => getSavedLesson(), []);
+
+  // Core Feature: Translation & Contextual Vocab Guessing State
   const [translationDirection, setTranslationDirection] = useState<TranslationDirection>(() => {
     return (localStorage.getItem('playeng_translation_direction') as TranslationDirection) || 'en_vi';
   });
-  const [passage, setPassage] = useState<string>('');
-  const [passageTitle, setPassageTitle] = useState<string>('');
-  const [passageTopic, setPassageTopic] = useState<string>('Công Nghệ & AI');
+  const [passage, setPassage] = useState<string>(initialLesson.passage || '');
+  const [passageTitle, setPassageTitle] = useState<string>(initialLesson.title || '');
+  const [passageTopic, setPassageTopic] = useState<string>(initialLesson.topic || 'Đời Sống & Năng Suất');
   const [passageDifficulty, setPassageDifficulty] = useState<DialogueDifficulty>(() => {
-    return (localStorage.getItem('playeng_user_level') as DialogueDifficulty) || 'B1';
+    return (localStorage.getItem('playeng_user_level') as DialogueDifficulty) || initialLesson.difficulty || 'B1';
   });
-  const [targetWords, setTargetWords] = useState<TargetWordItem[]>([]);
+  const [targetWords, setTargetWords] = useState<TargetWordItem[]>(initialLesson.targetWords || []);
   const [userTranslation, setUserTranslation] = useState<string>('');
   const [userVocabGuesses, setUserVocabGuesses] = useState<Record<string, string>>({});
-  const [referenceTranslation, setReferenceTranslation] = useState<string>('');
+  const [referenceTranslation, setReferenceTranslation] = useState<string>(initialLesson.translationVi || '');
   const [isMemoryBankModalOpen, setIsMemoryBankModalOpen] = useState(false);
   const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
 
@@ -199,7 +234,7 @@ export default function App() {
       targetTopic?: string;
       customTopic?: string;
       targetDirection?: TranslationDirection;
-      targetEngine?: 'gemini' | 'agy' | 'antigravity' | 'fast';
+      targetEngine?: 'gemini' | 'agy' | 'antigravity';
     };
   } | null>(null);
 
@@ -212,16 +247,9 @@ export default function App() {
       targetTopic?: string;
       customTopic?: string;
       targetDirection?: TranslationDirection;
-      targetEngine?: 'gemini' | 'agy' | 'antigravity' | 'fast';
+      targetEngine?: 'gemini' | 'agy' | 'antigravity';
     };
   } | null>(null);
-
-  // Automatically generate/load an initial passage on first mount if empty
-  useEffect(() => {
-    if (!passage.trim() && !isGeneratingPassage) {
-      handleGeneratePassage(userLevel || passageDifficulty || 'B1', undefined, undefined, translationDirection, true);
-    }
-  }, []);
 
   const handleSetTranslationDirection = (
     dir: TranslationDirection,
@@ -322,6 +350,22 @@ export default function App() {
         if (selectedLevel !== userLevel) {
           handleSetUserLevel(selectedLevel as CEFRLevel);
         }
+
+        try {
+          localStorage.setItem(
+            'playeng_current_lesson',
+            JSON.stringify({
+              title: data.passage.title,
+              topic: data.passage.topic,
+              difficulty: effectiveDifficulty,
+              passage: cleanPassage,
+              translationVi: cleanRef,
+              targetWords: data.passage.targetWords || [],
+            })
+          );
+        } catch (e) {
+          console.warn('Failed to save current lesson to localStorage:', e);
+        }
       } else {
         // DO NOT SILENTLY DISPLAY OLD CONTENT!
         // Notify the user transparently with options
@@ -369,7 +413,7 @@ export default function App() {
         ? targetDirection
         : undefined;
     const safeEngine =
-      typeof targetEngine === 'string' && (targetEngine === 'gemini' || targetEngine === 'agy' || targetEngine === 'antigravity' || targetEngine === 'fast')
+      typeof targetEngine === 'string' && (targetEngine === 'gemini' || targetEngine === 'agy' || targetEngine === 'antigravity')
         ? targetEngine
         : undefined;
 
@@ -432,6 +476,22 @@ export default function App() {
     setUserTranslation('');
     setUserVocabGuesses({});
     setResult(null);
+
+    try {
+      localStorage.setItem(
+        'playeng_current_lesson',
+        JSON.stringify({
+          title: fallback.title,
+          topic: fallback.topic,
+          difficulty: fallback.difficulty,
+          passage: fallback.passage,
+          translationVi: fallback.translationVi || '',
+          targetWords: fallback.targetWords || [],
+        })
+      );
+    } catch (e) {
+      console.warn('Failed to save fallback lesson to localStorage:', e);
+    }
   };
 
   // Pipeline execution & modal states

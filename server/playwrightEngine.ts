@@ -1169,8 +1169,14 @@ export async function generatePassageWithGeminiPlaywright(params: {
       throw new Error(`Google Gemini không phản hồi nội dung trong vòng ${Math.round(timeoutMs / 1000)} giây. Có thể do mạng chậm hoặc giao diện Gemini phản hồi bất thường.`);
     }
 
-    if (scrapedRawText.includes('Sorry, something went wrong') || scrapedRawText.includes('Please try your request again')) {
-      throw new Error('Google Gemini gặp sự cố tạm thời ("Sorry, something went wrong"). Vui lòng thử lại.');
+    if (
+      scrapedRawText.includes('Sorry, something went wrong') ||
+      scrapedRawText.includes('Please try your request again') ||
+      scrapedRawText.includes('I seem to be encountering an error') ||
+      scrapedRawText.includes('encountering an error') ||
+      scrapedRawText.includes('something went wrong')
+    ) {
+      throw new Error('Google Gemini gặp sự cố phản hồi ("I seem to be encountering an error"). Vui lòng thử lại.');
     }
 
     const parsed = parseRelaxedJson(scrapedRawText);
