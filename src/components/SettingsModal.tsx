@@ -271,37 +271,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Bot className="w-4 h-4 text-emerald-400" />
               <span>{t.settingProviderLabel}</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setLocalSettings({ ...localSettings, defaultProvider: 'fast' })}
-                className={`p-3 rounded-lg border text-left transition-all flex items-center justify-between ${
-                  localSettings.defaultProvider === 'fast'
-                    ? 'bg-amber-950/40 border-amber-500 text-white font-semibold shadow-sm'
-                    : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <div>
-                  <span className="block font-bold text-amber-300">⚡ AI Siêu Tốc</span>
-                  <span className="text-[10px] text-zinc-400 font-mono">100% Ổn định, 0.5s</span>
-                </div>
-                {localSettings.defaultProvider === 'fast' && <Check className="w-4 h-4 text-amber-400" />}
-              </button>
-
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setLocalSettings({ ...localSettings, defaultProvider: 'gemini' })}
                 className={`p-3 rounded-lg border text-left transition-all flex items-center justify-between ${
-                  localSettings.defaultProvider === 'gemini'
+                  localSettings.defaultProvider === 'gemini' || localSettings.defaultProvider === 'fast'
                     ? 'bg-sky-950/40 border-sky-500 text-white font-semibold shadow-sm'
                     : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                 }`}
               >
                 <div>
-                  <span className="block font-bold text-sky-300">Gemini Web</span>
-                  <span className="text-[10px] text-zinc-400 font-mono">Playwright Headless</span>
+                  <span className="block font-bold text-sky-300">✨ Google Gemini</span>
+                  <span className="text-[10px] text-zinc-400 font-mono">Web Playwright / Direct API</span>
                 </div>
-                {localSettings.defaultProvider === 'gemini' && <Check className="w-4 h-4 text-sky-400" />}
+                {(localSettings.defaultProvider === 'gemini' || localSettings.defaultProvider === 'fast') && <Check className="w-4 h-4 text-sky-400" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLocalSettings({ ...localSettings, defaultProvider: 'antigravity' })}
+                className={`p-3 rounded-lg border text-left transition-all flex items-center justify-between ${
+                  localSettings.defaultProvider === 'antigravity' || localSettings.defaultProvider === 'agy'
+                    ? 'bg-purple-950/40 border-purple-500 text-white font-semibold shadow-sm'
+                    : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <div>
+                  <span className="block font-bold text-purple-300">🚀 Antigravity (agy)</span>
+                  <span className="text-[10px] text-zinc-400 font-mono">Local Native CLI Mode</span>
+                </div>
+                {(localSettings.defaultProvider === 'antigravity' || localSettings.defaultProvider === 'agy') && <Check className="w-4 h-4 text-purple-400" />}
               </button>
 
               <button
@@ -314,26 +314,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 }`}
               >
                 <div>
-                  <span className="block font-bold text-emerald-300">ChatGPT Web</span>
+                  <span className="block font-bold text-emerald-300">🤖 ChatGPT Web</span>
                   <span className="text-[10px] text-zinc-400 font-mono">Playwright Headless</span>
                 </div>
                 {localSettings.defaultProvider === 'chatgpt' && <Check className="w-4 h-4 text-emerald-400" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setLocalSettings({ ...localSettings, defaultProvider: 'antigravity' })}
-                className={`p-3 rounded-lg border text-left transition-all flex items-center justify-between ${
-                  localSettings.defaultProvider === 'antigravity'
-                    ? 'bg-purple-950/40 border-purple-500 text-white font-semibold shadow-sm'
-                    : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <div>
-                  <span className="block font-bold text-purple-300">Antigravity</span>
-                  <span className="text-[10px] text-zinc-400 font-mono">Local CLI (agy)</span>
-                </div>
-                {localSettings.defaultProvider === 'antigravity' && <Check className="w-4 h-4 text-purple-400" />}
               </button>
             </div>
           </div>

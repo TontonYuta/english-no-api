@@ -3,7 +3,13 @@ import path from 'path';
 import fs from 'fs';
 import { chromium } from 'playwright-core';
 import { createServer as createViteServer } from 'vite';
-import { runChatbotPipeline, getDefaultProfileDir, ensurePlaywrightProfileClean } from './server/playwrightEngine';
+import {
+  runChatbotPipeline,
+  getDefaultProfileDir,
+  ensurePlaywrightProfileClean,
+  getSystemBrowserExecutable,
+  generatePassageWithAgy,
+} from './server/playwrightEngine';
 import { buildChatbotPrompt } from './server/promptBuilders';
 import { evaluateSpeechLocally } from './server/speechEvaluator';
 import { generateContextualReply } from './src/utils/chatUtils';
@@ -52,19 +58,42 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 let activeLoginContext: any = null;
 
-// Fresh Reading Passage Generator endpoint (Supports Gemini AI & Fast mode)
+// Fresh Reading Passage Generator endpoint (Supports Gemini AI & Antigravity CLI)
 app.post('/api/passage/generate', async (req: Request, res: Response) => {
   try {
     const { level = 'B2', topic = 'tech', customTopic, provider = 'gemini', geminiApiKey, direction = 'en_vi' } = req.body || {};
     console.log(`[Passage Generator] Generating reading passage (level=${level}, topic=${topic}, provider=${provider}, direction=${direction})`);
 
-    if (provider === 'gemini' && activeLoginContext) {
-      console.log('[Passage Generator] Closing active login browser before automated generation...');
-      await activeLoginContext.close().catch(() => {});
-      activeLoginContext = null;
+    // 1. Antigravity CLI (agy)
+    if (provider === 'agy' || provider === 'antigravity') {
+      try {
+        const rawPassage = await generatePassageWithAgy({
+          level,
+          topic,
+          customTopic,
+          direction,
+        });
+        const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
+        console.log(`[Passage Generator] Successfully generated passage via ${passage.generatedBy}`);
+        return res.json({ success: true, passage, source: passage.generatedBy || 'agy' });
+      } catch (agyErr: any) {
+        console.warn(`[Passage Generator] AGY generation issue (${agyErr.message})`);
+        return res.json({
+          success: false,
+          error: agyErr.message || 'Không thể tạo bài mới bằng Antigravity CLI (agy).',
+          fallbackAvailable: false,
+          source: 'agy_error',
+        });
+      }
     }
 
+    // 2. Google Gemini AI
     if (provider === 'gemini') {
+      if (activeLoginContext) {
+        console.log('[Passage Generator] Closing active login browser before automated generation...');
+        await activeLoginContext.close().catch(() => {});
+        activeLoginContext = null;
+      }
       try {
         const rawPassage = await generatePassageWithGeminiUnified({
           level,
@@ -78,24 +107,19 @@ app.post('/api/passage/generate', async (req: Request, res: Response) => {
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
         console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message})`);
-        const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
-        const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
         return res.json({
           success: false,
           error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
-          fallbackAvailable: true,
-          fallbackPassage: {
-            ...fallbackPassage,
-            generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
-          },
-          source: 'fallback_available',
+          fallbackAvailable: false,
+          source: 'gemini_error',
         });
       }
     }
 
-    const rawPassage = generateFreshPassage(level, topic, customTopic, direction);
-    const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
-    res.json({ success: true, passage, source: 'fast' });
+    return res.status(400).json({
+      success: false,
+      error: `Chế độ "${provider}" không được hỗ trợ. Vui lòng chọn Google Gemini hoặc Antigravity (agy).`,
+    });
   } catch (err: any) {
     console.error('[Passage Generator Error]', err);
     res.status(500).json({ success: false, error: err.message });
@@ -111,6 +135,28 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
     const direction = (req.query.direction as any) || 'en_vi';
     const geminiApiKey = req.query.geminiApiKey as string | undefined;
 
+    // 1. Antigravity CLI (agy)
+    if (provider === 'agy' || provider === 'antigravity') {
+      try {
+        const rawPassage = await generatePassageWithAgy({
+          level,
+          topic,
+          customTopic,
+          direction,
+        });
+        const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
+        return res.json({ success: true, passage, source: passage.generatedBy || 'agy' });
+      } catch (agyErr: any) {
+        return res.json({
+          success: false,
+          error: agyErr.message || 'Không thể tạo bài mới bằng Antigravity CLI (agy).',
+          fallbackAvailable: false,
+          source: 'agy_error',
+        });
+      }
+    }
+
+    // 2. Google Gemini AI
     if (provider === 'gemini') {
       if (activeLoginContext) {
         await activeLoginContext.close().catch(() => {});
@@ -127,25 +173,19 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
         const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
-        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message})`);
-        const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
-        const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
         return res.json({
           success: false,
           error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
-          fallbackAvailable: true,
-          fallbackPassage: {
-            ...fallbackPassage,
-            generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
-          },
-          source: 'fallback_available',
+          fallbackAvailable: false,
+          source: 'gemini_error',
         });
       }
     }
 
-    const rawPassage = generateFreshPassage(level, topic, customTopic, direction);
-    const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
-    res.json({ success: true, passage, source: 'fast' });
+    return res.status(400).json({
+      success: false,
+      error: `Chế độ "${provider}" không được hỗ trợ. Vui lòng chọn Google Gemini hoặc Antigravity (agy).`,
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -156,7 +196,7 @@ app.get('/api/playwright/status', (req: Request, res: Response) => {
   const profileDir = getDefaultProfileDir();
   res.json({
     ready: true,
-    supportedProviders: ['fast', 'gemini', 'chatgpt', 'antigravity'],
+    supportedProviders: ['gemini', 'agy', 'antigravity', 'chatgpt'],
     defaultProvider: 'gemini',
     userDataDir: profileDir,
     headlessDefault: true,
@@ -201,8 +241,10 @@ app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
     // Ensure clean state without orphaned lockfiles or stuck processes
     await ensurePlaywrightProfileClean(profileDir);
 
-    console.log(`[PlayEng Login] Launching interactive browser for ${provider} at ${targetUrl}`);
+    const sysExecutable = getSystemBrowserExecutable();
+    console.log(`[PlayEng Login] Launching interactive browser for ${provider} at ${targetUrl} (executable: ${sysExecutable || 'default'})`);
     const context = await chromium.launchPersistentContext(profileDir, {
+      executablePath: sysExecutable,
       headless: false,
       args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
     });

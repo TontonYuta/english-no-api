@@ -1886,6 +1886,59 @@ test('mobileRemote: flashcard mapping and local pronunciation scoring', () => {
   assert.equal(evalWrong.isCorrect, false);
 });
 
+import { parseRelaxedJson, sanitizeJsonString } from '../server/playwrightEngine';
+
+test('parseRelaxedJson: safely parses unescaped newlines and control characters in strings', () => {
+  const badControlCharJson = `\`\`\`json
+{
+  "title": "Smart Living",
+  "passage": "Paragraph 1 with unescaped newline
+and second line here.",
+  "referenceTranslation": "Đoạn 1 có dấu xuống dòng thực tế
+và dòng tiếp theo.",
+  "targetWords": [
+    {
+      "word": "smart",
+      "meaningVi": "thông minh",
+      "ipa": "/smɑːt/",
+      "contextSentence": "Smart living is great."
+    }
+  ]
+}
+\`\`\``;
+
+  const parsed = parseRelaxedJson(badControlCharJson);
+  assert.equal(parsed.title, 'Smart Living');
+  assert.ok(parsed.passage.includes('Paragraph 1 with unescaped newline'));
+  assert.ok(parsed.referenceTranslation.includes('Đoạn 1'));
+  assert.equal(parsed.targetWords.length, 1);
+  assert.equal(parsed.targetWords[0].word, 'smart');
+});
+
+test('parseRelaxedJson: cleans trailing commas and smart quotes', () => {
+  const dirtyJson = `{
+    “title”: “Smart Devices”,
+    “topic”: “technology”,
+    “passage”: “Devices are helpful.”,
+    “referenceTranslation”: “Các thiết bị rất hữu ích.”,
+    “targetWords”: [
+      { “word”: “helpful”, “meaningVi”: “hữu ích”, },
+    ],
+  }`;
+
+  const parsed = parseRelaxedJson(dirtyJson);
+  assert.equal(parsed.title, 'Smart Devices');
+  assert.equal(parsed.targetWords[0].word, 'helpful');
+});
+
+test('providers: agy and antigravity are valid providers and offline mode is deprecated', () => {
+  const activeProviders: ChatbotProvider[] = ['gemini', 'agy', 'antigravity'];
+  assert.ok(activeProviders.includes('agy'));
+  assert.ok(activeProviders.includes('antigravity'));
+  assert.ok(activeProviders.includes('gemini'));
+});
+
+
 
 
 

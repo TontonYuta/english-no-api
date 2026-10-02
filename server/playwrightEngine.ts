@@ -153,6 +153,8 @@ export function getSystemBrowserExecutable(): string | undefined {
     if (fs.existsSync(p)) return p;
   } else {
     const candidates = [
+      '/opt/google/chrome/chrome',
+      '/opt/google/chrome/google-chrome',
       path.join(home, '.local/bin/google-chrome'),
       path.join(home, '.local/bin/chromium'),
       path.join(home, '.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'),
@@ -223,6 +225,87 @@ export async function ensurePlaywrightProfileClean(profileDir: string): Promise<
     try { fs.unlinkSync(lockPath); } catch {}
     try { fs.unlinkSync(cookiePath); } catch {}
     try { fs.unlinkSync(socketPath); } catch {}
+  }
+}
+
+export function sanitizeJsonString(raw: string): string {
+  let inString = false;
+  let escaped = false;
+  let result = '';
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) {
+      result += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      result += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      result += ch;
+      continue;
+    }
+    if (inString) {
+      if (ch === '\n') {
+        result += '\\n';
+      } else if (ch === '\r') {
+        result += '\\r';
+      } else if (ch === '\t') {
+        result += '\\t';
+      } else if (ch.charCodeAt(0) < 32) {
+        result += ' ';
+      } else {
+        result += ch;
+      }
+    } else {
+      result += ch;
+    }
+  }
+  return result;
+}
+
+export function parseRelaxedJson(rawText: string): any {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('Không nhận được nội dung để phân tích JSON.');
+  }
+
+  let jsonStr = '';
+  const jsonCodeBlockMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+    jsonStr = jsonCodeBlockMatch[1].trim();
+  } else {
+    const first = rawText.indexOf('{');
+    const last = rawText.lastIndexOf('}');
+    if (first !== -1 && last > first) {
+      jsonStr = rawText.slice(first, last + 1);
+    }
+  }
+
+  if (!jsonStr) {
+    throw new Error(`Phản hồi không chứa khối JSON hợp lệ. Trích xuất: "${rawText.slice(0, 150)}..."`);
+  }
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch {}
+
+  try {
+    const sanitized = sanitizeJsonString(jsonStr);
+    return JSON.parse(sanitized);
+  } catch {}
+
+  try {
+    const cleaned = sanitizeJsonString(jsonStr)
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'");
+    return JSON.parse(cleaned);
+  } catch (err: any) {
+    throw new Error(`Lỗi cú pháp JSON (${err.message})`);
   }
 }
 
@@ -1065,14 +1148,19 @@ export async function generatePassageWithGeminiPlaywright(params: {
           lastLength = curLen;
         }
 
-        // If stop button disappeared or text stabilized for 2 cycles
-        if (!isStreaming && stableCount >= 2) {
-          if (
-            scrapedRawText.includes('```json') ||
-            (scrapedRawText.includes('"passage"') && scrapedRawText.includes('"title"') && scrapedRawText.includes('}'))
-          ) {
+        // Try parsing to check if full JSON has finished streaming
+        try {
+          const testParsed = parseRelaxedJson(scrapedRawText);
+          if (testParsed && testParsed.passage && (testParsed.referenceTranslation || testParsed.translationVi || testParsed.translationEn)) {
             break;
           }
+        } catch {
+          // Still generating
+        }
+
+        // If stop button disappeared or text stabilized for 3 cycles
+        if (!isStreaming && stableCount >= 3) {
+          break;
         }
       }
     }
@@ -1081,51 +1169,11 @@ export async function generatePassageWithGeminiPlaywright(params: {
       throw new Error(`Google Gemini không phản hồi nội dung trong vòng ${Math.round(timeoutMs / 1000)} giây. Có thể do mạng chậm hoặc giao diện Gemini phản hồi bất thường.`);
     }
 
-    const jsonCodeBlockMatch = scrapedRawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    let jsonStr = '';
-    if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
-      jsonStr = jsonCodeBlockMatch[1].trim();
-    } else {
-      const first = scrapedRawText.indexOf('{');
-      const last = scrapedRawText.lastIndexOf('}');
-      if (first !== -1 && last > first) {
-        jsonStr = scrapedRawText.slice(first, last + 1);
-      }
+    if (scrapedRawText.includes('Sorry, something went wrong') || scrapedRawText.includes('Please try your request again')) {
+      throw new Error('Google Gemini gặp sự cố tạm thời ("Sorry, something went wrong"). Vui lòng thử lại.');
     }
 
-    if (!jsonStr) {
-      const first = scrapedRawText.indexOf('{');
-      const last = scrapedRawText.lastIndexOf('}');
-      if (first !== -1 && last > first) {
-        jsonStr = scrapedRawText.slice(first, last + 1);
-      }
-    }
-
-    if (!jsonStr) {
-      throw new Error(`Google Gemini trả về văn bản nhưng không chứa khối JSON bài học hợp lệ. Trích xuất: "${scrapedRawText.slice(0, 150)}..."`);
-    }
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch (parseErr: any) {
-      try {
-        const cleaned = jsonStr
-          .replace(/,\s*([}\]])/g, '$1')
-          .replace(/[\u201C\u201D]/g, '"')
-          .replace(/[\u2018\u2019]/g, "'");
-        parsed = JSON.parse(cleaned);
-      } catch {
-        const first = scrapedRawText.indexOf('{');
-        const last = scrapedRawText.lastIndexOf('}');
-        if (first !== -1 && last > first) {
-          const rawSlice = scrapedRawText.slice(first, last + 1).replace(/,\s*([}\]])/g, '$1');
-          parsed = JSON.parse(rawSlice);
-        } else {
-          throw new Error(`Lỗi phân tích cú pháp JSON từ phản hồi của Gemini: ${parseErr.message}`);
-        }
-      }
-    }
+    const parsed = parseRelaxedJson(scrapedRawText);
 
     const rawPassage: GeneratedPassage = {
       id: `gemini_${Date.now()}`,
@@ -1151,5 +1199,57 @@ export async function generatePassageWithGeminiPlaywright(params: {
   } finally {
     await context.close().catch(() => {});
   }
+}
+
+export async function generatePassageWithAgy(params: {
+  level: string;
+  topic?: string;
+  customTopic?: string;
+  direction?: 'en_vi' | 'vi_en';
+  timeoutMs?: number;
+}): Promise<GeneratedPassage> {
+  const { level, topic, customTopic, direction = 'en_vi', timeoutMs = 60000 } = params;
+  const prompt = buildGeminiPassagePrompt(level, topic, customTopic, direction);
+
+  const agyBin = fs.existsSync('/home/tontonyuta/.local/bin/agy')
+    ? '/home/tontonyuta/.local/bin/agy'
+    : 'agy';
+
+  const rawOutput = await new Promise<string>((resolve, reject) => {
+    execFile(
+      agyBin,
+      ['-p', prompt, '--output-format', 'text'],
+      { maxBuffer: 15 * 1024 * 1024, timeout: timeoutMs },
+      (err, stdout, stderr) => {
+        if (err) {
+          return reject(new Error(`Antigravity CLI (agy) gặp sự cố: ${err.message || stderr}`));
+        }
+        resolve(stdout || '');
+      }
+    );
+  });
+
+  const parsed = parseRelaxedJson(rawOutput);
+  const rawPassage: GeneratedPassage = {
+    id: `agy_${Date.now()}`,
+    title: parsed.title || 'Antigravity Reading Passage',
+    topic: parsed.topic || topic || 'General',
+    topicCategory: topic || 'daily',
+    difficulty: (level as any) || (parsed.difficulty as any) || 'B1',
+    genre: 'Article',
+    passage: parsed.passage,
+    translationVi: parsed.referenceTranslation || parsed.translationEn || parsed.translationVi || '',
+    sentenceTranslations: parsed.sentenceTranslations || [],
+    direction: direction,
+    targetWords: (parsed.targetWords || []).map((w: any) => ({
+      word: w.word,
+      contextSentence: w.contextSentence || '',
+      meaningVi: w.englishWord || w.meaningVi || '',
+      ipa: w.ipa || '',
+      partOfSpeech: w.partOfSpeech || '',
+    })),
+    generatedBy: '🚀 Antigravity CLI (agy)',
+  };
+  return sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
 }
 

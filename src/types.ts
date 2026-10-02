@@ -15,7 +15,7 @@ export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 export type Language = 'vi' | 'en';
 export type TranslationDirection = 'en_vi' | 'vi_en';
 
-export type ChatbotProvider = 'fast' | 'gemini' | 'chatgpt' | 'antigravity';
+export type ChatbotProvider = 'gemini' | 'agy' | 'antigravity' | 'chatgpt' | 'fast';
 
 export type MainTabType =
   | 'today'

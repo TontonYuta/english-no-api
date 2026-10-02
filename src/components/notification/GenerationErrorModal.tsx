@@ -7,6 +7,7 @@ import {
   X,
   ExternalLink,
   ShieldAlert,
+  Bot,
 } from 'lucide-react';
 import { GeneratedPassage } from '../../../server/passageGenerator';
 
@@ -15,6 +16,7 @@ interface GenerationErrorModalProps {
   errorMessage: string;
   fallbackPassage?: GeneratedPassage;
   onRetry: () => void;
+  onRetryAgy?: () => void;
   onOpenSettings: () => void;
   onUseFallback?: (fallback: GeneratedPassage) => void;
   onClose: () => void;
@@ -26,6 +28,7 @@ export const GenerationErrorModal: React.FC<GenerationErrorModalProps> = ({
   errorMessage,
   fallbackPassage,
   onRetry,
+  onRetryAgy,
   onOpenSettings,
   onUseFallback,
   onClose,
@@ -96,6 +99,17 @@ export const GenerationErrorModal: React.FC<GenerationErrorModalProps> = ({
               <RotateCcw className="w-4 h-4" />
               <span>{lang === 'vi' ? 'Thử Lại Bằng Google Gemini' : 'Retry via Google Gemini'}</span>
             </button>
+
+            {onRetryAgy && (
+              <button
+                type="button"
+                onClick={onRetryAgy}
+                className="w-full p-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all hover:scale-[1.01]"
+              >
+                <Bot className="w-4 h-4" />
+                <span>{lang === 'vi' ? '🚀 Thử Ngay Bằng Antigravity CLI (agy)' : '🚀 Retry via Antigravity CLI (agy)'}</span>
+              </button>
+            )}
 
             <button
               type="button"

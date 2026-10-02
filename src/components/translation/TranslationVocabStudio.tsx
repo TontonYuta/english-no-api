@@ -72,7 +72,7 @@ export interface TranslationVocabStudioProps {
     topic?: string,
     customTopic?: string,
     direction?: TranslationDirection,
-    engine?: 'gemini' | 'fast'
+    engine?: 'gemini' | 'agy' | 'fast'
   ) => void;
   isGeneratingPassage: boolean;
   referenceTranslation?: string;
@@ -153,7 +153,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
     userLevel || (difficulty as CEFRLevel) || 'B1'
   );
   const [selectedGenTopic, setSelectedGenTopic] = useState<string>('daily');
-  const [selectedGenEngine, setSelectedGenEngine] = useState<'gemini' | 'fast'>('gemini');
+  const [selectedGenEngine, setSelectedGenEngine] = useState<'gemini' | 'agy'>('gemini');
   const [isCustomTopicActive, setIsCustomTopicActive] = useState(false);
   const [customTopicInput, setCustomTopicInput] = useState('');
 
@@ -684,26 +684,26 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setSelectedGenEngine('fast')}
+                  onClick={() => setSelectedGenEngine('agy')}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    selectedGenEngine === 'fast'
-                      ? 'bg-emerald-500/15 border-emerald-400 text-emerald-200 ring-1 ring-emerald-400/50 shadow-sm'
+                    selectedGenEngine === 'agy'
+                      ? 'bg-purple-500/15 border-purple-400 text-purple-200 ring-1 ring-purple-400/50 shadow-sm'
                       : 'border-zinc-800 bg-zinc-950/60 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
                   <div className="flex items-start gap-2.5">
-                    <Zap className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <Bot className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="font-mono font-bold text-xs flex items-center gap-1.5">
-                        <span>⚡ Kho Bài Mẫu Offline</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">Offline</span>
+                        <span>🚀 Antigravity CLI (agy)</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono">Local Agent</span>
                       </div>
                       <div className="text-[10px] text-zinc-400 mt-0.5">
-                        Lấy nhanh bài đọc mẫu có sẵn từ thư viện (không cần AI, tức thì)
+                        Sáng tác bài mới siêu tốc qua Antigravity native CLI, không cần mở trình duyệt
                       </div>
                     </div>
                   </div>
-                  {selectedGenEngine === 'fast' && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                  {selectedGenEngine === 'agy' && <Check className="w-4 h-4 text-purple-400 shrink-0" />}
                 </button>
               </div>
             </div>
@@ -728,9 +728,9 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                 <span>
                   {isGeneratingPassage
                     ? (selectedGenDirection === 'vi_en' ? 'ĐANG BIÊN SOẠN BÀI DỊCH VIỆT - ANH...' : 'ĐANG TẠO BÀI ĐỌC MỚI...')
-                    : (selectedGenEngine === 'gemini'
-                        ? (selectedGenDirection === 'vi_en' ? '✨ TẠO BÀI VIỆT - ANH VỚI GEMINI AI' : '✨ TẠO BÀI ĐỌC MỚI VỚI GEMINI AI')
-                        : (selectedGenDirection === 'vi_en' ? '⚡ LẤY BÀI DỊCH TỪ THƯ VIỆN MẪU' : '⚡ LẤY BÀI ĐỌC TỪ THƯ VIỆN MẪU'))}
+                    : (selectedGenEngine === 'agy'
+                        ? (selectedGenDirection === 'vi_en' ? '🚀 TẠO BÀI VIỆT - ANH VỚI AGY CLI' : '🚀 TẠO BÀI ĐỌC MỚI VỚI AGY CLI')
+                        : (selectedGenDirection === 'vi_en' ? '✨ TẠO BÀI VIỆT - ANH VỚI GEMINI AI' : '✨ TẠO BÀI ĐỌC MỚI VỚI GEMINI AI'))}
                 </span>
               </button>
             </div>
@@ -745,11 +745,13 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-sky-400 animate-spin" />
               <span className="font-bold text-sky-200">
-                {selectedGenEngine === 'gemini'
+                {selectedGenEngine === 'agy'
                   ? (direction === 'vi_en'
+                      ? '🚀 ANTIGRAVITY CLI ĐANG SÁNG TÁC BÀI DỊCH VIỆT - ANH MỚI...'
+                      : '🚀 ANTIGRAVITY CLI ĐANG SÁNG TÁC BÀI ĐỌC TIẾNG ANH MỚI...')
+                  : (direction === 'vi_en'
                       ? '✨ GOOGLE GEMINI ĐANG SÁNG TÁC BÀI DỊCH VIỆT - ANH MỚI (PLAYWRIGHT)...'
-                      : '✨ GOOGLE GEMINI ĐANG SÁNG TÁC BÀI ĐỌC TIẾNG ANH MỚI (PLAYWRIGHT)...')
-                  : '⚡ ĐANG TẢI BÀI ĐỌC TỪ THƯ VIỆN MẪU...'}
+                      : '✨ GOOGLE GEMINI ĐANG SÁNG TÁC BÀI ĐỌC TIẾNG ANH MỚI (PLAYWRIGHT)...')}
               </span>
             </div>
             <span className="text-[10px] text-sky-300 font-semibold px-2 py-0.5 rounded-full bg-sky-900/50 border border-sky-700/50">
@@ -757,11 +759,13 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             </span>
           </div>
           <p className="text-xs text-zinc-300 font-sans">
-            {selectedGenEngine === 'gemini'
+            {selectedGenEngine === 'agy'
               ? (direction === 'vi_en'
+                  ? `Antigravity Agent native CLI đang viết đoạn văn tiếng Việt độc bản phù hợp CEFR ${difficulty}, chuẩn bị bài dịch mẫu tiếng Anh bản ngữ và trích xuất các từ/cụm từ thử thách...`
+                  : `Antigravity Agent native CLI đang viết đoạn văn tiếng Anh mới 100% phù hợp CEFR ${difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...`)
+              : (direction === 'vi_en'
                   ? `AI đang viết đoạn văn tiếng Việt độc bản phù hợp CEFR ${difficulty}, chuẩn bị bài dịch mẫu tiếng Anh bản ngữ và trích xuất các từ/cụm từ thử thách...`
-                  : `AI đang viết đoạn văn tiếng Anh mới 100% phù hợp CEFR ${difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...`)
-              : 'Hệ thống đang tải bài đọc từ kho lưu trữ offline mẫu...'}
+                  : `AI đang viết đoạn văn tiếng Anh mới 100% phù hợp CEFR ${difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...`)}
           </p>
         </div>
       )}
@@ -832,13 +836,13 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                   onClick={() => onGeneratePassage(selectedGenLevel, selectedGenTopic, undefined, direction, selectedGenEngine)}
                   disabled={isGeneratingPassage || isAutomating}
                   className="p-1.5 px-2 rounded-lg bg-sky-600/90 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-mono font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
-                  title={selectedGenEngine === 'gemini' ? 'Tạo bài mới 100% bằng Gemini AI' : 'Lấy bài khác từ thư viện mẫu'}
+                  title={selectedGenEngine === 'agy' ? 'Tạo bài mới bằng Antigravity CLI' : 'Tạo bài mới 100% bằng Gemini AI'}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline text-[11px] font-bold">
-                    {selectedGenEngine === 'gemini'
-                      ? (direction === 'vi_en' ? 'Đổi bài AI' : 'Đổi bài AI mới')
-                      : (direction === 'vi_en' ? 'Đổi bài mẫu' : 'Đổi bài mẫu')}
+                    {selectedGenEngine === 'agy'
+                      ? (direction === 'vi_en' ? 'Đổi bài (AGY)' : 'Đổi bài mới (AGY)')
+                      : (direction === 'vi_en' ? 'Đổi bài (Gemini)' : 'Đổi bài mới (Gemini)')}
                   </span>
                 </button>
 
@@ -1497,16 +1501,16 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => setProvider && setProvider('fast')}
+                        onClick={() => setProvider && setProvider('antigravity')}
                         className={`px-2.5 py-1.5 rounded-md text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                          provider === 'fast'
-                            ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-sm'
+                          provider === 'antigravity' || provider === 'agy'
+                            ? 'bg-purple-500/25 text-purple-300 border border-purple-400/50 shadow-sm'
                             : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                         }`}
-                        title="Dùng ⚡ AI Siêu Tốc (Offline - 0.5s tức thì)"
+                        title="Dùng 🚀 Antigravity Native CLI (agy) để chấm điểm và phân tích tự động"
                       >
-                        <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>⚡ Siêu Tốc</span>
+                        <Bot className="w-3.5 h-3.5 text-purple-400" />
+                        <span>🚀 AGY CLI</span>
                       </button>
 
                       <button

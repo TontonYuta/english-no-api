@@ -199,7 +199,7 @@ export default function App() {
       targetTopic?: string;
       customTopic?: string;
       targetDirection?: TranslationDirection;
-      targetEngine?: 'gemini' | 'fast';
+      targetEngine?: 'gemini' | 'agy' | 'antigravity' | 'fast';
     };
   } | null>(null);
 
@@ -212,7 +212,7 @@ export default function App() {
       targetTopic?: string;
       customTopic?: string;
       targetDirection?: TranslationDirection;
-      targetEngine?: 'gemini' | 'fast';
+      targetEngine?: 'gemini' | 'agy' | 'antigravity' | 'fast';
     };
   } | null>(null);
 
@@ -259,7 +259,7 @@ export default function App() {
     targetTopic?: string,
     customTopic?: string,
     targetDirection?: TranslationDirection,
-    targetEngine?: 'gemini' | 'fast'
+    targetEngine?: 'gemini' | 'agy' | 'antigravity' | 'fast'
   ) => {
     setIsGeneratingPassage(true);
     const activeDir = targetDirection || translationDirection || 'en_vi';
@@ -269,8 +269,7 @@ export default function App() {
     }
     try {
       const selectedLevel = (targetLevel || userLevel || passageDifficulty || 'B1').toUpperCase();
-      // Ensure Gemini is the primary engine for lesson generation!
-      const passageProvider: 'gemini' | 'fast' = targetEngine || (provider === 'fast' ? 'fast' : 'gemini');
+      const passageProvider = targetEngine || (provider === 'antigravity' || provider === 'agy' ? 'agy' : 'gemini');
 
       const res = await fetch('/api/passage/generate', {
         method: 'POST',
@@ -370,7 +369,7 @@ export default function App() {
         ? targetDirection
         : undefined;
     const safeEngine =
-      typeof targetEngine === 'string' && (targetEngine === 'gemini' || targetEngine === 'fast')
+      typeof targetEngine === 'string' && (targetEngine === 'gemini' || targetEngine === 'agy' || targetEngine === 'antigravity' || targetEngine === 'fast')
         ? targetEngine
         : undefined;
 
@@ -403,7 +402,19 @@ export default function App() {
       params?.targetTopic,
       params?.customTopic,
       params?.targetDirection,
-      params?.targetEngine || 'gemini'
+      'gemini'
+    );
+  };
+
+  const handleRetryGenerationWithAgy = () => {
+    const params = generationError?.retryParams;
+    setGenerationError(null);
+    executePassageGeneration(
+      params?.targetLevel,
+      params?.targetTopic,
+      params?.customTopic,
+      params?.targetDirection,
+      'agy'
     );
   };
 
@@ -870,6 +881,7 @@ export default function App() {
           errorMessage={generationError.errorMessage}
           fallbackPassage={generationError.fallbackPassage}
           onRetry={handleRetryGeneration}
+          onRetryAgy={handleRetryGenerationWithAgy}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onUseFallback={handleUseFallbackPassage}
           onClose={() => setGenerationError(null)}
