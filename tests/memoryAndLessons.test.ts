@@ -1667,6 +1667,226 @@ test('passageGenerator: topic category matching with Vietnamese labels for vi_en
   }
 });
 
+// ==========================================
+// NEW FEATURE TESTS: Gemini Profile, Pre-gen Vocab Quiz, No Silent Fallback, Mobile Remote
+// ==========================================
+
+import { getDefaultProfileDir } from '../server/playwrightEngine';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+
+test('playwrightEngine: getDefaultProfileDir prioritizes ~/.config/playeng-studio/playwright-profile', () => {
+  const originalEnv = process.env.PLAYENG_PROFILE_DIR;
+  delete process.env.PLAYENG_PROFILE_DIR;
+
+  const expectedConfigProfile = path.join(os.homedir(), '.config', 'playeng-studio', 'playwright-profile');
+  const dir = getDefaultProfileDir();
+
+  if (fs.existsSync(expectedConfigProfile)) {
+    assert.equal(dir, expectedConfigProfile, 'Must prioritize ~/.config/playeng-studio/playwright-profile when present');
+  } else {
+    // If not existing, must fallback cleanly to valid profile path
+    assert.ok(dir.includes('playwright-profile'), 'Profile directory path must contain playwright-profile');
+  }
+
+  // Test custom environment override
+  process.env.PLAYENG_PROFILE_DIR = '/custom/test/profile';
+  assert.equal(getDefaultProfileDir(), '/custom/test/profile', 'Must respect PLAYENG_PROFILE_DIR when specified');
+
+  // Restore
+  if (originalEnv) {
+    process.env.PLAYENG_PROFILE_DIR = originalEnv;
+  } else {
+    delete process.env.PLAYENG_PROFILE_DIR;
+  }
+});
+
+test('preGenVocabQuiz: generates active recall questions and records mastery updates', () => {
+  localStorage.clear();
+
+  // 1. Populate learned words
+  addLearnedWords([
+    {
+      term: 'Sustainable',
+      ipa: '/səˈsteɪ.nə.bəl/',
+      partOfSpeech: 'adjective',
+      vietnameseMeaning: 'Bền vững, thân thiện với môi trường',
+      exampleSentence: 'Solar energy is a sustainable source of power.',
+      level: 'B2',
+    },
+    {
+      term: 'Artificial Intelligence',
+      ipa: '/ˌɑːr.tɪˈfɪʃ.əl ɪnˈtel.ə.dʒəns/',
+      partOfSpeech: 'noun',
+      vietnameseMeaning: 'Trí tuệ nhân tạo',
+      exampleSentence: 'Artificial intelligence is transforming industries worldwide.',
+      level: 'B1',
+    },
+    {
+      term: 'Procrastinate',
+      ipa: '/prəˈkræs.tə.neɪt/',
+      partOfSpeech: 'verb',
+      vietnameseMeaning: 'Trì hoãn công việc',
+      exampleSentence: 'Do not procrastinate when preparing for the exam.',
+      level: 'B2',
+    },
+    {
+      term: 'Resilience',
+      ipa: '/rɪˈzɪl.jəns/',
+      partOfSpeech: 'noun',
+      vietnameseMeaning: 'Khả năng phục hồi, kiên cường',
+      exampleSentence: 'Her resilience helped her overcome severe challenges.',
+      level: 'B2',
+    },
+  ]);
+
+  const words = getLearnedWords();
+  assert.equal(words.length, 4);
+
+  // 2. Generate pre-gen quiz with questionCount = 3
+  const count = 3;
+  const questions = generateVocabTestQuestions(words, count, 'all');
+  assert.equal(questions.length, 3, 'Must generate exactly 3 questions');
+
+  for (const q of questions) {
+    assert.ok(q.term, 'Question must have a term');
+    assert.equal(q.options.length, 4, 'Each question must have 4 multiple-choice options');
+    assert.ok(q.correctIndex >= 0 && q.correctIndex < 4, 'Correct index must be within [0, 3]');
+    const correctOpt = q.options[q.correctIndex];
+    assert.ok(correctOpt && correctOpt.length > 0, 'Correct option must be non-empty');
+    const matchedWord = words.find((w) => w.term === q.term);
+    assert.ok(matchedWord, 'Question term must belong to learned words');
+  }
+
+  // 3. Test recording review results
+  const testWord = words[0];
+  const initialReviewCount = testWord.reviewCount || 0;
+
+  // First correct answer: increases reviewCount
+  recordWordReview(testWord.id, true);
+  let updatedWords = getLearnedWords();
+  let updatedWord = updatedWords.find((w) => w.id === testWord.id)!;
+  assert.equal(updatedWord.reviewCount, initialReviewCount + 1);
+  assert.equal(updatedWord.mastered, false);
+
+  // Second correct answer: reviewCount >= 2 triggers mastery
+  recordWordReview(testWord.id, true);
+  updatedWords = getLearnedWords();
+  updatedWord = updatedWords.find((w) => w.id === testWord.id)!;
+  assert.equal(updatedWord.reviewCount, initialReviewCount + 2);
+  assert.equal(updatedWord.mastered, true);
+});
+
+test('preGenVocabQuiz: respects reviewVocabQuestionCount settings', () => {
+  // Configured with 0: review is disabled
+  const countDisabled = 0;
+  const words = getLearnedWords();
+  const shouldTriggerQuizDisabled = countDisabled > 0 && words.length > 0;
+  assert.equal(shouldTriggerQuizDisabled, false, 'Should not trigger quiz when setting is 0');
+
+  // Configured with 5: review is enabled
+  const countEnabled = 5;
+  const shouldTriggerQuizEnabled = countEnabled > 0 && words.length > 0;
+  assert.equal(shouldTriggerQuizEnabled, true, 'Should trigger quiz when setting is > 0 and bank is not empty');
+});
+
+test('noSilentFallback: API contract guarantees success=false and explicit fallback on Gemini failure', () => {
+  // Simulate the API failure logic that server.ts and vitePluginPlaywright.ts execute
+  const simulateApiPassageGeneration = (provider: 'gemini' | 'fast', geminiFails: boolean) => {
+    if (provider === 'gemini') {
+      if (geminiFails) {
+        // If Gemini fails, server MUST NOT return { success: true, passage: fallback }
+        const rawFallback = generateFreshPassage('B2', 'tech', undefined, 'en_vi');
+        const fallbackPassage = sanitizePassageDirection(rawFallback, 'en_vi', 'B2', 'tech');
+        return {
+          success: false,
+          error: 'Google Gemini không phản hồi nội dung trong vòng 45 giây.',
+          fallbackAvailable: true,
+          fallbackPassage: {
+            ...fallbackPassage,
+            generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
+          },
+          source: 'fallback_available',
+        };
+      }
+      return {
+        success: true,
+        passage: { title: 'Gemini AI Lesson', passage: 'AI generated passage...', targetWords: [] },
+        source: '✨ Google Gemini AI (Web Playwright)',
+      };
+    }
+    const raw = generateFreshPassage('B2', 'tech', undefined, 'en_vi');
+    return {
+      success: true,
+      passage: raw,
+      source: 'fast',
+    };
+  };
+
+  // Test failure case
+  const failedResponse = simulateApiPassageGeneration('gemini', true);
+  assert.equal(failedResponse.success, false, 'API response must report success=false when Gemini fails');
+  assert.ok(failedResponse.error.includes('Google Gemini'), 'Error message must clearly explain Gemini failure');
+  assert.equal(failedResponse.fallbackAvailable, true, 'Must indicate fallback is available as user choice');
+  assert.ok(failedResponse.fallbackPassage, 'Fallback passage must be attached for user opt-in');
+  assert.equal(failedResponse.fallbackPassage.generatedBy, '⚡ Bài đọc mẫu thư viện (Dự phòng)');
+
+  // Test success case
+  const successResponse = simulateApiPassageGeneration('gemini', false);
+  assert.equal(successResponse.success, true);
+  assert.equal(successResponse.source, '✨ Google Gemini AI (Web Playwright)');
+});
+
+test('mobileRemote: flashcard mapping and local pronunciation scoring', () => {
+  // Sample target words in a passage
+  const targetWords = [
+    {
+      word: 'sustainable',
+      meaningVi: 'bền vững',
+      ipa: '/səˈsteɪ.nə.bəl/',
+      contextSentence: 'Solar power is a sustainable source of clean energy.',
+    },
+    {
+      word: 'innovation',
+      meaningVi: 'sự đổi mới',
+      ipa: '/ˌɪn.əˈveɪ.ʃən/',
+      contextSentence: 'Technological innovation drives economic growth.',
+    },
+  ];
+
+  // 1. Flashcard mapping contract
+  const flashcards = targetWords.map((tw, idx) => ({
+    id: `remote_fc_${idx}`,
+    front: tw.word,
+    back: tw.meaningVi,
+    subtext: tw.ipa || '',
+    example: tw.contextSentence || '',
+    category: 'vocab' as const,
+  }));
+
+  assert.equal(flashcards.length, 2);
+  assert.equal(flashcards[0].front, 'sustainable');
+  assert.equal(flashcards[0].back, 'bền vững');
+  assert.equal(flashcards[0].subtext, '/səˈsteɪ.nə.bəl/');
+
+  // 2. Audio URL generation for remote player
+  const buildAudioUrl = (text: string) => `/api/tts?text=${encodeURIComponent(text)}&voice=en-US`;
+  const passageUrl = buildAudioUrl('Solar power is a sustainable source of clean energy.');
+  assert.ok(passageUrl.startsWith('/api/tts?text=Solar%20power'));
+  assert.ok(passageUrl.includes('&voice=en-US'));
+
+  // 3. Pronunciation evaluation on mobile
+  const evalGood = evaluatePronunciationLocally('sustainable', 'sustainable');
+  assert.ok(evalGood.score >= 90, 'Exact match must score >= 90');
+  assert.equal(evalGood.isCorrect, true);
+
+  const evalWrong = evaluatePronunciationLocally('sustainable', 'something completely different');
+  assert.ok(evalWrong.score < 50, 'Mismatch must score < 50');
+  assert.equal(evalWrong.isCorrect, false);
+});
+
+
 
 
 

@@ -55,7 +55,7 @@ let activeLoginContext: any = null;
 // Fresh Reading Passage Generator endpoint (Supports Gemini AI & Fast mode)
 app.post('/api/passage/generate', async (req: Request, res: Response) => {
   try {
-    const { level = 'B2', topic = 'tech', customTopic, provider = 'fast', geminiApiKey, direction = 'en_vi' } = req.body || {};
+    const { level = 'B2', topic = 'tech', customTopic, provider = 'gemini', geminiApiKey, direction = 'en_vi' } = req.body || {};
     console.log(`[Passage Generator] Generating reading passage (level=${level}, topic=${topic}, provider=${provider}, direction=${direction})`);
 
     if (provider === 'gemini' && activeLoginContext) {
@@ -77,17 +77,18 @@ app.post('/api/passage/generate', async (req: Request, res: Response) => {
         console.log(`[Passage Generator] Successfully generated passage via ${passage.generatedBy}`);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
-        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message}), using pedagogical fallback`);
+        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message})`);
         const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
         const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
         return res.json({
-          success: true,
-          passage: {
+          success: false,
+          error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
+          fallbackAvailable: true,
+          fallbackPassage: {
             ...fallbackPassage,
-            generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+            generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
           },
-          source: 'fallback',
-          fallbackReason: geminiErr.message,
+          source: 'fallback_available',
         });
       }
     }
@@ -106,7 +107,7 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
     const level = (req.query.level as string) || 'B2';
     const topic = req.query.topic as string | undefined;
     const customTopic = req.query.customTopic as string | undefined;
-    const provider = (req.query.provider as string) || 'fast';
+    const provider = (req.query.provider as string) || 'gemini';
     const direction = (req.query.direction as any) || 'en_vi';
     const geminiApiKey = req.query.geminiApiKey as string | undefined;
 
@@ -126,15 +127,18 @@ app.get('/api/passage/generate', async (req: Request, res: Response) => {
         const passage = sanitizePassageDirection(rawPassage, direction, level, topic, customTopic);
         return res.json({ success: true, passage, source: passage.generatedBy || 'gemini' });
       } catch (geminiErr: any) {
+        console.warn(`[Passage Generator] Gemini generation issue (${geminiErr.message})`);
         const rawFallback = generateFreshPassage(level, topic, customTopic, direction);
         const fallbackPassage = sanitizePassageDirection(rawFallback, direction, level, topic, customTopic);
         return res.json({
-          success: true,
-          passage: {
+          success: false,
+          error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
+          fallbackAvailable: true,
+          fallbackPassage: {
             ...fallbackPassage,
-            generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+            generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
           },
-          source: 'fallback',
+          source: 'fallback_available',
         });
       }
     }
@@ -153,7 +157,7 @@ app.get('/api/playwright/status', (req: Request, res: Response) => {
   res.json({
     ready: true,
     supportedProviders: ['fast', 'gemini', 'chatgpt', 'antigravity'],
-    defaultProvider: 'fast',
+    defaultProvider: 'gemini',
     userDataDir: profileDir,
     headlessDefault: true,
     features: [
@@ -171,7 +175,9 @@ app.post('/api/playwright/open-login', async (req: Request, res: Response) => {
   try {
     const provider = req.body?.provider || 'gemini';
     const targetUrl = provider === 'chatgpt' ? 'https://chatgpt.com' : 'https://gemini.google.com/app';
-    const profileDir = req.body?.userDataDir ? path.resolve(req.body.userDataDir) : getDefaultProfileDir();
+    const profileDir = (!req.body?.userDataDir || req.body.userDataDir === '.playwright-profile')
+      ? getDefaultProfileDir()
+      : path.resolve(req.body.userDataDir);
     if (!fs.existsSync(profileDir)) {
       fs.mkdirSync(profileDir, { recursive: true });
     }
@@ -492,9 +498,11 @@ app.get('/api/playwright/stream', async (req: Request, res: Response) => {
     }
 
     const taskType: TaskType = (params.taskType as TaskType) || 'writing';
-    const provider: ChatbotProvider = (params.provider as ChatbotProvider) || 'fast';
+    const provider: ChatbotProvider = (params.provider as ChatbotProvider) || 'gemini';
     const headless = params.headless !== 'false' && params.headless !== false;
-    const userDataDir = (params.userDataDir as string) || getDefaultProfileDir();
+    const userDataDir = (!params.userDataDir || params.userDataDir === '.playwright-profile')
+      ? getDefaultProfileDir()
+      : (params.userDataDir as string);
     const simulateIfBlocked = params.simulateIfBlocked !== 'false' && params.simulateIfBlocked !== false;
 
     const config: PlaywrightConfig = {
@@ -522,7 +530,9 @@ app.post('/api/playwright/run', async (req: Request, res: Response) => {
     const fullConfig: PlaywrightConfig = {
       provider: config.provider || 'gemini',
       headless: config.headless !== false,
-      userDataDir: config.userDataDir || getDefaultProfileDir(),
+      userDataDir: (!config.userDataDir || config.userDataDir === '.playwright-profile')
+        ? getDefaultProfileDir()
+        : config.userDataDir,
       timeoutMs: config.timeoutMs || 35000,
       simulateIfBlocked: config.simulateIfBlocked !== false,
       geminiApiKey: config.geminiApiKey || process.env.GEMINI_API_KEY,

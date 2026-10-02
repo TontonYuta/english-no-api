@@ -127,7 +127,7 @@ export function vitePluginPlaywright(): Plugin {
                   level = 'B2',
                   topic = 'tech',
                   customTopic,
-                  provider = 'fast',
+                  provider = 'gemini',
                   geminiApiKey,
                   direction = 'en_vi',
                 } = data;
@@ -151,13 +151,14 @@ export function vitePluginPlaywright(): Plugin {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(
                       JSON.stringify({
-                        success: true,
-                        passage: {
+                        success: false,
+                        error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
+                        fallbackAvailable: true,
+                        fallbackPassage: {
                           ...fallbackPassage,
-                          generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+                          generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
                         },
-                        source: 'fallback',
-                        fallbackReason: geminiErr.message,
+                        source: 'fallback_available',
                       })
                     );
                     return;
@@ -180,7 +181,7 @@ export function vitePluginPlaywright(): Plugin {
               const level = urlObj.searchParams.get('level') || 'B2';
               const topic = urlObj.searchParams.get('topic') || undefined;
               const customTopic = urlObj.searchParams.get('customTopic') || undefined;
-              const provider = urlObj.searchParams.get('provider') || 'fast';
+              const provider = urlObj.searchParams.get('provider') || 'gemini';
               const direction = (urlObj.searchParams.get('direction') as any) || 'en_vi';
               const geminiApiKey = urlObj.searchParams.get('geminiApiKey') || undefined;
 
@@ -203,12 +204,14 @@ export function vitePluginPlaywright(): Plugin {
                   res.writeHead(200, { 'Content-Type': 'application/json' });
                   res.end(
                     JSON.stringify({
-                      success: true,
-                      passage: {
+                      success: false,
+                      error: geminiErr.message || 'Không thể tạo bài mới bằng Google Gemini.',
+                      fallbackAvailable: true,
+                      fallbackPassage: {
                         ...fallbackPassage,
-                        generatedBy: '⚡ AI Siêu Tốc (Offline Fallback)',
+                        generatedBy: '⚡ Bài đọc mẫu thư viện (Dự phòng)',
                       },
-                      source: 'fallback',
+                      source: 'fallback_available',
                     })
                   );
                   return;

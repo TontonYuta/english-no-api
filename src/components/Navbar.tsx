@@ -116,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {onGeneratePassage && (
               <button
                 type="button"
-                onClick={onGeneratePassage}
+                onClick={() => onGeneratePassage()}
                 disabled={isGeneratingPassage || isAutomating}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-mono font-bold transition-all shadow-sm cursor-pointer ml-1"
                 title="Tạo bài đọc mới ngẫu nhiên"

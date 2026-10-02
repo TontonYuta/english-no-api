@@ -67,7 +67,13 @@ export interface TranslationVocabStudioProps {
   isAutomating: boolean;
   provider: ChatbotProvider;
   lang?: Language;
-  onGeneratePassage: (level?: string, topic?: string, customTopic?: string, direction?: TranslationDirection) => void;
+  onGeneratePassage: (
+    level?: string,
+    topic?: string,
+    customTopic?: string,
+    direction?: TranslationDirection,
+    engine?: 'gemini' | 'fast'
+  ) => void;
   isGeneratingPassage: boolean;
   referenceTranslation?: string;
   userLevel?: CEFRLevel;
@@ -147,6 +153,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
     userLevel || (difficulty as CEFRLevel) || 'B1'
   );
   const [selectedGenTopic, setSelectedGenTopic] = useState<string>('daily');
+  const [selectedGenEngine, setSelectedGenEngine] = useState<'gemini' | 'fast'>('gemini');
   const [isCustomTopicActive, setIsCustomTopicActive] = useState(false);
   const [customTopicInput, setCustomTopicInput] = useState('');
 
@@ -390,7 +397,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
     if (setDirection && selectedGenDirection !== direction) {
       setDirection(selectedGenDirection, false);
     }
-    onGeneratePassage(selectedGenLevel, selectedGenTopic, finalCustom, selectedGenDirection);
+    onGeneratePassage(selectedGenLevel, selectedGenTopic, finalCustom, selectedGenDirection, selectedGenEngine);
     setIsGeneratorOpen(false);
   };
 
@@ -458,7 +465,7 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                     onClick={() => {
                       setSelectedGenLevel(lvl);
                       if (setUserLevel) setUserLevel(lvl);
-                      onGeneratePassage(lvl, selectedGenTopic, undefined, direction);
+                      onGeneratePassage(lvl, selectedGenTopic, undefined, direction, selectedGenEngine);
                     }}
                     className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                       isSelected
@@ -645,7 +652,63 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
               )}
             </div>
 
-            {/* Step 3: Trigger Button */}
+            {/* Step 4: Select Generator Engine */}
+            <div>
+              <label className="block text-xs font-mono uppercase text-zinc-400 font-bold mb-2">
+                4. Chọn Động Cơ Tạo Bài (AI Engine):
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedGenEngine('gemini')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    selectedGenEngine === 'gemini'
+                      ? 'bg-sky-500/15 border-sky-400 text-sky-200 ring-1 ring-sky-400/50 shadow-sm'
+                      : 'border-zinc-800 bg-zinc-950/60 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-mono font-bold text-xs flex items-center gap-1.5">
+                        <span>✨ Google Gemini AI</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-mono">100% Bài Mới</span>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                        Tự động sáng tác bài mới độc bản qua Gemini Web Playwright hoặc Direct API
+                      </div>
+                    </div>
+                  </div>
+                  {selectedGenEngine === 'gemini' && <Check className="w-4 h-4 text-sky-400 shrink-0" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedGenEngine('fast')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    selectedGenEngine === 'fast'
+                      ? 'bg-emerald-500/15 border-emerald-400 text-emerald-200 ring-1 ring-emerald-400/50 shadow-sm'
+                      : 'border-zinc-800 bg-zinc-950/60 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Zap className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-mono font-bold text-xs flex items-center gap-1.5">
+                        <span>⚡ Kho Bài Mẫu Offline</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">Offline</span>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                        Lấy nhanh bài đọc mẫu có sẵn từ thư viện (không cần AI, tức thì)
+                      </div>
+                    </div>
+                  </div>
+                  {selectedGenEngine === 'fast' && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Step 5: Trigger Button */}
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -659,13 +722,15 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                 type="button"
                 onClick={handleTriggerGenerate}
                 disabled={isGeneratingPassage || isAutomating}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition-all"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition-all"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
                 <span>
                   {isGeneratingPassage
-                    ? (selectedGenDirection === 'vi_en' ? 'ĐANG TẠO BÀI DỊCH VIỆT - ANH...' : 'ĐANG TẠO BÀI ĐỌC...')
-                    : (selectedGenDirection === 'vi_en' ? '⚡ BẮT ĐẦU TẠO BÀI VIỆT - ANH' : '⚡ BẮT ĐẦU TẠO BÀI HỌC')}
+                    ? (selectedGenDirection === 'vi_en' ? 'ĐANG BIÊN SOẠN BÀI DỊCH VIỆT - ANH...' : 'ĐANG TẠO BÀI ĐỌC MỚI...')
+                    : (selectedGenEngine === 'gemini'
+                        ? (selectedGenDirection === 'vi_en' ? '✨ TẠO BÀI VIỆT - ANH VỚI GEMINI AI' : '✨ TẠO BÀI ĐỌC MỚI VỚI GEMINI AI')
+                        : (selectedGenDirection === 'vi_en' ? '⚡ LẤY BÀI DỊCH TỪ THƯ VIỆN MẪU' : '⚡ LẤY BÀI ĐỌC TỪ THƯ VIỆN MẪU'))}
                 </span>
               </button>
             </div>
@@ -680,9 +745,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-sky-400 animate-spin" />
               <span className="font-bold text-sky-200">
-                {direction === 'vi_en'
-                  ? '✨ GOOGLE GEMINI ĐANG BIÊN SOẠN BÀI DỊCH VIỆT - ANH...'
-                  : '✨ GOOGLE GEMINI ĐANG BIÊN SOẠN BÀI ĐỌC TIẾNG ANH...'}
+                {selectedGenEngine === 'gemini'
+                  ? (direction === 'vi_en'
+                      ? '✨ GOOGLE GEMINI ĐANG SÁNG TÁC BÀI DỊCH VIỆT - ANH MỚI (PLAYWRIGHT)...'
+                      : '✨ GOOGLE GEMINI ĐANG SÁNG TÁC BÀI ĐỌC TIẾNG ANH MỚI (PLAYWRIGHT)...')
+                  : '⚡ ĐANG TẢI BÀI ĐỌC TỪ THƯ VIỆN MẪU...'}
               </span>
             </div>
             <span className="text-[10px] text-sky-300 font-semibold px-2 py-0.5 rounded-full bg-sky-900/50 border border-sky-700/50">
@@ -690,9 +757,11 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
             </span>
           </div>
           <p className="text-xs text-zinc-300 font-sans">
-            {direction === 'vi_en'
-              ? `AI đang viết đoạn văn tiếng Việt tự nhiên theo chuẩn CEFR ${difficulty}, chuẩn bị bài dịch mẫu tiếng Anh bản ngữ và trích xuất các từ/cụm từ thử thách...`
-              : `AI đang viết đoạn văn tự nhiên phù hợp chuẩn CEFR ${difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...`}
+            {selectedGenEngine === 'gemini'
+              ? (direction === 'vi_en'
+                  ? `AI đang viết đoạn văn tiếng Việt độc bản phù hợp CEFR ${difficulty}, chuẩn bị bài dịch mẫu tiếng Anh bản ngữ và trích xuất các từ/cụm từ thử thách...`
+                  : `AI đang viết đoạn văn tiếng Anh mới 100% phù hợp CEFR ${difficulty}, đối chiếu bản dịch tiếng Việt và trích xuất các từ vựng trọng tâm...`)
+              : 'Hệ thống đang tải bài đọc từ kho lưu trữ offline mẫu...'}
           </p>
         </div>
       )}
@@ -760,14 +829,16 @@ export const TranslationVocabStudio: React.FC<TranslationVocabStudioProps> = ({
                 {/* Quick Refresh / Change Passage Button */}
                 <button
                   type="button"
-                  onClick={() => onGeneratePassage(selectedGenLevel, selectedGenTopic, undefined, direction)}
+                  onClick={() => onGeneratePassage(selectedGenLevel, selectedGenTopic, undefined, direction, selectedGenEngine)}
                   disabled={isGeneratingPassage || isAutomating}
                   className="p-1.5 px-2 rounded-lg bg-sky-600/90 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-mono font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
-                  title={direction === 'vi_en' ? 'Đổi đoạn văn tiếng Việt khác' : 'Đổi bài đọc tiếng Anh khác'}
+                  title={selectedGenEngine === 'gemini' ? 'Tạo bài mới 100% bằng Gemini AI' : 'Lấy bài khác từ thư viện mẫu'}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingPassage ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline text-[11px] font-bold">
-                    {direction === 'vi_en' ? 'Đổi bài Việt' : 'Đổi bài mới'}
+                    {selectedGenEngine === 'gemini'
+                      ? (direction === 'vi_en' ? 'Đổi bài AI' : 'Đổi bài AI mới')
+                      : (direction === 'vi_en' ? 'Đổi bài mẫu' : 'Đổi bài mẫu')}
                   </span>
                 </button>
 

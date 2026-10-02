@@ -192,6 +192,7 @@ export interface AppSettings {
   grammarFocus?: GrammarFocus;
   focusMode?: boolean;
   geminiApiKey?: string;
+  reviewVocabQuestionCount?: number; // 0 (tắt), 3, 5, 8, 10
 }
 
 export interface QuizQuestion {

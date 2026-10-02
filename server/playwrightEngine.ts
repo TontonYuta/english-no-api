@@ -8,17 +8,26 @@ export function getDefaultProfileDir(): string {
   if (process.env.PLAYENG_PROFILE_DIR) {
     return process.env.PLAYENG_PROFILE_DIR;
   }
-  try {
-    const cwd = process.cwd();
-    if (!cwd.startsWith('/opt') && fs.existsSync(path.resolve(cwd, 'package.json'))) {
-      fs.accessSync(cwd, fs.constants.W_OK);
-      return path.resolve(cwd, '.playwright-profile');
-    }
-  } catch {}
 
   const homeDir = os.homedir();
   const configDir = process.env.XDG_CONFIG_HOME || path.join(homeDir, '.config');
-  return path.join(configDir, 'playeng-studio', 'playwright-profile');
+  const userConfigProfile = path.join(configDir, 'playeng-studio', 'playwright-profile');
+
+  // If user profile exists in ~/.config/playeng-studio (contains login session/cookies), prioritize it
+  if (fs.existsSync(userConfigProfile)) {
+    return userConfigProfile;
+  }
+
+  // Otherwise check local .playwright-profile in cwd if running from writable project
+  try {
+    const cwd = process.cwd();
+    const localProfile = path.resolve(cwd, '.playwright-profile');
+    if (!cwd.startsWith('/opt') && fs.existsSync(localProfile)) {
+      return localProfile;
+    }
+  } catch {}
+
+  return userConfigProfile;
 }
 import {
   ChatbotProvider,
@@ -50,9 +59,11 @@ export interface RunPipelineOptions {
 const GEMINI_INPUT_SELECTORS = [
   'div.ql-editor[contenteditable="true"]',
   'div[contenteditable="true"][role="textbox"]',
+  'div.new-input-ui',
   'rich-textarea textarea',
   'textarea.textarea',
   'div[aria-label*="prompt" i]',
+  'div[aria-label*="câu lệnh" i]',
   'div[aria-label*="Enter a prompt" i]',
   'div[role="textbox"]',
   'textarea',
@@ -68,6 +79,7 @@ const CHATGPT_INPUT_SELECTORS = [
 ];
 
 const GEMINI_SEND_SELECTORS = [
+  'button[aria-label*="Gửi tin nhắn" i]',
   'button[aria-label*="Send" i]',
   'button[aria-label*="Gửi" i]',
   'button[aria-label*="nhắc" i]',
@@ -76,6 +88,7 @@ const GEMINI_SEND_SELECTORS = [
   'button[mattooltip*="Send" i]',
   'button[data-test-id="send-button"]',
   'button.send-button',
+  'button[jsname="Qx7uuf"]',
   'button:has(mat-icon[fonticon="send"])',
   'button[aria-label*="submit" i]',
 ];
@@ -89,6 +102,7 @@ const CHATGPT_SEND_SELECTORS = [
 
 const GEMINI_STOP_SELECTORS = [
   'button[aria-label*="Stop" i]',
+  'button[aria-label*="Dừng" i]',
   'button[data-test-id="stop-button"]',
   '.loading-spinner',
   'mat-progress-spinner',
@@ -101,11 +115,13 @@ const CHATGPT_STOP_SELECTORS = [
 
 const GEMINI_RESPONSE_SELECTORS = [
   'message-content',
+  'model-response',
   '.model-response-text',
   'div.markdown',
   '.response-container-content',
   'div[id^="model-response"]',
   'div.response-body',
+  '.message-content',
 ];
 
 const CHATGPT_RESPONSE_SELECTORS = [
@@ -873,7 +889,7 @@ export async function generatePassageWithGeminiPlaywright(params: {
   direction?: 'en_vi' | 'vi_en';
   timeoutMs?: number;
 }): Promise<GeneratedPassage> {
-  const { level, topic, customTopic, direction = 'en_vi', timeoutMs = 12000 } = params;
+  const { level, topic, customTopic, direction = 'en_vi', timeoutMs = 45000 } = params;
   const prompt = buildGeminiPassagePrompt(level, topic, customTopic, direction);
 
   const profileDir = getDefaultProfileDir();
@@ -894,6 +910,7 @@ export async function generatePassageWithGeminiPlaywright(params: {
       '--disable-gpu',
       '--no-first-run',
       '--no-default-browser-check',
+      '--window-size=1280,840',
     ],
     viewport: { width: 1280, height: 840 },
     userAgent:
@@ -908,18 +925,39 @@ export async function generatePassageWithGeminiPlaywright(params: {
 
     await page.goto('https://gemini.google.com/app', {
       waitUntil: 'domcontentloaded',
-      timeout: 25000,
+      timeout: 30000,
     });
 
     // Check for Google Sign-in redirect
     const currentUrl = page.url();
     if (currentUrl.includes('accounts.google.com') || currentUrl.includes('signin')) {
-      throw new Error('Google Sign-in Required. Vui lòng vào Cài đặt > Mở trình duyệt đăng nhập để đăng nhập tài khoản Google.');
+      throw new Error('Cần đăng nhập tài khoản Google để sử dụng Gemini. Vui lòng vào Cài đặt > Mở trình duyệt đăng nhập một lần duy nhất.');
     }
+
+    // Dismiss any modal or consent popups if present
+    try {
+      const consentButtons = await page.$$('button:has-text("Stay signed out"), button:has-text("I agree"), button:has-text("Đồng ý"), button:has-text("Tiếp tục")');
+      for (const btn of consentButtons) {
+        if (await btn.isVisible()) {
+          await btn.click().catch(() => {});
+        }
+      }
+    } catch {}
+
+    // Ensure a fresh new conversation for each lesson generation
+    try {
+      const newChatBtn = await page.$(
+        'a[href="/app"], button[aria-label*="Cuộc trò chuyện mới" i], button[aria-label*="New chat" i], a[aria-label*="Cuộc trò chuyện mới" i], [data-test-id="new-chat-button"]'
+      );
+      if (newChatBtn && (await newChatBtn.isVisible())) {
+        await newChatBtn.click().catch(() => {});
+        await page.waitForTimeout(800);
+      }
+    } catch {}
 
     // Find input element dynamically from GEMINI_INPUT_SELECTORS
     let matchedInputSelector: string | null = null;
-    const inputDeadline = Date.now() + 15000;
+    const inputDeadline = Date.now() + 18000;
     while (Date.now() < inputDeadline && !matchedInputSelector) {
       for (const sel of GEMINI_INPUT_SELECTORS) {
         const el = await page.$(sel);
@@ -935,62 +973,112 @@ export async function generatePassageWithGeminiPlaywright(params: {
 
     if (!matchedInputSelector) {
       if (page.url().includes('accounts.google.com') || page.url().includes('signin')) {
-        throw new Error('Google Sign-in Required. Vui lòng vào Cài đặt > Mở trình duyệt đăng nhập để đăng nhập tài khoản Google.');
+        throw new Error('Cần đăng nhập tài khoản Google để sử dụng Gemini. Vui lòng vào Cài đặt > Mở trình duyệt đăng nhập.');
       }
-      throw new Error('Không tìm thấy khung nhập văn bản trên Google Gemini. Vui lòng kiểm tra lại trạng thái đăng nhập hoặc mạng.');
+      throw new Error('Không tìm thấy ô nhập câu lệnh trên Google Gemini. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.');
     }
 
     await page.click(matchedInputSelector);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(250);
 
+    // Insert prompt payload
     try {
       await page.keyboard.insertText(prompt);
     } catch {
-      await page.fill(matchedInputSelector, prompt);
+      await page.fill(matchedInputSelector, prompt).catch(async () => {
+        await page.evaluate(
+          ({ sel, text }) => {
+            const node = document.querySelector(sel);
+            if (node) {
+              node.textContent = text;
+              node.dispatchEvent(new Event('input', { bubbles: true }));
+              node.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          },
+          { sel: matchedInputSelector, text: prompt }
+        );
+      });
     }
 
     await page.waitForTimeout(600);
 
+    // Wait up to 3 seconds for the send button to become visible and enabled
     let sendClicked = false;
-    for (const sel of GEMINI_SEND_SELECTORS) {
-      const btn = await page.$(sel);
-      if (btn && (await btn.isVisible())) {
-        await btn.click();
-        sendClicked = true;
-        break;
+    const sendDeadline = Date.now() + 3000;
+    while (Date.now() < sendDeadline && !sendClicked) {
+      for (const sel of GEMINI_SEND_SELECTORS) {
+        const btn = await page.$(sel);
+        if (btn && (await btn.isVisible())) {
+          const isDisabled = await btn.getAttribute('disabled');
+          const ariaDisabled = await btn.getAttribute('aria-disabled');
+          if (!isDisabled && ariaDisabled !== 'true') {
+            await btn.click();
+            sendClicked = true;
+            break;
+          }
+        }
+      }
+      if (!sendClicked) {
+        await page.waitForTimeout(250);
       }
     }
+
     if (!sendClicked) {
       await page.keyboard.press('Enter');
     }
 
     let scrapedRawText = '';
     const pollStart = Date.now();
+    let lastLength = 0;
+    let stableCount = 0;
+
     while (Date.now() - pollStart < timeoutMs) {
       await page.waitForTimeout(1000);
+
+      // Check if Gemini is actively streaming
+      let isStreaming = false;
+      for (const stopSel of GEMINI_STOP_SELECTORS) {
+        const stopEl = await page.$(stopSel);
+        if (stopEl && (await stopEl.isVisible())) {
+          isStreaming = true;
+          break;
+        }
+      }
+
       for (const rSel of GEMINI_RESPONSE_SELECTORS) {
         const nodes = await page.$$(rSel);
         if (nodes.length > 0) {
           const text = await nodes[nodes.length - 1].innerText();
-          if (text.includes('```json') || text.includes('"title"') || text.includes('"passage"')) {
+          if (text && text.length > 30) {
             scrapedRawText = text;
-            if (
-              text.endsWith('}') ||
-              text.includes('```\n') ||
-              (text.includes('```') && text.lastIndexOf('```') > text.indexOf('```'))
-            ) {
-              break;
-            }
+            break;
           }
         }
       }
-      if (scrapedRawText && (scrapedRawText.endsWith('}') || scrapedRawText.includes('```\n'))) {
-        break;
+
+      if (scrapedRawText) {
+        const curLen = scrapedRawText.length;
+        if (curLen === lastLength && curLen > 100) {
+          stableCount++;
+        } else {
+          stableCount = 0;
+          lastLength = curLen;
+        }
+
+        // If stop button disappeared or text stabilized for 2 cycles
+        if (!isStreaming && stableCount >= 2) {
+          if (
+            scrapedRawText.includes('```json') ||
+            (scrapedRawText.includes('"passage"') && scrapedRawText.includes('"title"') && scrapedRawText.includes('}'))
+          ) {
+            break;
+          }
+        }
       }
     }
 
-    if (!scrapedRawText) {
-      throw new Error('Gemini Playwright did not return a response within timeout.');
+    if (!scrapedRawText || scrapedRawText.length < 40) {
+      throw new Error(`Google Gemini không phản hồi nội dung trong vòng ${Math.round(timeoutMs / 1000)} giây. Có thể do mạng chậm hoặc giao diện Gemini phản hồi bất thường.`);
     }
 
     const jsonCodeBlockMatch = scrapedRawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -1005,7 +1093,40 @@ export async function generatePassageWithGeminiPlaywright(params: {
       }
     }
 
-    const parsed = JSON.parse(jsonStr);
+    if (!jsonStr) {
+      const first = scrapedRawText.indexOf('{');
+      const last = scrapedRawText.lastIndexOf('}');
+      if (first !== -1 && last > first) {
+        jsonStr = scrapedRawText.slice(first, last + 1);
+      }
+    }
+
+    if (!jsonStr) {
+      throw new Error(`Google Gemini trả về văn bản nhưng không chứa khối JSON bài học hợp lệ. Trích xuất: "${scrapedRawText.slice(0, 150)}..."`);
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr: any) {
+      try {
+        const cleaned = jsonStr
+          .replace(/,\s*([}\]])/g, '$1')
+          .replace(/[\u201C\u201D]/g, '"')
+          .replace(/[\u2018\u2019]/g, "'");
+        parsed = JSON.parse(cleaned);
+      } catch {
+        const first = scrapedRawText.indexOf('{');
+        const last = scrapedRawText.lastIndexOf('}');
+        if (first !== -1 && last > first) {
+          const rawSlice = scrapedRawText.slice(first, last + 1).replace(/,\s*([}\]])/g, '$1');
+          parsed = JSON.parse(rawSlice);
+        } else {
+          throw new Error(`Lỗi phân tích cú pháp JSON từ phản hồi của Gemini: ${parseErr.message}`);
+        }
+      }
+    }
+
     const rawPassage: GeneratedPassage = {
       id: `gemini_${Date.now()}`,
       title: parsed.title || 'Gemini Reading Passage',

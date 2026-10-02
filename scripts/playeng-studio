@@ -7,15 +7,16 @@ set -e
 
 if [ -n "$PLAYENG_APP_DIR" ] && [ -d "$PLAYENG_APP_DIR" ]; then
     APP_DIR="$PLAYENG_APP_DIR"
-elif [ -d "/opt/playeng-studio" ] && [ -f "/opt/playeng-studio/dist/server.cjs" ]; then
-    APP_DIR="/opt/playeng-studio"
+elif [ -d "$HOME/english-no-api" ] && [ -f "$HOME/english-no-api/package.json" ]; then
+    APP_DIR="$HOME/english-no-api"
 else
     SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
     SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-    if [ -f "$SCRIPT_DIR/../dist/server.cjs" ]; then
-        APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-    elif [ -d "/home/tontonyuta/english-no-api" ]; then
-        APP_DIR="/home/tontonyuta/english-no-api"
+    PARENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+    if [ -f "$PARENT_DIR/package.json" ]; then
+        APP_DIR="$PARENT_DIR"
+    elif [ -d "/opt/playeng-studio" ] && [ -f "/opt/playeng-studio/dist/server.cjs" ]; then
+        APP_DIR="/opt/playeng-studio"
     else
         APP_DIR="$SCRIPT_DIR"
     fi
@@ -61,17 +62,21 @@ is_server_running() {
 }
 
 needs_build() {
-    # If app directory is packaged or read-only, never rebuild
-    if [ ! -d "$APP_DIR/src" ] || [ ! -w "$APP_DIR" ]; then
-        return 1
+    local check_dir="$APP_DIR"
+    if [ ! -d "$check_dir/src" ] || [ ! -w "$check_dir" ]; then
+        if [ -d "$HOME/english-no-api/src" ] && [ -w "$HOME/english-no-api" ]; then
+            check_dir="$HOME/english-no-api"
+        else
+            return 1
+        fi
     fi
 
-    if [ ! -f "$APP_DIR/dist/server.cjs" ] || [ ! -f "$APP_DIR/dist/index.html" ]; then
+    if [ ! -f "$check_dir/dist/server.cjs" ] || [ ! -f "$check_dir/dist/index.html" ]; then
         return 0
     fi
 
     local targets=()
-    for item in "$APP_DIR/src" "$APP_DIR/server" "$APP_DIR/server.ts" "$APP_DIR/index.html" "$APP_DIR/package.json" "$APP_DIR/vite.config.ts" "$APP_DIR/tsconfig.json"; do
+    for item in "$check_dir/src" "$check_dir/server" "$check_dir/server.ts" "$check_dir/index.html" "$check_dir/package.json" "$check_dir/vite.config.ts" "$check_dir/tsconfig.json"; do
         if [ -e "$item" ]; then
             targets+=("$item")
         fi
@@ -79,7 +84,7 @@ needs_build() {
 
     # Check if any source code, server code, index.html or config is newer than dist/server.cjs
     local newer
-    newer=$(find "${targets[@]}" -type f -newer "$APP_DIR/dist/server.cjs" 2>/dev/null | head -n 1)
+    newer=$(find "${targets[@]}" -type f -newer "$check_dir/dist/server.cjs" 2>/dev/null | head -n 1)
     if [ -n "$newer" ]; then
         return 0
     fi
@@ -87,17 +92,37 @@ needs_build() {
 }
 
 build_bundle() {
-    if [ ! -w "$APP_DIR" ] || [ ! -d "$APP_DIR/src" ]; then
-        echo "[PlayEng Studio] Packaged installation is read-only; skipping rebuild."
-        return 0
+    local target_dir="$APP_DIR"
+    if [ ! -w "$target_dir" ] || [ ! -d "$target_dir/src" ]; then
+        if [ -d "$HOME/english-no-api/src" ] && [ -w "$HOME/english-no-api" ]; then
+            target_dir="$HOME/english-no-api"
+            APP_DIR="$HOME/english-no-api"
+        else
+            echo "[PlayEng Studio] Packaged installation is read-only; skipping rebuild."
+            return 0
+        fi
     fi
-    echo "[PlayEng Studio] Building production bundle..."
-    cd "$APP_DIR"
+    echo "[PlayEng Studio] Building production bundle in $target_dir..."
+    cd "$target_dir"
     if ! npm run build >> "$LOG_FILE" 2>&1; then
         echo "[PlayEng Studio] Error: Build failed! Check $LOG_FILE for details." >&2
         notify "PlayEng Studio: Lỗi Build" "Quá trình build thất bại. Vui lòng kiểm tra $LOG_FILE"
         return 1
     fi
+
+    # Sync to /opt/playeng-studio if present so system-wide package stays fresh
+    if [ -d "/opt/playeng-studio" ] && [ "$target_dir" != "/opt/playeng-studio" ]; then
+        if [ -w "/opt/playeng-studio" ]; then
+            cp -r "$target_dir/dist"/* /opt/playeng-studio/dist/ 2>/dev/null || true
+            cp -r "$target_dir/scripts"/* /opt/playeng-studio/scripts/ 2>/dev/null || true
+            cp -r "$target_dir/public"/* /opt/playeng-studio/public/ 2>/dev/null || true
+        elif sudo -n true 2>/dev/null; then
+            sudo cp -r "$target_dir/dist"/* /opt/playeng-studio/dist/ 2>/dev/null || true
+            sudo cp -r "$target_dir/scripts"/* /opt/playeng-studio/scripts/ 2>/dev/null || true
+            sudo cp -r "$target_dir/public"/* /opt/playeng-studio/public/ 2>/dev/null || true
+        fi
+    fi
+
     WAS_REBUILT=1
     echo "[PlayEng Studio] Build completed successfully."
 }
@@ -117,7 +142,19 @@ start_server() {
         fi
     elif is_server_running; then
         local restart_needed=0
-        if [ -f "$PID_FILE" ] && [ -f "$APP_DIR/dist/server.cjs" ]; then
+        local port_pid
+        port_pid=$(lsof -ti :$PORT 2>/dev/null | head -n 1 || true)
+        if [ -n "$port_pid" ] && [ -d "/proc/$port_pid" ]; then
+            local cmdline
+            cmdline=$(tr '\0' ' ' < "/proc/$port_pid/cmdline" 2>/dev/null || echo "")
+            if [[ "$cmdline" != *"$APP_DIR/dist/server.cjs"* ]]; then
+                echo "[PlayEng Studio] Running server (PID $port_pid) differs from $APP_DIR. Restarting..."
+                stop_server
+                restart_needed=1
+            fi
+        fi
+
+        if [ "$restart_needed" -eq 0 ] && [ -f "$PID_FILE" ] && [ -f "$APP_DIR/dist/server.cjs" ]; then
             local pid
             pid=$(cat "$PID_FILE" 2>/dev/null || true)
             if [ -n "$pid" ] && [ -d "/proc/$pid" ]; then

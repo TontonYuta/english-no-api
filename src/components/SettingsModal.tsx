@@ -415,12 +415,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   >
                     <span>{isClosingBrowser ? 'Đang đóng...' : '✖ Đóng Trình Duyệt'}</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={clearingProfile}
+                    className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-sky-300 hover:text-white text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    title="Kiểm tra trạng thái hồ sơ Playwright"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{clearingProfile ? 'Đang kiểm tra...' : '🛡️ Kiểm Tra Hồ Sơ'}</span>
+                  </button>
                 </div>
               </div>
 
               {loginStatusMessage && (
                 <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 font-mono">
                   {loginStatusMessage}
+                </div>
+              )}
+
+              {profileStatus && (
+                <div className="p-2.5 rounded-lg bg-sky-950/40 border border-sky-500/40 text-xs text-sky-300 font-mono">
+                  {profileStatus}
                 </div>
               )}
             </div>
@@ -541,121 +558,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Topic Theme Preference */}
+          {/* Pre-Generation Old Vocabulary Review Quiz Count */}
           <div className="space-y-2 pb-4 border-b border-zinc-800">
             <div className="flex items-center justify-between flex-wrap gap-1">
               <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2 font-mono">
-                <Compass className="w-4 h-4 text-emerald-400" />
-                <span>{t.settingTopicPreferenceLabel}</span>
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>
+                  {localSettings.language === 'vi'
+                    ? 'Trắc nghiệm từ vựng cũ trước khi tạo bài mới'
+                    : 'Pre-Generation Vocab Review Quiz'}
+                </span>
               </label>
               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-800">
-                [ {localSettings.topicPreference || 'all'} ]
+                [ {(localSettings.reviewVocabQuestionCount ?? 3) === 0 ? (localSettings.language === 'vi' ? 'ĐANG TẮT' : 'DISABLED') : `${localSettings.reviewVocabQuestionCount ?? 3} CÂU`} ]
               </span>
             </div>
-            <p className="text-[11px] text-zinc-400 mb-2">{t.settingTopicPreferenceDesc}</p>
+            <p className="text-[11px] text-zinc-400 mb-2 leading-relaxed">
+              {localSettings.language === 'vi'
+                ? 'Tự động mở bài trắc nghiệm nhanh để bạn ôn lại các từ vựng đã lưu trong kho trước khi tạo bài học mới, giúp củng cố phản xạ và nhớ từ vựng sâu hơn.'
+                : 'Automatically opens an active recall quiz from your saved vocabulary bank before generating each new lesson.'}
+            </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {[
-                { id: 'all', label: '🌐 Đa Dạng Mọi Chủ Đề', desc: 'Tự động đổi sinh động mỗi ngày' },
-                { id: 'workplace', label: '🏢 Công Sở & TOEIC', desc: 'Email, hợp đồng, đàm phán' },
-                { id: 'daily_life', label: '☕ Đời Sống Hàng Ngày', desc: 'Giao tiếp, mua sắm, ẩm thực' },
-                { id: 'travel', label: '✈️ Du Lịch & Khám Phá', desc: 'Sân bay, khách sạn, chỉ đường' },
-                { id: 'tech', label: '💻 Công Nghệ Hiện Đại', desc: 'AI, thiết bị, mạng xã hội' },
-                { id: 'custom', label: '✍️ Tùy Chỉnh Theo Ý', desc: 'Tự nhập chủ đề bạn mong muốn' },
-              ].map((tp) => {
-                const isSelected = (localSettings.topicPreference || 'all') === tp.id;
+                { count: 0, label: 'Tắt', sub: 'Tạo bài ngay' },
+                { count: 3, label: '🌱 3 Câu', sub: '1 phút (Gợi ý)' },
+                { count: 5, label: '🌿 5 Câu', sub: '2 phút (Chuẩn)' },
+                { count: 8, label: '🌳 8 Câu', sub: '3 phút (Kỹ)' },
+                { count: 10, label: '🎯 10 Câu', sub: 'Thử thách sâu' },
+              ].map((opt) => {
+                const isSelected = (localSettings.reviewVocabQuestionCount ?? 3) === opt.count;
                 return (
                   <button
-                    key={tp.id}
+                    key={opt.count}
                     type="button"
                     onClick={() =>
-                      setLocalSettings({ ...localSettings, topicPreference: tp.id as any })
+                      setLocalSettings({ ...localSettings, reviewVocabQuestionCount: opt.count })
                     }
                     className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-l-4 border-l-emerald-500 bg-emerald-950/30 border-zinc-700 text-white shadow-sm'
+                        ? 'border-l-4 border-l-emerald-500 bg-emerald-950/40 border-zinc-700 text-white shadow-sm'
                         : 'border-l-2 border-l-zinc-700 bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <span className="text-xs font-bold block">{tp.label}</span>
-                    <span className="text-[10px] text-zinc-500 font-sans block mt-0.5">{tp.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {localSettings.topicPreference === 'custom' && (
-              <div className="pt-2 animate-fade-in">
-                <input
-                  type="text"
-                  value={localSettings.customTopic || ''}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, customTopic: e.target.value })
-                  }
-                  placeholder={t.settingCustomTopicPlaceholder}
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* TOEIC Signature Grammar Pattern Focus */}
-          <div className="space-y-2 pb-4 border-b border-zinc-800">
-            <div className="flex items-center justify-between flex-wrap gap-1">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2 font-mono">
-                <Layers className="w-4 h-4 text-indigo-400" />
-                <span>{t.settingGrammarFocusLabel}</span>
-              </label>
-              <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded-md border border-indigo-800">
-                [ {localSettings.grammarFocus || 'toeic_all'} ]
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-400 mb-2">{t.settingGrammarFocusDesc}</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                {
-                  id: 'toeic_all',
-                  label: '🎯 Tổng Hợp Bẫy TOEIC Theo Level (Khuyên dùng)',
-                  desc: 'Học lần lượt các cấu trúc cốt lõi từ A1 đến B2 (mệnh lệnh, từ loại, hòa hợp S-V, mệnh đề quan hệ)',
-                },
-                {
-                  id: 'word_forms',
-                  label: '🧩 Nhận Diện & Biến Đổi Từ Loại (Word Forms)',
-                  desc: 'Bẫy nhận diện Danh từ, Tính từ, Động từ, Trạng từ trong Part 5 chiếm 30% đề thi',
-                },
-                {
-                  id: 'tenses',
-                  label: '⏱️ Thì & Sự Hòa Hợp Chủ Ngữ - Động Từ',
-                  desc: 'Bẫy chia động từ, Hiện tại hoàn thành (since/for), Each of, Neither/Either',
-                },
-                {
-                  id: 'conjunctions',
-                  label: '🔗 Phân Biệt Liên Từ vs Giới Từ',
-                  desc: 'Bẫy kinh điển: Although vs Despite, Because vs Due to, While vs During',
-                },
-                {
-                  id: 'participles',
-                  label: '⚡ Bị Động & Rút Gọn Mệnh Đề Phân Từ',
-                  desc: 'Phân biệt V-ing (chủ động) vs V-ed/V3 (bị động) - Dạng câu phân loại điểm 700+',
-                },
-              ].map((gf) => {
-                const isSelected = (localSettings.grammarFocus || 'toeic_all') === gf.id;
-                return (
-                  <button
-                    key={gf.id}
-                    type="button"
-                    onClick={() =>
-                      setLocalSettings({ ...localSettings, grammarFocus: gf.id as any })
-                    }
-                    className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-l-4 border-l-indigo-500 bg-indigo-950/30 border-zinc-700 text-white shadow-sm'
-                        : 'border-l-2 border-l-zinc-700 bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    <span className="text-xs font-bold block">{gf.label}</span>
-                    <span className="text-[10px] text-zinc-500 font-sans block mt-0.5">{gf.desc}</span>
+                    <span className="text-xs font-bold block">{opt.label}</span>
+                    <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">{opt.sub}</span>
                   </button>
                 );
               })}
@@ -772,29 +719,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>[ 🔊 NGHE THỬ GIỌNG ĐỌC ]</span>
               </button>
             </div>
-          </div>
-
-          {/* Test & Profile management */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                Playwright Profile &amp; Stealth Status
-              </span>
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={clearingProfile}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-sky-400 hover:text-sky-300 transition-colors font-mono text-xs cursor-pointer"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>{clearingProfile ? 'Checking...' : 'Check Connection'}</span>
-              </button>
-            </div>
-            {profileStatus && (
-              <p className="text-[11px] font-mono text-emerald-400 bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-900/40">
-                {profileStatus}
-              </p>
-            )}
           </div>
 
           {/* Danger Zone: Xóa Toàn Bộ & Làm Lại Từ Đầu */}

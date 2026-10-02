@@ -550,6 +550,7 @@ Do đó, sự nhanh nhạy của nhận thức không phải là một món quà
 
 // Anti-repetition tracker
 let lastServedId = '';
+const recentlyServedIds: string[] = [];
 
 /**
  * Procedural Dynamic Custom Passage Generator
@@ -841,18 +842,27 @@ export function generateFreshPassage(
           topic || 'Đời sống hiện đại'
         );
       } else {
-        // Avoid repeating the immediately previous passage
-        let filteredCandidates = candidates.filter((p) => p.id !== lastServedId);
+        // Avoid repeating recently served passages
+        let filteredCandidates = candidates.filter((p) => !recentlyServedIds.includes(p.id));
         if (filteredCandidates.length === 0) {
-          filteredCandidates = candidates;
+          // If all candidates in catalog were recently seen, synthesize a fresh custom variation!
+          chosen = generateCustomPassage(
+            normLevel as DialogueDifficulty,
+            topic || 'Đời sống hiện đại'
+          );
+        } else {
+          const nextIdx = Math.floor(Math.random() * filteredCandidates.length);
+          chosen = filteredCandidates[nextIdx];
         }
-        const nextIdx = Math.floor(Math.random() * filteredCandidates.length);
-        chosen = filteredCandidates[nextIdx];
       }
     }
   }
 
   lastServedId = chosen.id;
+  recentlyServedIds.push(chosen.id);
+  if (recentlyServedIds.length > 20) {
+    recentlyServedIds.shift();
+  }
   const rawId = chosen.id.replace(/_vien_\d+$/, '').replace(/_\d+$/, '');
   const titleVi = chosen.titleVi || CATALOG_TITLE_VI[rawId] || chosen.topic || chosen.title;
 

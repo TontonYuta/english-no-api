@@ -17,17 +17,21 @@ import { AutomationModal } from './components/AutomationModal';
 import { PromptPreviewModal } from './components/PromptPreviewModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MobileRemoteModal } from './components/remote/MobileRemoteModal';
+import { MobileRemoteView } from './components/remote/MobileRemoteView';
+import { PreGenVocabQuizModal } from './components/quiz/PreGenVocabQuizModal';
+import { GenerationErrorModal } from './components/notification/GenerationErrorModal';
 import { TranslationVocabStudio } from './components/translation/TranslationVocabStudio';
 import { MemoryBankModal } from './components/MemoryBankModal';
 import {
   addLearnedWords,
   addLearnedReading,
+  getLearnedWords,
 } from './utils/learningMemory';
 import { translations } from './translations';
 
 const DEFAULT_SETTINGS: AppSettings = {
   language: 'vi',
-  defaultProvider: 'fast',
+  defaultProvider: 'gemini',
   headless: true,
   speechRate: 1.0,
   speechVoice: 'en-US',
@@ -38,6 +42,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   simulateIfBlocked: true,
   userLevel: 'A1',
   focusMode: false,
+  reviewVocabQuestionCount: 3,
 };
 
 function getSavedSettings(): AppSettings {
@@ -47,11 +52,17 @@ function getSavedSettings(): AppSettings {
     const savedFocus = localStorage.getItem('playeng_focus_mode');
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Migrate legacy 'fast' to 'gemini' so users get fresh AI passages
+      const effectiveProvider = parsed.defaultProvider === 'fast' && !parsed.hasManuallySetFast
+        ? 'gemini'
+        : (parsed.defaultProvider || 'gemini');
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        defaultProvider: effectiveProvider,
         userLevel: parsed.userLevel || savedLevel || 'A1',
         focusMode: savedFocus !== null ? savedFocus === 'true' : (parsed.focusMode ?? false),
+        reviewVocabQuestionCount: parsed.reviewVocabQuestionCount ?? 3,
       };
     }
     if (savedLevel) {
@@ -59,6 +70,7 @@ function getSavedSettings(): AppSettings {
         ...DEFAULT_SETTINGS,
         userLevel: savedLevel,
         focusMode: savedFocus === 'true',
+        reviewVocabQuestionCount: 3,
       };
     }
   } catch (e) {
@@ -170,10 +182,44 @@ export default function App() {
   const [isMemoryBankModalOpen, setIsMemoryBankModalOpen] = useState(false);
   const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
 
+  const [isMobileRemoteMode, setIsMobileRemoteMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        window.location.pathname.startsWith('/remote') ||
+        window.location.search.includes('remote')
+      );
+    }
+    return false;
+  });
+
+  const [preGenQuizState, setPreGenQuizState] = useState<{
+    isOpen: boolean;
+    pendingParams: {
+      targetLevel?: string;
+      targetTopic?: string;
+      customTopic?: string;
+      targetDirection?: TranslationDirection;
+      targetEngine?: 'gemini' | 'fast';
+    };
+  } | null>(null);
+
+  const [generationError, setGenerationError] = useState<{
+    isOpen: boolean;
+    errorMessage: string;
+    fallbackPassage?: any;
+    retryParams?: {
+      targetLevel?: string;
+      targetTopic?: string;
+      customTopic?: string;
+      targetDirection?: TranslationDirection;
+      targetEngine?: 'gemini' | 'fast';
+    };
+  } | null>(null);
+
   // Automatically generate/load an initial passage on first mount if empty
   useEffect(() => {
     if (!passage.trim() && !isGeneratingPassage) {
-      handleGeneratePassage(userLevel || passageDifficulty || 'B1', undefined, undefined, translationDirection);
+      handleGeneratePassage(userLevel || passageDifficulty || 'B1', undefined, undefined, translationDirection, true);
     }
   }, []);
 
@@ -208,11 +254,12 @@ export default function App() {
     }
   };
 
-  const handleGeneratePassage = async (
+  const executePassageGeneration = async (
     targetLevel?: string,
     targetTopic?: string,
     customTopic?: string,
-    targetDirection?: TranslationDirection
+    targetDirection?: TranslationDirection,
+    targetEngine?: 'gemini' | 'fast'
   ) => {
     setIsGeneratingPassage(true);
     const activeDir = targetDirection || translationDirection || 'en_vi';
@@ -222,10 +269,8 @@ export default function App() {
     }
     try {
       const selectedLevel = (targetLevel || userLevel || passageDifficulty || 'B1').toUpperCase();
-      // If user has a Gemini API key configured, allow 'gemini' API generation.
-      // Otherwise, use 'fast' AI generator so passage generation is INSTANT (0.01s),
-      // completely eliminating 40s Playwright timeouts and process lock collisions!
-      const passageProvider = settings.geminiApiKey ? (provider === 'gemini' ? 'gemini' : 'fast') : 'fast';
+      // Ensure Gemini is the primary engine for lesson generation!
+      const passageProvider: 'gemini' | 'fast' = targetEngine || (provider === 'fast' ? 'fast' : 'gemini');
 
       const res = await fetch('/api/passage/generate', {
         method: 'POST',
@@ -278,12 +323,104 @@ export default function App() {
         if (selectedLevel !== userLevel) {
           handleSetUserLevel(selectedLevel as CEFRLevel);
         }
+      } else {
+        // DO NOT SILENTLY DISPLAY OLD CONTENT!
+        // Notify the user transparently with options
+        setGenerationError({
+          isOpen: true,
+          errorMessage:
+            data.error ||
+            (lang === 'vi'
+              ? 'Không thể tạo bài mới qua Google Gemini (Playwright Headless). Vui lòng kiểm tra lại.'
+              : 'Failed to generate new passage via Google Gemini.'),
+          fallbackPassage: data.fallbackPassage || undefined,
+          retryParams: { targetLevel, targetTopic, customTopic, targetDirection, targetEngine: passageProvider },
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to generate passage:', err);
+      setGenerationError({
+        isOpen: true,
+        errorMessage:
+          err.message ||
+          (lang === 'vi'
+            ? 'Lỗi kết nối máy chủ khi tạo bài đọc mới.'
+            : 'Connection error while generating new passage.'),
+        retryParams: { targetLevel, targetTopic, customTopic, targetDirection, targetEngine },
+      });
     } finally {
       setIsGeneratingPassage(false);
     }
+  };
+
+  const handleGeneratePassage = async (
+    targetLevel?: any,
+    targetTopic?: any,
+    customTopic?: any,
+    targetDirection?: any,
+    skipPreQuiz: boolean = false,
+    targetEngine?: any
+  ) => {
+    // Sanitize in case React MouseEvent or invalid object was passed
+    const safeLevel = typeof targetLevel === 'string' ? targetLevel : undefined;
+    const safeTopic = typeof targetTopic === 'string' ? targetTopic : undefined;
+    const safeCustomTopic = typeof customTopic === 'string' ? customTopic : undefined;
+    const safeDirection =
+      typeof targetDirection === 'string' && (targetDirection === 'en_vi' || targetDirection === 'vi_en')
+        ? targetDirection
+        : undefined;
+    const safeEngine =
+      typeof targetEngine === 'string' && (targetEngine === 'gemini' || targetEngine === 'fast')
+        ? targetEngine
+        : undefined;
+
+    const reviewCount = settings.reviewVocabQuestionCount ?? 3;
+    const wordsInMemory = getLearnedWords();
+
+    // Trigger pre-generation active recall vocab quiz if enabled and memory has words
+    if (!skipPreQuiz && reviewCount > 0 && wordsInMemory.length > 0) {
+      setPreGenQuizState({
+        isOpen: true,
+        pendingParams: {
+          targetLevel: safeLevel,
+          targetTopic: safeTopic,
+          customTopic: safeCustomTopic,
+          targetDirection: safeDirection,
+          targetEngine: safeEngine,
+        },
+      });
+      return;
+    }
+
+    await executePassageGeneration(safeLevel, safeTopic, safeCustomTopic, safeDirection, safeEngine);
+  };
+
+  const handleRetryGeneration = () => {
+    const params = generationError?.retryParams;
+    setGenerationError(null);
+    executePassageGeneration(
+      params?.targetLevel,
+      params?.targetTopic,
+      params?.customTopic,
+      params?.targetDirection,
+      params?.targetEngine || 'gemini'
+    );
+  };
+
+  const handleUseFallbackPassage = (fallback: any) => {
+    setGenerationError(null);
+    if (!fallback) return;
+    setPassage(fallback.passage);
+    setPassageTitle(fallback.title);
+    setPassageTopic(fallback.topic);
+    setPassageDifficulty(fallback.difficulty as DialogueDifficulty);
+    setTargetWords(fallback.targetWords || []);
+    if (fallback.translationVi) {
+      setReferenceTranslation(fallback.translationVi);
+    }
+    setUserTranslation('');
+    setUserVocabGuesses({});
+    setResult(null);
   };
 
   // Pipeline execution & modal states
@@ -558,6 +695,31 @@ export default function App() {
     };
   };
 
+  if (isMobileRemoteMode) {
+    return (
+      <MobileRemoteView
+        settings={settings}
+        userLevel={userLevel}
+        streak={streak}
+        onSetUserLevel={handleSetUserLevel}
+        onSwitchToFullApp={() => {
+          setIsMobileRemoteMode(false);
+          if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+            window.history.pushState({}, '', '/');
+          }
+        }}
+        passage={passage}
+        passageTitle={passageTitle}
+        passageTopic={passageTopic}
+        passageDifficulty={passageDifficulty}
+        targetWords={targetWords}
+        translationDirection={translationDirection}
+        onGeneratePassage={handleGeneratePassage}
+        isGeneratingPassage={isGeneratingPassage}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0b0e] text-neutral-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       {/* Top Header */}
@@ -575,7 +737,7 @@ export default function App() {
         onOpenMemoryBank={() => setIsMemoryBankModalOpen(true)}
         focusMode={focusMode}
         onToggleFocusMode={handleToggleFocusMode}
-        onGeneratePassage={handleGeneratePassage}
+        onGeneratePassage={() => handleGeneratePassage()}
         isGeneratingPassage={isGeneratingPassage}
       />
 
@@ -679,6 +841,41 @@ export default function App() {
         isOpen={isMemoryBankModalOpen}
         onClose={() => setIsMemoryBankModalOpen(false)}
       />
+
+      {/* Pre-Generation Old Vocabulary Review Quiz Modal */}
+      {preGenQuizState && (
+        <PreGenVocabQuizModal
+          isOpen={preGenQuizState.isOpen}
+          questionCount={settings.reviewVocabQuestionCount ?? 3}
+          learnedWords={getLearnedWords()}
+          onComplete={() => {
+            const p = preGenQuizState.pendingParams;
+            setPreGenQuizState(null);
+            executePassageGeneration(p.targetLevel, p.targetTopic, p.customTopic, p.targetDirection, p.targetEngine);
+          }}
+          onSkip={() => {
+            const p = preGenQuizState.pendingParams;
+            setPreGenQuizState(null);
+            executePassageGeneration(p.targetLevel, p.targetTopic, p.customTopic, p.targetDirection, p.targetEngine);
+          }}
+          onClose={() => setPreGenQuizState(null)}
+          lang={lang}
+        />
+      )}
+
+      {/* Generation Error Notification Modal (No Silent Fallbacks) */}
+      {generationError && (
+        <GenerationErrorModal
+          isOpen={generationError.isOpen}
+          errorMessage={generationError.errorMessage}
+          fallbackPassage={generationError.fallbackPassage}
+          onRetry={handleRetryGeneration}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onUseFallback={handleUseFallbackPassage}
+          onClose={() => setGenerationError(null)}
+          lang={lang}
+        />
+      )}
     </div>
   );
 }
